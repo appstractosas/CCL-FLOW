@@ -63,6 +63,21 @@ export async function fetchTransportes(): Promise<UnifiedTransporte[]> {
   return (data || []).map(mapTransporteFromDB);
 }
 
+/** Consulta la tabla TRANSPORTES de la BD acotada al rango [fechaDesde, fechaHasta] (YYYY-MM-DD, hora local). */
+export async function fetchTransportesByRango(fechaDesde: string, fechaHasta: string): Promise<UnifiedTransporte[]> {
+  if (!isOnline()) return [];
+  const desde = new Date(`${fechaDesde}T00:00:00`).toISOString();
+  const hasta = new Date(`${fechaHasta}T23:59:59.999`).toISOString();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .gte('fecha_hora', desde)
+    .lte('fecha_hora', hasta)
+    .order('fecha_hora', { ascending: true });
+  if (error) throw error;
+  return (data || []).map(mapTransporteFromDB);
+}
+
 export async function createTransporte(item: UnifiedTransporte): Promise<UnifiedTransporte> {
   const { data, error } = await supabase.from(TABLE).insert(mapTransporteToDB(item)).select().single();
   if (error) throw error;

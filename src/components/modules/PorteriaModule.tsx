@@ -12,7 +12,7 @@ export const PorteriaModule: React.FC = () => {
   const canEditRole = hasModuleEdit('porteria');
 
   const unifiedRows = getUnifiedTransportes();
-  const { searchTerm, setSearchTerm, dateFrom, setDateFrom, dateTo, setDateTo, filtered } = useRowFilters(unifiedRows);
+  const { searchTerm, setSearchTerm, dateFrom, setDateFrom, dateTo, setDateTo, filtered } = useRowFilters(unifiedRows, { keepActiveLlaves: true });
 
   const handlePorteriaHora = (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => {
     updatePorteriaHora(row.id, campo, hora);

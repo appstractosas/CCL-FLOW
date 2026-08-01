@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CheckCircle2, Clock } from 'lucide-react';
+import { CheckCircle2, Clock, FileDown } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -13,6 +13,10 @@ import {
 } from 'recharts';
 import { ModuleToolbar } from '../common/ModuleToolbar';
 import { todayStr } from '../../lib/dateUtils';
+import { isSupabaseConfigured } from '../../lib/supabase';
+import { useLogisticsStore } from '../../store/useLogisticsStore';
+import { fetchTransportesByRango } from '../../services/transportesService';
+import type { UnifiedTransporte } from '../../types';
 
 export const InformesModule: React.FC = () => {
   const fleetData = [
@@ -36,6 +40,63 @@ export const InformesModule: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState(todayStr());
   const [dateTo, setDateTo] = useState(todayStr());
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportExcel = async () => {
+    if (exporting || !dateFrom || !dateTo) return;
+    setExporting(true);
+    try {
+      const XLSX = await import('xlsx');
+
+      let rows: UnifiedTransporte[];
+      if (isSupabaseConfigured) {
+        rows = await fetchTransportesByRango(dateFrom, dateTo);
+      } else {
+        rows = useLogisticsStore.getState().transportes.filter((t) => {
+          const d = String(t.fechaHora || '').split(' ')[0];
+          return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
+        });
+      }
+
+      if (rows.length === 0) {
+        alert('No hay transportes registrados en el rango de fechas seleccionado.');
+        return;
+      }
+
+      const headers = [
+        'LLAVE', 'FECHA', 'PLACA', 'N° PEDIDO', 'TIPO VEHÍCULO', 'CLIENTE',
+        'DESTINO', 'CITA CARGUE', 'TRANSPORTADORA', 'ESTADO TRANSPORTE',
+        'ESTADO DESPACHO', 'ESTADO PORTERÍA', 'MUELLE', 'H. LLEGADA PORTERÍA',
+        'H. INGRESO', 'H. INICIO CARGUE', 'H. FIN CARGUE', 'H. SALIDA', 'OBSERVACIONES',
+      ];
+      const data = rows.map((r) => [
+        r.llave, r.fechaHora, r.placa, r.numeroPedido, r.vehiculoTipo,
+        r.denominacionCliente, r.destino, r.citaCargue, r.transportadora,
+        r.estadoTransporte, r.estadoDespacho, r.estadoPorteria, r.muelleAsignado || '',
+        r.horaLlegadaPorteria || '', r.horaIngreso || '', r.horaInicioCargue || '',
+        r.horaFinCargue || '', r.horaSalida || '', r.observaciones || '',
+      ]);
+
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+      ws['!cols'] = headers.map((_, i) => ({
+        wch: Math.min(
+          40,
+          Math.max(
+            headers[i].length,
+            ...data.slice(0, 200).map((row) => String(row[i] ?? '').length)
+          ) + 2
+        ),
+      }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'TRANSPORTES');
+      XLSX.writeFile(wb, `TRANSPORTES_${dateFrom}_a_${dateTo}.xlsx`);
+    } catch (err) {
+      console.error('Error exportando a Excel:', err);
+      alert('No se pudo exportar a Excel. Revisa la conexión con la base de datos.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const s = searchTerm.trim().toLowerCase();
   const filteredFleet = useMemo(
@@ -57,6 +118,16 @@ export const InformesModule: React.FC = () => {
         dateTo={dateTo}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
+        rightContent={
+          <button
+            onClick={handleExportExcel}
+            disabled={exporting}
+            className="flex items-center space-x-1.5 px-3 py-2 bg-emerald-600/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/25 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FileDown className="w-4 h-4" />
+            <span>{exporting ? 'Exportando...' : 'Exportar Excel'}</span>
+          </button>
+        }
       />
 
       {/* 4 Top KPI Cards */}

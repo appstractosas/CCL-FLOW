@@ -14,7 +14,7 @@ interface TransporteFormModalProps {
 }
 
 interface FormValues {
-  vehiculoTipo: TipoVehiculo;
+  vehiculoTipo: TipoVehiculo | '';
   llave: string;
   numeroPedido: string;
   fechaHora: string;
@@ -22,7 +22,7 @@ interface FormValues {
   transportadora: string;
   denominacionCliente: string;
   destino: string;
-  estado: EstadoDespacho;
+  estado: EstadoDespacho | '';
 }
 
 function buildInitialForm(editingRow: UnifiedTransporte | null, defaultLlave: string): FormValues {
@@ -40,15 +40,15 @@ function buildInitialForm(editingRow: UnifiedTransporte | null, defaultLlave: st
     };
   }
   return {
-    vehiculoTipo: 'MINIMULA',
-    llave: defaultLlave,
+    vehiculoTipo: '',
+    llave: '',
     numeroPedido: '',
     fechaHora: '',
     placa: '',
     transportadora: '',
     denominacionCliente: '',
     destino: '',
-    estado: 'PTE ALISTAR',
+    estado: '',
   };
 }
 
@@ -75,17 +75,21 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.placa) return;
+    if (!editingRow && (!formData.llave.trim() || !formData.vehiculoTipo || !formData.estado)) {
+      alert('Complete la LLAVE, el tipo de vehículo y el estado para crear la llave.');
+      return;
+    }
     onSave({
-      llave: formData.llave,
+      llave: formData.llave.trim(),
       placa: formData.placa,
       numeroPedido: formData.numeroPedido,
       fechaHora: formData.fechaHora,
       citaCargue: formData.fechaHora,
-      vehiculoTipo: formData.vehiculoTipo,
+      vehiculoTipo: formData.vehiculoTipo || undefined,
       transportadora: formData.transportadora,
       denominacionCliente: formData.denominacionCliente,
       destino: formData.destino,
-      estado: formData.estado,
+      estado: formData.estado || undefined,
     });
   };
 
@@ -93,8 +97,14 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
     'w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4">
-      <div className="bg-[#121726] rounded-2xl max-w-md w-full p-6 border border-zinc-800 shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[#121726] rounded-2xl max-w-md w-full p-6 border border-zinc-800 shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
           <div className="flex items-center space-x-2">
             <div className="bg-blue-500/20 text-blue-400 p-2 rounded-xl">
@@ -115,6 +125,7 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               <label className="block text-xs font-bold text-zinc-300 mb-1">LLAVE</label>
               <input
                 type="text"
+                placeholder="Ej: LL-60538"
                 value={formData.llave}
                 onChange={(e) => setFormData({ ...formData, llave: e.target.value })}
                 className={`${inputCls} font-mono uppercase`}
@@ -150,9 +161,10 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               <label className="block text-xs font-bold text-zinc-300 mb-1">Tipo Vehículo</label>
               <select
                 value={formData.vehiculoTipo}
-                onChange={(e) => setFormData({ ...formData, vehiculoTipo: e.target.value as TipoVehiculo })}
-                className={inputCls}
+                onChange={(e) => setFormData({ ...formData, vehiculoTipo: e.target.value as TipoVehiculo | '' })}
+                className={`${inputCls} ${formData.vehiculoTipo ? '' : 'text-zinc-500'}`}
               >
+                <option value="">Seleccionar tipo</option>
                 <option value="MINIMULA">MINIMULA</option>
                 <option value="SENCILLO">SENCILLO</option>
                 <option value="LUV">LUV</option>
@@ -228,9 +240,10 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
             <label className="block text-xs font-bold text-zinc-300 mb-1">Estado</label>
             <select
               value={formData.estado}
-              onChange={(e) => setFormData({ ...formData, estado: e.target.value as EstadoDespacho })}
-              className={inputCls}
+              onChange={(e) => setFormData({ ...formData, estado: e.target.value as EstadoDespacho | '' })}
+              className={`${inputCls} ${formData.estado ? '' : 'text-zinc-500'}`}
             >
+              <option value="">Seleccionar estado</option>
               <option value="PTE ALISTAR">PTE ALISTAR</option>
               <option value="ALISTADO">ALISTADO</option>
               <option value="DESPACHADO">DESPACHADO</option>

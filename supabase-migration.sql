@@ -1,3 +1,14 @@
+-- ============================================================================
+-- !!! ATENCIÓN — NO EJECUTAR EN LA BASE ACTUAL !!!
+-- Este script es una migración DESTRUCTIVA: hace DROP TABLE y RE-CREA todo el
+-- esquema desde cero. BORRA TODOS LOS DATOS (transportes, chat, usuarios, etc.).
+--
+-- Estado verificado (16:00, proyecto gklcxnlseghdqylvnkdb): el esquema YA ESTÁ
+-- COMPLETO en la base (tablas, columnas, políticas RLS y datos). NO hay nada que
+-- crear. Este archivo solo tiene utilidad para inicializar un proyecto NUEVO y
+-- VACÍO. Ejecutarlo sobre la base actual = pérdida total de datos.
+-- ============================================================================
+
 -- =============================================
 -- CCL-FLOW: MIGRACIÓN COMPLETA (v9)
 -- Recrea el esquema unificado con:

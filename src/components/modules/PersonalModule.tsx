@@ -13,7 +13,7 @@ export const PersonalModule: React.FC = () => {
 
   const unifiedRows = getUnifiedTransportes();
 
-  const { searchTerm, setSearchTerm, dateFrom, setDateFrom, dateTo, setDateTo, filtered } = useRowFilters(unifiedRows);
+  const { searchTerm, setSearchTerm, dateFrom, setDateFrom, dateTo, setDateTo, filtered } = useRowFilters(unifiedRows, { keepActiveLlaves: true });
 
   const handleAsignarMuelle = (row: UnifiedTransporte, muelle: string) => {
     updateMuelleAsignado(row.id, muelle);

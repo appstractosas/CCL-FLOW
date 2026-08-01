@@ -16,6 +16,7 @@ import { useAuthStore } from './useAuthStore';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { initialTransportes, initialMessages } from './initialData';
 import { getEstadoPorteria, isLlaveCerrada } from '../utils/porteria';
+import { playNotificationSound } from '../utils/sound';
 
 interface LogisticsState {
   initialized: boolean;
@@ -86,10 +87,14 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
       });
 
           unsubscribeRealtime = subscribeToMessages((newMsg) => {
-            set((s) => ({
-              messages: [newMsg, ...s.messages],
-              unreadChatCount: s.unreadChatCount + 1,
-            }));
+            // Aviso sonoro para todos cuando PORTERÍA o SUPERVISOR envían un chat.
+            if (newMsg.senderRole === 'PORTERO' || newMsg.senderRole === 'SUPERVISOR') {
+              playNotificationSound();
+            }
+            set((s) => {
+              if (s.messages.some((m) => m.id === newMsg.id)) return s;
+              return { messages: [newMsg, ...s.messages], unreadChatCount: s.unreadChatCount + 1 };
+            });
           });
         } catch (err) {
           console.error('Error loading data from Supabase:', err);
@@ -252,18 +257,23 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
           llaveRelacionada: msg.llaveRelacionada,
           muelleSugerido: msg.muelleSugerido,
           content: msg.content,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isRead: false,
+          timestamp: new Date().toISOString(),
+          isRead: true,
         };
 
-        if (isSupabaseConfigured) {
-          sendMessage(newMsg).catch(console.error);
-        }
+        set((s) => ({ messages: [newMsg, ...s.messages] }));
 
-        set((s) => ({
-          messages: [...s.messages, newMsg],
-          unreadChatCount: s.unreadChatCount + 1,
-        }));
+        if (!isSupabaseConfigured) return;
+
+        sendMessage(newMsg)
+          .then((saved) => {
+            set((s) => ({
+              messages: s.messages.map((m) => (m.id === newMsg.id ? { ...m, id: saved.id } : m)),
+            }));
+          })
+          .catch((err) => {
+            console.error('Error enviando mensaje del chat a Supabase:', err);
+          });
       },
 
       markChatRead: () => {

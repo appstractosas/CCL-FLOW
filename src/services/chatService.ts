@@ -5,7 +5,6 @@ const TABLE = 'chat_messages';
 
 function mapMessageToDB(item: ChatMessage): Record<string, any> {
   return {
-    id: item.id,
     sender_role: item.senderRole,
     sender_name: item.senderName,
     sender_module: item.senderModule,

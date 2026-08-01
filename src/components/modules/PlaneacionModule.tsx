@@ -17,7 +17,7 @@ export const PlaneacionModule: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const unifiedRows = getUnifiedTransportes();
-  const { searchTerm, setSearchTerm, dateFrom, setDateFrom, dateTo, setDateTo, filtered } = useRowFilters(unifiedRows);
+  const { searchTerm, setSearchTerm, dateFrom, setDateFrom, dateTo, setDateTo, filtered } = useRowFilters(unifiedRows, { keepActiveLlaves: true });
 
   const openCreate = () => {
     setEditingRow(null);
