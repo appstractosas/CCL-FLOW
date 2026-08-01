@@ -1,0 +1,6 @@
+{
+  "name": "Torre de Control Logística",
+  "description": "Sistema de gestión logística y torre de control operativa con despachos, operadores, portería con seguridad RBAC, tracking GPS en tiempo real, chat operativo y analítica con Recharts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
