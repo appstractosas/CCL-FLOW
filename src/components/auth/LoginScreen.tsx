@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Truck, Lock, LogIn, ShieldCheck } from 'lucide-react';
+import { Truck, Lock, LogIn, ShieldCheck, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import logoSrc from '/assets/logo.png';
 
@@ -8,14 +8,17 @@ export const LoginScreen: React.FC = () => {
   const [cedula, setCedula] = useState('');
   const [clave, setClave] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const ok = login(cedula, clave);
+    if (loading) return;
+    setLoading(true);
+    setError('');
+    const ok = await login(cedula, clave);
+    setLoading(false);
     if (!ok) {
       setError('Cédula o clave incorrectas. Verifica tus credenciales.');
-    } else {
-      setError('');
     }
   };
 
@@ -68,10 +71,11 @@ export const LoginScreen: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm py-2.5 rounded-xl flex items-center justify-center space-x-2 transition-all active:scale-[0.98]"
+              disabled={loading}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-sm py-2.5 rounded-xl flex items-center justify-center space-x-2 transition-all active:scale-[0.98]"
             >
-              <LogIn className="w-4 h-4" />
-              <span>Ingresar al sistema</span>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+              <span>{loading ? 'Verificando...' : 'Ingresar al sistema'}</span>
             </button>
 
             <div className="pt-2 text-center">

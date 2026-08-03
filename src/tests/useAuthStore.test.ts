@@ -30,15 +30,15 @@ describe('useAuthStore (Usuarios, Matriz de Permisos y Sesión)', () => {
     expect(names).toContain('SUPERVISOR');
   });
 
-  it('debería hacer login por cédula y clave y respetar la matriz de permisos del tipo de usuario', () => {
+  it('debería hacer login por cédula y clave y respetar la matriz de permisos del tipo de usuario', async () => {
     const store = useAuthStore.getState();
 
     // Credenciales incorrectas no ingresan
-    expect(store.login('1000000002', 'clave-incorrecta')).toBe(false);
+    expect(await store.login('1000000002', 'clave-incorrecta')).toBe(false);
     expect(useAuthStore.getState().currentUser?.name).toBe('ADMIN');
 
     // PORTERO (cedula 1000000002 / clave 1234)
-    expect(store.login('1000000002', '1234')).toBe(true);
+    expect(await store.login('1000000002', '1234')).toBe(true);
     expect(useAuthStore.getState().currentUser?.roleName).toBe('PORTERO');
     expect(useAuthStore.getState().hasModuleAccess('porteria')).toBe(true);
     expect(useAuthStore.getState().hasModuleEdit('porteria')).toBe(true);
@@ -48,23 +48,23 @@ describe('useAuthStore (Usuarios, Matriz de Permisos y Sesión)', () => {
     expect(useAuthStore.getState().hasModuleAccess('usuarios')).toBe(false);
 
     // PLANEADOR (cedula 1000000003 / clave 1234)
-    expect(store.login('1000000003', '1234')).toBe(true);
+    expect(await store.login('1000000003', '1234')).toBe(true);
     expect(useAuthStore.getState().hasModuleAccess('planeacion')).toBe(true);
     expect(useAuthStore.getState().hasModuleEdit('planeacion')).toBe(true);
     expect(useAuthStore.getState().hasModuleAccess('porteria')).toBe(false);
 
     // El ADMIN por defecto tiene acceso a ROLES y USUARIOS
     store.logout();
-    expect(store.login('0000000000', 'admin')).toBe(true);
+    expect(await store.login('0000000000', 'admin')).toBe(true);
     expect(useAuthStore.getState().hasModuleAccess('admin_roles')).toBe(true);
     expect(useAuthStore.getState().hasModuleAccess('usuarios')).toBe(true);
   });
 
-  it('debería permitir activar módulos en la matriz y registrarlo en el historial', () => {
+  it('debería permitir activar módulos en la matriz y registrarlo en el historial', async () => {
     const store = useAuthStore.getState();
 
     // PORTERO no tiene acceso a informes
-    store.login('1000000002', '1234');
+    await store.login('1000000002', '1234');
     expect(useAuthStore.getState().hasModuleAccess('informes')).toBe(false);
 
     // El ADMIN activa el módulo informes para el rol PORTERO
@@ -92,7 +92,7 @@ describe('useAuthStore (Usuarios, Matriz de Permisos y Sesión)', () => {
     // Se puede iniciar sesión con el nuevo usuario
     store.logout();
     expect(useAuthStore.getState().currentUser).toBeNull();
-    expect(store.login('2000000001', '4321')).toBe(true);
+    expect(await store.login('2000000001', '4321')).toBe(true);
     expect(useAuthStore.getState().currentUser?.name).toBe('Nuevo Portero');
   });
 });

@@ -8,6 +8,7 @@ import {
   deleteUser as deleteUserRemote, seedInitialData, PRESET_ROLES, PRESET_USERS, roleForUserType,
 } from '../services/rbacService';
 import { fetchHistorial, createMovimiento } from '../services/historialService';
+import { cclLogin, cclValidateSession, cclLogout } from '../services/authService';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { ALL_MODULES, userTypeLabel, moduleLabel } from '../lib/moduleConfig';
 
@@ -30,9 +31,10 @@ function buildSession(user: UserRecord): UserSession {
   };
 }
 
-const SESSION_STORAGE_KEY = 'ccl_session_cedula';
+// Solo se guarda el TOKEN; la validez se comprueba siempre contra la BD.
+const SESSION_STORAGE_KEY = 'ccl_session_token';
 
-function readStoredCedula(): string | null {
+function readStoredToken(): string | null {
   try {
     return localStorage.getItem(SESSION_STORAGE_KEY);
   } catch {
@@ -40,23 +42,16 @@ function readStoredCedula(): string | null {
   }
 }
 
-function persistCedula(cedula: string | null): void {
+function persistToken(token: string | null): void {
   try {
-    if (cedula) {
-      localStorage.setItem(SESSION_STORAGE_KEY, cedula);
+    if (token) {
+      localStorage.setItem(SESSION_STORAGE_KEY, token);
     } else {
       localStorage.removeItem(SESSION_STORAGE_KEY);
     }
   } catch {
     // Almacenamiento no disponible: la sesión no se persiste.
   }
-}
-
-function restoreStoredSession(users: UserRecord[]): UserSession | null {
-  const cedula = readStoredCedula();
-  if (!cedula) return null;
-  const user = users.find((u) => u.cedula === cedula);
-  return user ? buildSession(user) : null;
 }
 
 interface AuthState {
@@ -67,7 +62,7 @@ interface AuthState {
   currentUser: UserSession | null;
   historial: HistorialMovimiento[];
   initialize: () => Promise<void>;
-  login: (cedula: string, clave: string) => boolean;
+  login: (cedula: string, clave: string) => Promise<boolean>;
   logout: () => void;
   addMovimiento: (accion: string, modulo: string, detalle?: string, llave?: string) => void;
   createUser: (data: { nombre: string; cedula: string; clave: string; tipoUsuario: UserType }) => Promise<UserRecord>;
@@ -91,10 +86,11 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   initialize: async () => {
     if (get().initialized) return;
     if (!isSupabaseConfigured) {
+      // Sin BD no hay sesión que validar: se exige login.
       set({
         roles: PRESET_ROLES,
         users: PRESET_USERS,
-        currentUser: get().currentUser ?? restoreStoredSession(PRESET_USERS),
+        currentUser: null,
         initialized: true,
         demoMode: true,
       });
@@ -113,20 +109,33 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           const mergedRoles = roles.length > 0 ? roles : PRESET_ROLES;
           const mergedUsers = users.length > 0 ? users : PRESET_USERS;
 
+          let currentUser = get().currentUser;
+          const token = readStoredToken();
+          if (!currentUser && token) {
+            const session = await cclValidateSession(token);
+            if (session.ok && session.user) {
+              const full = mergedUsers.find((u) => u.cedula === session.user?.cedula);
+              currentUser = full ? buildSession(full) : session.user;
+            } else {
+              persistToken(null);
+            }
+          }
+
           set({
             roles: mergedRoles,
             users: mergedUsers,
-            currentUser: get().currentUser ?? restoreStoredSession(mergedUsers),
+            currentUser,
             historial,
             initialized: true,
             demoMode: false,
           });
         } catch (err) {
           console.error('Error loading auth data from Supabase:', err);
+          persistToken(null);
           set({
             roles: PRESET_ROLES,
             users: PRESET_USERS,
-            currentUser: get().currentUser ?? restoreStoredSession(PRESET_USERS),
+            currentUser: null,
             initialized: true,
             demoMode: true,
           });
@@ -156,12 +165,23 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         set((s) => ({ historial: [mov, ...s.historial].slice(0, 500) }));
       },
 
-      login: (cedula, clave) => {
+      login: async (cedula, clave) => {
         const c = cedula.trim();
+
+        if (isSupabaseConfigured) {
+          // Las credenciales se validan SIEMPRE en la BD (función ccl_login).
+          const session = await cclLogin(c, clave);
+          if (!session.ok || !session.user) return false;
+
+          persistToken(session.token || null);
+          set({ currentUser: session.user });
+          get().addMovimiento('INICIO_SESION', 'seguridad', `Inicio de sesión de ${session.user.name} (${userTypeLabel(session.user.tipoUsuario)})`);
+          return true;
+        }
+
         const user = get().users.find((u) => u.cedula === c && u.clave === clave);
         if (!user) return false;
 
-        persistCedula(user.cedula);
         set({ currentUser: buildSession(user) });
         get().addMovimiento('INICIO_SESION', 'seguridad', `Inicio de sesión de ${user.nombre} (${userTypeLabel(user.tipoUsuario)})`);
         return true;
@@ -169,10 +189,14 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
       logout: () => {
         const user = get().currentUser;
+        const token = readStoredToken();
+        if (token) {
+          cclLogout(token).catch(() => {});
+        }
         if (user) {
           get().addMovimiento('CIERRE_SESION', 'seguridad', `Cierre de sesión de ${user.name}`);
         }
-        persistCedula(null);
+        persistToken(null);
         set({ currentUser: null });
       },
 
@@ -232,7 +256,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         get().addMovimiento('EDITAR_USUARIO', 'usuarios', `Edición del usuario ${updated.nombre}`);
 
         if (get().currentUser?.id === id) {
-          persistCedula(updated.cedula);
           set({ currentUser: buildSession(updated) });
         }
       },
