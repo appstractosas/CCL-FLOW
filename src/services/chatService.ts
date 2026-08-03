@@ -49,8 +49,17 @@ export async function sendMessage(item: ChatMessage): Promise<ChatMessage> {
 
 export type RealtimeCallback<T> = (payload: T) => void;
 
+let activeUnsubscribe: (() => void) | null = null;
+
 export function subscribeToMessages(callback: RealtimeCallback<ChatMessage>): () => void {
   if (!isOnline()) return () => {};
+
+  // Si ya hay una suscripción activa, se elimina primero para no volver a usar
+  // el mismo canal tras subscribe() (evita el error de realtime y las duplicadas).
+  if (activeUnsubscribe) {
+    activeUnsubscribe();
+  }
+
   const channel = supabase
     .channel('chat_messages_realtime')
     .on('postgres_changes',
@@ -60,5 +69,11 @@ export function subscribeToMessages(callback: RealtimeCallback<ChatMessage>): ()
       }
     )
     .subscribe();
-  return () => { supabase.removeChannel(channel); };
+
+  activeUnsubscribe = () => {
+    supabase.removeChannel(channel);
+    activeUnsubscribe = null;
+  };
+
+  return activeUnsubscribe;
 }
