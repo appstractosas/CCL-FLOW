@@ -30,6 +30,35 @@ function buildSession(user: UserRecord): UserSession {
   };
 }
 
+const SESSION_STORAGE_KEY = 'ccl_session_cedula';
+
+function readStoredCedula(): string | null {
+  try {
+    return localStorage.getItem(SESSION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function persistCedula(cedula: string | null): void {
+  try {
+    if (cedula) {
+      localStorage.setItem(SESSION_STORAGE_KEY, cedula);
+    } else {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  } catch {
+    // Almacenamiento no disponible: la sesión no se persiste.
+  }
+}
+
+function restoreStoredSession(users: UserRecord[]): UserSession | null {
+  const cedula = readStoredCedula();
+  if (!cedula) return null;
+  const user = users.find((u) => u.cedula === cedula);
+  return user ? buildSession(user) : null;
+}
+
 interface AuthState {
   initialized: boolean;
   demoMode: boolean;
@@ -65,7 +94,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       set({
         roles: PRESET_ROLES,
         users: PRESET_USERS,
-        currentUser: get().currentUser ?? buildSession(PRESET_USERS[0]),
+        currentUser: get().currentUser ?? restoreStoredSession(PRESET_USERS),
         initialized: true,
         demoMode: true,
       });
@@ -83,12 +112,11 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
           const mergedRoles = roles.length > 0 ? roles : PRESET_ROLES;
           const mergedUsers = users.length > 0 ? users : PRESET_USERS;
-          const adminUser = mergedUsers.find((u) => u.tipoUsuario === 'admin') || PRESET_USERS[0];
 
           set({
             roles: mergedRoles,
             users: mergedUsers,
-            currentUser: get().currentUser ?? buildSession(adminUser),
+            currentUser: get().currentUser ?? restoreStoredSession(mergedUsers),
             historial,
             initialized: true,
             demoMode: false,
@@ -98,7 +126,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           set({
             roles: PRESET_ROLES,
             users: PRESET_USERS,
-            currentUser: get().currentUser ?? buildSession(PRESET_USERS[0]),
+            currentUser: get().currentUser ?? restoreStoredSession(PRESET_USERS),
             initialized: true,
             demoMode: true,
           });
@@ -133,6 +161,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         const user = get().users.find((u) => u.cedula === c && u.clave === clave);
         if (!user) return false;
 
+        persistCedula(user.cedula);
         set({ currentUser: buildSession(user) });
         get().addMovimiento('INICIO_SESION', 'seguridad', `Inicio de sesión de ${user.nombre} (${userTypeLabel(user.tipoUsuario)})`);
         return true;
@@ -143,6 +172,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         if (user) {
           get().addMovimiento('CIERRE_SESION', 'seguridad', `Cierre de sesión de ${user.name}`);
         }
+        persistCedula(null);
         set({ currentUser: null });
       },
 
@@ -202,6 +232,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         get().addMovimiento('EDITAR_USUARIO', 'usuarios', `Edición del usuario ${updated.nombre}`);
 
         if (get().currentUser?.id === id) {
+          persistCedula(updated.cedula);
           set({ currentUser: buildSession(updated) });
         }
       },
