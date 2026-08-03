@@ -21,6 +21,7 @@ import { playNotificationSound } from '../utils/sound';
 interface LogisticsState {
   initialized: boolean;
   loading: boolean;
+  demoMode: boolean;
   nextLlaveSeq: number;
   nextPedidoSeq: number;
   transportes: UnifiedTransporte[];
@@ -45,6 +46,7 @@ let unsubscribeRealtime: (() => void) | null = null;
 export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
   initialized: false,
   loading: true,
+  demoMode: !isSupabaseConfigured,
   nextLlaveSeq: 60538,
   nextPedidoSeq: 3000576483,
   transportes: initialTransportes,
@@ -54,7 +56,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
   initialize: async () => {
     if (get().initialized) return;
     if (!isSupabaseConfigured) {
-      set({ loading: false, initialized: true });
+      set({ loading: false, initialized: true, demoMode: true });
       return;
     }
 
@@ -84,6 +86,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
         nextPedidoSeq,
         loading: false,
         initialized: true,
+        demoMode: false,
       });
 
           unsubscribeRealtime = subscribeToMessages((newMsg) => {
@@ -98,7 +101,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
           });
         } catch (err) {
           console.error('Error loading data from Supabase:', err);
-          set({ loading: false, initialized: true });
+          set({ loading: false, initialized: true, demoMode: true });
         }
       },
 

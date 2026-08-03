@@ -32,6 +32,7 @@ function buildSession(user: UserRecord): UserSession {
 
 interface AuthState {
   initialized: boolean;
+  demoMode: boolean;
   roles: Role[];
   users: UserRecord[];
   currentUser: UserSession | null;
@@ -52,6 +53,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()((set, get) => ({
   initialized: false,
+  demoMode: !isSupabaseConfigured,
   roles: PRESET_ROLES,
   users: PRESET_USERS,
   currentUser: null,
@@ -65,6 +67,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         users: PRESET_USERS,
         currentUser: get().currentUser ?? buildSession(PRESET_USERS[0]),
         initialized: true,
+        demoMode: true,
       });
       return;
     }
@@ -88,6 +91,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             currentUser: get().currentUser ?? buildSession(adminUser),
             historial,
             initialized: true,
+            demoMode: false,
           });
         } catch (err) {
           console.error('Error loading auth data from Supabase:', err);
@@ -96,6 +100,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             users: PRESET_USERS,
             currentUser: get().currentUser ?? buildSession(PRESET_USERS[0]),
             initialized: true,
+            demoMode: true,
           });
         }
       },
