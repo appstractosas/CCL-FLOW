@@ -57,8 +57,6 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   const isSupervisor = role === 'SUPERVISOR';
   // DESPACHOS y PLANEACIÓN: chat en solo lectura.
   const isReadOnly = role === 'DESPACHADOR' || role === 'PLANEADOR';
-  // Reglas anti-doble-solicitud aplican a PORTERÍA y SUPERVISOR.
-  const blockForRol = isPortero || isSupervisor;
   const canInteract = !isReadOnly;
 
   // Llaves aún en operación (estado diferente a SALIO DE PORTERIA).
@@ -116,12 +114,12 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
     !!selectedLlave &&
     canInteract &&
     !isSupervisor &&
-    !(blockForRol && (selectedTieneSolicitud || selectedCompletada));
+    !(selectedTieneSolicitud || selectedCompletada);
   const confirmarEnabled =
     !!selectedLlave &&
     canInteract &&
     !isPortero &&
-    !(blockForRol && (selectedTieneAsignacion || selectedCompletada));
+    !(selectedTieneAsignacion || selectedCompletada);
 
   let banner: string | null = null;
   if (!canSend) {
@@ -130,9 +128,9 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
     banner = 'Chat en solo lectura para tu rol.';
   } else if (selectorLlaves.length === 0) {
     banner = 'Todas las llaves activas ya tienen solicitud y muelle asignado.';
-  } else if (blockForRol && selectedTieneSolicitud) {
+  } else if (selectedTieneSolicitud) {
     banner = `Llave ${selectedLlave} ya tiene solicitud de muelle en espera de asignación.`;
-  } else if (blockForRol && selectedTieneAsignacion) {
+  } else if (selectedTieneAsignacion) {
     banner = `Llave ${selectedLlave} ya tiene muelle asignado.`;
   }
 
