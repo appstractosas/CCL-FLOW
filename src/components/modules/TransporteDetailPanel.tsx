@@ -153,6 +153,18 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 <span>{row.placa}</span>
                 <TipoBadge tipo={row.vehiculoTipo} />
               </p>
+              <p className="flex flex-wrap items-center gap-1.5 mt-1">
+                {[row.numeroPedido, row.numeroPedido2, row.numeroPedido3, row.numeroPedido4]
+                  .filter((p) => p && String(p).trim() !== '')
+                  .map((p, i) => (
+                    <span
+                      key={i}
+                      className="text-[10px] font-mono font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded px-1.5 py-0.5"
+                    >
+                      {p}
+                    </span>
+                  ))}
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-white p-1.5 rounded-lg">
@@ -245,10 +257,6 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
             <div className="bg-[#121726] rounded-xl border border-zinc-800 px-4">
               <DetailRow label="Cliente / Denominación" value={row.denominacionCliente} />
               <DetailRow label="Destino" value={row.destino} />
-              <DetailRow label="# Pedido" value={row.numeroPedido} />
-              <DetailRow label="# Pedido 2" value={row.numeroPedido2} />
-              <DetailRow label="# Pedido 3" value={row.numeroPedido3} />
-              <DetailRow label="# Pedido 4" value={row.numeroPedido4} />
               <DetailRow label="Observaciones" value={row.observaciones} />
             </div>
           </div>

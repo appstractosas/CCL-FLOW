@@ -41,6 +41,10 @@ export const PRESET_ROLES: Role[] = [
     id: 'ROLE_SUPERVISOR', name: 'SUPERVISOR', description: 'Observación global de la operación e informes.', isPreset: true,
     permissions: permissionsAll(['despachos', 'planeacion', 'porteria', 'monitoreo', 'informes', 'personal']),
   },
+  {
+    id: 'ROLE_MONITOREO', name: 'MONITOREO', description: 'Monitoreo de la operación y registro de salida de portería.', isPreset: true,
+    permissions: permissionsAll(['monitoreo', 'despachos', 'planeacion', 'porteria', 'informes'], ['monitoreo']),
+  },
 ];
 
 export const ROLE_ID_BY_TYPE: Record<UserType, string> = ROLE_ID_BY_USER_TYPE;
@@ -53,6 +57,7 @@ export const PRESET_USERS: UserRecord[] = [
   { id: 'USER_PORTERO', nombre: 'Ramiro Torres', cedula: '1000000002', clave: '1234', tipoUsuario: 'portero', roleId: 'ROLE_PORTERO', roleName: 'PORTERO' },
   { id: 'USER_PLAN', nombre: 'Ana Gómez', cedula: '1000000003', clave: '1234', tipoUsuario: 'planeador', roleId: 'ROLE_PLANEADOR', roleName: 'PLANEADOR' },
   { id: 'USER_SUP', nombre: 'Luis Mora', cedula: '1000000004', clave: '1234', tipoUsuario: 'supervisor', roleId: 'ROLE_SUPERVISOR', roleName: 'SUPERVISOR' },
+  { id: 'USER_MONITOREO', nombre: 'Carlos Montero', cedula: '1000000005', clave: '1234', tipoUsuario: 'monitor', roleId: 'ROLE_MONITOREO', roleName: 'MONITOREO' },
 ];
 
 export function roleForUserType(tipo: UserType): { roleId: string; roleName: string } {
