@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Edit2, Trash2, Truck } from 'lucide-react';
+import { X, Edit2, Trash2 } from 'lucide-react';
 import { UnifiedTransporte, PorteriaTimeField } from '../../types';
 import { EstadoBadge, TipoBadge } from '../common/EstadoBadge';
 import { getEstadoPorteria, isLlaveCerrada } from '../../utils/porteria';
@@ -143,17 +143,12 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
       <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[#0e1320] border-l border-zinc-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-zinc-800">
-          <div className="flex items-center space-x-3 min-w-0">
-            <div className="bg-blue-500/20 text-blue-400 p-2 rounded-xl shrink-0">
-              <Truck className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-lg font-black text-white font-mono truncate">{row.llave}</h3>
-              <p className="text-[11px] text-zinc-400 font-semibold flex items-center space-x-1.5">
-                <span>{row.placa}</span>
-                <TipoBadge tipo={row.vehiculoTipo} />
-              </p>
-            </div>
+          <div className="min-w-0">
+            <h3 className="text-lg font-black text-white font-mono truncate">{row.llave}</h3>
+            <p className="text-[11px] text-zinc-400 font-semibold flex items-center space-x-1.5">
+              <span>{row.placa}</span>
+              <TipoBadge tipo={row.vehiculoTipo} />
+            </p>
           </div>
           <div className="flex items-center space-x-2 shrink-0">
             <div className="grid grid-cols-2 gap-1.5">
