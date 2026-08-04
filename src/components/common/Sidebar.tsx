@@ -3,6 +3,7 @@ import {
   Package,
   Truck,
   DoorClosed,
+  Eye,
   BarChart3,
   UserCheck,
   Settings,
@@ -30,6 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'planeacion' as AppModuleId, label: 'Planeación', icon: Truck },
     { id: 'porteria' as AppModuleId, label: 'Portería', icon: DoorClosed },
+    { id: 'monitoreo' as AppModuleId, label: 'Monitoreo', icon: Eye },
     { id: 'despachos' as AppModuleId, label: 'Despachos', icon: Package },
     { id: 'personal' as AppModuleId, label: 'Supervisor', icon: UserCheck },
     { id: 'informes' as AppModuleId, label: 'Informes', icon: BarChart3 },

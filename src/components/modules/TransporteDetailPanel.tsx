@@ -12,7 +12,7 @@ interface TransporteDetailPanelProps {
   onEdit?: (row: UnifiedTransporte) => void;
   onDelete?: (row: UnifiedTransporte) => void;
   onAsignarMuelle?: (row: UnifiedTransporte, muelle: string) => void;
-  checklistOwner?: 'porteria' | 'despachos';
+  checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
 }
 
@@ -117,7 +117,11 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   const cerrada = isLlaveCerrada(row);
   const setFlags = PORTERIA_STEPS.map((s) => timeSet((row as Record<string, unknown>)[s.key] as string | undefined));
   const enabledIndex = setFlags.findIndex((f) => !f);
-  const ownedIndexes = checklistOwner === 'despachos' ? [2, 3] : [0, 1, 4];
+  // Matriz de control de tiempos por módulo:
+  // - PORTERÍA: H. Llegada (0) y H. Ingreso (1).
+  // - DESPACHOS: H. Inicio Cargue (2) y H. Fin Cargue (3).
+  // - MONITOREO: H. Salida Portería (4).
+  const ownedIndexes = checklistOwner === 'despachos' ? [2, 3] : checklistOwner === 'monitoreo' ? [4] : [0, 1];
   const showCheck = Boolean(checklistOwner) && Boolean(onPorteriaHora);
   const requiresMuelle = checklistOwner === 'despachos';
   const muelleOk = !requiresMuelle || Boolean(row.muelleAsignado);
@@ -242,6 +246,9 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
               <DetailRow label="Cliente / Denominación" value={row.denominacionCliente} />
               <DetailRow label="Destino" value={row.destino} />
               <DetailRow label="# Pedido" value={row.numeroPedido} />
+              <DetailRow label="# Pedido 2" value={row.numeroPedido2} />
+              <DetailRow label="# Pedido 3" value={row.numeroPedido3} />
+              <DetailRow label="# Pedido 4" value={row.numeroPedido4} />
               <DetailRow label="Observaciones" value={row.observaciones} />
             </div>
           </div>

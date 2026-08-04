@@ -3,6 +3,7 @@ import { Sidebar } from './components/common/Sidebar';
 import { DespachosModule } from './components/modules/DespachosModule';
 import { PlaneacionModule } from './components/modules/PlaneacionModule';
 import { PorteriaModule } from './components/modules/PorteriaModule';
+import { MonitoreoModule } from './components/modules/MonitoreoModule';
 import { InformesModule } from './components/modules/InformesModule';
 import { PersonalModule } from './components/modules/PersonalModule';
 import { UsuariosModule } from './components/modules/UsuariosModule';
@@ -69,6 +70,8 @@ export default function App() {
         return <PlaneacionModule />;
       case 'porteria':
         return <PorteriaModule />;
+      case 'monitoreo':
+        return <MonitoreoModule />;
       case 'personal':
         return <PersonalModule />;
       case 'informes':

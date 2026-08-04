@@ -1,6 +1,7 @@
 export type AppModuleId = 
   | 'despachos' 
   | 'porteria'
+  | 'monitoreo'
   | 'informes'
   | 'planeacion' 
   | 'personal'
@@ -106,6 +107,9 @@ export interface UnifiedTransporte {
   fechaHora: string;
   placa: string;
   numeroPedido: string;
+  numeroPedido2?: string;
+  numeroPedido3?: string;
+  numeroPedido4?: string;
   vehiculoTipo: TipoVehiculo;
   denominacionCliente: string;
   destino: string;
@@ -133,6 +137,9 @@ export interface TransporteData {
   citaCargue?: string;
   transportadora?: string;
   numeroPedido?: string;
+  numeroPedido2?: string;
+  numeroPedido3?: string;
+  numeroPedido4?: string;
   estado?: EstadoDespacho;
   estadoTransporte?: EstadoTransporte;
   muelleAsignado?: string;

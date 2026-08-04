@@ -17,6 +17,9 @@ interface FormValues {
   vehiculoTipo: TipoVehiculo | '';
   llave: string;
   numeroPedido: string;
+  numeroPedido2: string;
+  numeroPedido3: string;
+  numeroPedido4: string;
   fechaHora: string;
   placa: string;
   transportadora: string;
@@ -31,6 +34,9 @@ function buildInitialForm(editingRow: UnifiedTransporte | null, defaultLlave: st
       vehiculoTipo: editingRow.vehiculoTipo,
       llave: editingRow.llave,
       numeroPedido: editingRow.numeroPedido || '',
+      numeroPedido2: editingRow.numeroPedido2 || '',
+      numeroPedido3: editingRow.numeroPedido3 || '',
+      numeroPedido4: editingRow.numeroPedido4 || '',
       fechaHora: editingRow.fechaHora || '',
       placa: editingRow.placa,
       transportadora: editingRow.transportadora || '',
@@ -43,6 +49,9 @@ function buildInitialForm(editingRow: UnifiedTransporte | null, defaultLlave: st
     vehiculoTipo: '',
     llave: '',
     numeroPedido: '',
+    numeroPedido2: '',
+    numeroPedido3: '',
+    numeroPedido4: '',
     fechaHora: '',
     placa: '',
     transportadora: '',
@@ -83,6 +92,9 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
       llave: formData.llave.trim(),
       placa: formData.placa,
       numeroPedido: formData.numeroPedido,
+      numeroPedido2: formData.numeroPedido2,
+      numeroPedido3: formData.numeroPedido3,
+      numeroPedido4: formData.numeroPedido4,
       fechaHora: formData.fechaHora,
       citaCargue: formData.fechaHora,
       vehiculoTipo: formData.vehiculoTipo || undefined,
@@ -105,21 +117,21 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
         className="bg-[#121726] rounded-2xl max-w-md w-full p-6 border border-zinc-800 shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+        <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800">
           <div className="flex items-center space-x-2">
-            <div className="bg-blue-500/20 text-blue-400 p-2 rounded-xl">
-              <Truck className="w-5 h-5" />
+            <div className="bg-blue-500/20 text-blue-400 p-1.5 rounded-lg">
+              <Truck className="w-4 h-4" />
             </div>
-            <h3 className="text-lg font-bold text-white">
+            <h3 className="text-base font-bold text-white">
               {editingRow ? `Editar Transporte ${editingRow.placa}` : '+ Nueva Llave'}
             </h3>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-white p-1 rounded-lg">
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+        <form onSubmit={handleSubmit} className="space-y-3 pt-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-zinc-300 mb-1">LLAVE</label>
@@ -138,6 +150,39 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
                 placeholder="Ej: 3000576478"
                 value={formData.numeroPedido}
                 onChange={(e) => setFormData({ ...formData, numeroPedido: e.target.value })}
+                className={`${inputCls} font-mono`}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1"># Pedido 2</label>
+              <input
+                type="text"
+                placeholder="Pedido 2"
+                value={formData.numeroPedido2}
+                onChange={(e) => setFormData({ ...formData, numeroPedido2: e.target.value })}
+                className={`${inputCls} font-mono`}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1"># Pedido 3</label>
+              <input
+                type="text"
+                placeholder="Pedido 3"
+                value={formData.numeroPedido3}
+                onChange={(e) => setFormData({ ...formData, numeroPedido3: e.target.value })}
+                className={`${inputCls} font-mono`}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1"># Pedido 4</label>
+              <input
+                type="text"
+                placeholder="Pedido 4"
+                value={formData.numeroPedido4}
+                onChange={(e) => setFormData({ ...formData, numeroPedido4: e.target.value })}
                 className={`${inputCls} font-mono`}
               />
             </div>

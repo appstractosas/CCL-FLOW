@@ -13,7 +13,7 @@ interface TransportesTableProps {
   onDelete?: (row: UnifiedTransporte) => void;
   hideAcciones?: boolean;
   onAsignarMuelle?: (row: UnifiedTransporte, muelle: string) => void;
-  checklistOwner?: 'porteria' | 'despachos';
+  checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
 }
 

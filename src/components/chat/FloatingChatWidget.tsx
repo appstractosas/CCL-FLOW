@@ -347,12 +347,12 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
       {/* Floating Launcher Button */}
       <button
         onClick={toggleOpen}
-        className="pointer-events-auto bg-blue-600 hover:bg-blue-500 text-white p-3.5 rounded-2xl shadow-xl flex items-center space-x-2 transition-all transform active:scale-95 border border-blue-400/30"
+        className="pointer-events-auto bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-xl shadow-xl flex items-center space-x-1.5 transition-all transform active:scale-95 border border-blue-400/30"
       >
-        <MessageSquare className="w-5 h-5" />
-        <span className="text-xs font-bold hidden sm:inline">Chat Operativo</span>
+        <MessageSquare className="w-2.5 h-2.5" />
+        <span className="text-[10px] font-bold hidden sm:inline">Chat Operativo</span>
         {unreadChatCount > 0 && !isOpen && (
-          <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-bounce">
+          <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full animate-bounce">
             {unreadChatCount}
           </span>
         )}

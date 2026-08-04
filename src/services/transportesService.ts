@@ -9,6 +9,9 @@ function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
     fecha_hora: item.fechaHora,
     placa: item.placa,
     numero_pedido: item.numeroPedido || null,
+    numero_pedido2: item.numeroPedido2 || null,
+    numero_pedido3: item.numeroPedido3 || null,
+    numero_pedido4: item.numeroPedido4 || null,
     vehiculo_tipo: item.vehiculoTipo,
     denominacion_cliente: item.denominacionCliente,
     destino: item.destino,
@@ -34,6 +37,9 @@ function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
     fechaHora: item.fecha_hora,
     placa: item.placa,
     numeroPedido: item.numero_pedido || '',
+    numeroPedido2: item.numero_pedido2 || '',
+    numeroPedido3: item.numero_pedido3 || '',
+    numeroPedido4: item.numero_pedido4 || '',
     vehiculoTipo: item.vehiculo_tipo,
     denominacionCliente: item.denominacion_cliente,
     destino: item.destino,
@@ -89,6 +95,9 @@ export async function updateTransporte(id: string, updates: Partial<UnifiedTrans
   if (updates.fechaHora !== undefined) dbUpdates.fecha_hora = updates.fechaHora;
   if (updates.placa !== undefined) dbUpdates.placa = updates.placa;
   if (updates.numeroPedido !== undefined) dbUpdates.numero_pedido = updates.numeroPedido;
+  if (updates.numeroPedido2 !== undefined) dbUpdates.numero_pedido2 = updates.numeroPedido2;
+  if (updates.numeroPedido3 !== undefined) dbUpdates.numero_pedido3 = updates.numeroPedido3;
+  if (updates.numeroPedido4 !== undefined) dbUpdates.numero_pedido4 = updates.numeroPedido4;
   if (updates.vehiculoTipo !== undefined) dbUpdates.vehiculo_tipo = updates.vehiculoTipo;
   if (updates.denominacionCliente !== undefined) dbUpdates.denominacion_cliente = updates.denominacionCliente;
   if (updates.destino !== undefined) dbUpdates.destino = updates.destino;
