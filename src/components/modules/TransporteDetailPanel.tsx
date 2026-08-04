@@ -149,11 +149,9 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-black text-white font-mono">{row.llave}</h3>
-              <p className="text-[11px] text-zinc-400 font-semibold flex items-center space-x-1.5">
+              <p className="text-[11px] text-zinc-400 font-semibold flex flex-wrap items-center space-x-1.5">
                 <span>{row.placa}</span>
                 <TipoBadge tipo={row.vehiculoTipo} />
-              </p>
-              <p className="flex flex-wrap items-center gap-1.5 mt-1">
                 {[row.numeroPedido, row.numeroPedido2, row.numeroPedido3, row.numeroPedido4]
                   .filter((p) => p && String(p).trim() !== '')
                   .map((p, i) => (
