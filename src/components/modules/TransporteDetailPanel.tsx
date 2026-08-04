@@ -38,6 +38,13 @@ function nowHHMM(): string {
   return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
+function formatSlot(value?: string): string {
+  if (!value) return '';
+  const m = value.match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})?/);
+  if (!m) return value;
+  return `${m[1]} ${m[2]}:${m[3]}`;
+}
+
 function DetailRow({ label, value }: { label: string; value?: string | number }) {
   const v = value === undefined || value === null || value === '' ? '—' : String(value);
   return (
@@ -179,7 +186,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
             </div>
             <div className="bg-[#121726] rounded-xl border border-zinc-800 px-4">
               <DetailRow label="Transportadora" value={row.transportadora} />
-              <DetailRow label="Hora Cita (Slot programado)" value={row.citaCargue} />
+              <DetailRow label="Hora Cita (Slot programado)" value={formatSlot(row.citaCargue)} />
               <TimeRow
                 showCheck={showCheck && ownedIndexes.includes(0)}
                 step={PORTERIA_STEPS[0]}
