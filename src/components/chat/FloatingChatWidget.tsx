@@ -202,7 +202,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
         />
       )}
 
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end pointer-events-none">
+      <div className="fixed bottom-1 right-5 z-50 flex flex-col items-end pointer-events-none">
       {/* Expanded Floating Messenger Window */}
       {isOpen && (
         <div className="pointer-events-auto bg-[#121726] rounded-2xl shadow-2xl border border-zinc-800 w-80 sm:w-96 h-[460px] flex flex-col mb-3 overflow-hidden animate-in slide-in-from-bottom-5 duration-200">

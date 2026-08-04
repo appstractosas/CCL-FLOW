@@ -114,7 +114,7 @@ export default function App() {
             </button>
             <img src={logoSrc} alt="CCL Logo" className="h-8 w-auto lg:hidden" />
             <span className="hidden lg:block text-xs font-mono text-zinc-500">
-              CCL · Torre de Control Operativa <span className="text-emerald-400">v3.0</span>
+              CCL · gestión de patios logísticos <span className="text-emerald-400">v1.0</span>
             </span>
           </div>
 
@@ -144,7 +144,7 @@ export default function App() {
 
         {/* Global Footer */}
         <footer className="border-t border-zinc-800/80 py-4 px-8 text-xs text-zinc-500 bg-[#090d16]">
-          <span>Torre de Control Operativa & Gestión Logística CCL © 2026</span>
+          <span>gestión de patios logísticos CCL © 2026</span>
         </footer>
       </div>
 
