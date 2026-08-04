@@ -142,32 +142,36 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
       <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs" onClick={onClose} />
       <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[#0e1320] border-l border-zinc-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
-          <div className="flex items-center space-x-3">
-            <div className="bg-blue-500/20 text-blue-400 p-2 rounded-xl">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-zinc-800">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="bg-blue-500/20 text-blue-400 p-2 rounded-xl shrink-0">
               <Truck className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="text-lg font-black text-white font-mono">{row.llave}</h3>
-              <p className="text-[11px] text-zinc-400 font-semibold flex flex-wrap items-center space-x-1.5">
+            <div className="min-w-0">
+              <h3 className="text-lg font-black text-white font-mono truncate">{row.llave}</h3>
+              <p className="text-[11px] text-zinc-400 font-semibold flex items-center space-x-1.5">
                 <span>{row.placa}</span>
                 <TipoBadge tipo={row.vehiculoTipo} />
-                {[row.numeroPedido, row.numeroPedido2, row.numeroPedido3, row.numeroPedido4]
-                  .filter((p) => p && String(p).trim() !== '')
-                  .map((p, i) => (
-                    <span
-                      key={i}
-                      className="text-[10px] font-mono font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded px-1.5 py-0.5"
-                    >
-                      {p}
-                    </span>
-                  ))}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-zinc-400 hover:text-white p-1.5 rounded-lg">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-2 shrink-0">
+            <div className="grid grid-cols-2 gap-1.5">
+              {[row.numeroPedido, row.numeroPedido2, row.numeroPedido3, row.numeroPedido4]
+                .filter((p) => p && String(p).trim() !== '')
+                .map((p, i) => (
+                  <span
+                    key={i}
+                    className="text-[10px] font-mono font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded px-1.5 py-0.5 whitespace-nowrap"
+                  >
+                    {p}
+                  </span>
+                ))}
+            </div>
+            <button onClick={onClose} className="text-zinc-400 hover:text-white p-1.5 rounded-lg">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Body */}
