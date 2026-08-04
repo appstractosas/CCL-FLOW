@@ -176,14 +176,12 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {/* Estados */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <EstadoBadge estado={getEstadoPorteria(row)} />
-          </div>
-
           {/* Control de tiempos / columnas de operación */}
           <div>
-            <SectionTitle>Control de Tiempos</SectionTitle>
+            <div className="flex items-center justify-between pb-1">
+              <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Control de Tiempos</h4>
+              <EstadoBadge estado={getEstadoPorteria(row)} />
+            </div>
             <div className="bg-[#121726] rounded-xl border border-zinc-800 px-4">
               <DetailRow label="Transportadora" value={row.transportadora} />
               <DetailRow label="Hora Cita (Slot programado)" value={row.citaCargue} />
