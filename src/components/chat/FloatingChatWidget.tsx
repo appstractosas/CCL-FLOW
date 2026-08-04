@@ -55,8 +55,8 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   const role = currentUser?.roleName;
   const isPortero = role === 'PORTERO';
   const isSupervisor = role === 'SUPERVISOR';
-  // DESPACHOS y PLANEACIÓN: chat en solo lectura.
-  const isReadOnly = role === 'DESPACHADOR' || role === 'PLANEADOR';
+  // DESPACHOS, PLANEACIÓN y MONITOREO: chat en solo lectura.
+  const isReadOnly = role === 'DESPACHADOR' || role === 'PLANEADOR' || role === 'MONITOREO';
   const canInteract = !isReadOnly;
 
   // Llaves aún en operación (estado diferente a SALIO DE PORTERIA).
@@ -105,7 +105,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   // Habilitación por rol + estado de la llave seleccionada:
   // - PORTERÍA: lista de llaves + "+ Solicitud Muelle" (agrega el n° de llave al chat).
   // - SUPERVISOR: "+ Confirmar Muelle" + lista de muelles. Lo demás deshabilitado.
-  // - DESPACHADOR/PLANEADOR: chat en solo lectura.
+  // - DESPACHADOR/PLANEADOR/MONITOREO: chat en solo lectura.
   // - ADMIN: todo habilitado.
   const textEnabled = canInteract && role === 'ADMIN';
   const llaveSelectEnabled = canInteract && !isSupervisor;
