@@ -21,14 +21,14 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
         type="date"
         value={dateFrom}
         onChange={(e) => onFromChange(e.target.value)}
-        className="bg-zinc-900 text-zinc-300 border border-zinc-800 px-2.5 py-1 rounded-lg text-xs font-medium focus:outline-none focus:border-blue-500/50 [color-scheme:dark]"
+        className="bg-zinc-900 text-zinc-300 border border-zinc-800 px-2.5 py-0.5 rounded-lg text-xs font-medium focus:outline-none focus:border-blue-500/50 [color-scheme:dark]"
       />
       <span className="text-zinc-500 text-xs">—</span>
       <input
         type="date"
         value={dateTo}
         onChange={(e) => onToChange(e.target.value)}
-        className="bg-zinc-900 text-zinc-300 border border-zinc-800 px-2.5 py-1 rounded-lg text-xs font-medium focus:outline-none focus:border-blue-500/50 [color-scheme:dark]"
+        className="bg-zinc-900 text-zinc-300 border border-zinc-800 px-2.5 py-0.5 rounded-lg text-xs font-medium focus:outline-none focus:border-blue-500/50 [color-scheme:dark]"
       />
     </div>
   );

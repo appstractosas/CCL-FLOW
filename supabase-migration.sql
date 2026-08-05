@@ -52,21 +52,18 @@ CREATE TABLE transportes (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   llave                 VARCHAR(20) NOT NULL UNIQUE,
   fecha_hora            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  placa                 VARCHAR(20) NOT NULL,
-  numero_pedido         VARCHAR(30),
+  placa                 VARCHAR(20) NOT NULL DEFAULT '',
   vehiculo_tipo         VARCHAR(20) NOT NULL DEFAULT 'SENCILLO'
                         CHECK (vehiculo_tipo IN ('SENCILLO', 'TURBO', 'MINIMULA', 'LUV')),
-  denominacion_cliente  VARCHAR(200) NOT NULL DEFAULT 'CLIENTE REGIONAL',
-  destino               VARCHAR(200) NOT NULL DEFAULT 'NEIVA',
   cita_cargue           VARCHAR(50),
   transportadora        VARCHAR(200) NOT NULL DEFAULT '',
   estado_transporte     VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE'
                         CHECK (estado_transporte IN ('DESPACHADO', 'ALISTADO', 'PENDIENTE')),
-  estado_despacho       VARCHAR(20) NOT NULL DEFAULT 'PTE ALISTAR'
-                        CHECK (estado_despacho IN ('ALISTADO', 'DESPACHADO', 'PTE ALISTAR')),
   estado_porteria       VARCHAR(20) NOT NULL DEFAULT 'Pendiente'
-                        CHECK (estado_porteria IN ('Pendiente', 'LLEGO A PORTERIA', 'INGRESO A MUELLE', 'CARGANDO', 'FINALIZO CARGUE', 'SALIO DE PORTERIA')),
+                        CHECK (estado_porteria IN ('Pendiente', 'Confirmado', 'LLEGO A PORTERIA', 'INGRESO A MUELLE', 'CARGANDO', 'FINALIZO CARGUE', 'SALIO DE PORTERIA', 'CANCELADO')),
   muelle_asignado       VARCHAR(50),
+  hora_muelle_asignado  VARCHAR(10) DEFAULT '--:--',
+  cuadrilla             VARCHAR(50),
   hora_llegada_porteria VARCHAR(10) DEFAULT '--:--',  -- H. LLEGADA PORTERÍA
   hora_ingreso          VARCHAR(10) DEFAULT '--:--',  -- H. INGRESO PORTERÍA
   hora_inicio_cargue    VARCHAR(10) DEFAULT '--:--',  -- H. INICIO CARGUE
@@ -79,8 +76,7 @@ CREATE TABLE transportes (
 
 CREATE INDEX idx_transportes_llave ON transportes(llave);
 CREATE INDEX idx_transportes_placa ON transportes(placa);
-CREATE INDEX idx_transportes_destino ON transportes(destino);
-CREATE INDEX idx_transportes_estado_despacho ON transportes(estado_despacho);
+CREATE INDEX idx_transportes_cuadrilla ON transportes(cuadrilla);
 CREATE INDEX idx_transportes_estado_porteria ON transportes(estado_porteria);
 CREATE INDEX idx_transportes_estado_transporte ON transportes(estado_transporte);
 CREATE INDEX idx_transportes_fecha_hora ON transportes(fecha_hora);

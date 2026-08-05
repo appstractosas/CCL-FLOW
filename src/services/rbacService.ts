@@ -31,7 +31,7 @@ export const PRESET_ROLES: Role[] = [
   },
   {
     id: 'ROLE_PORTERO', name: 'PORTERO', description: 'Control de puerta, muelles y estados de portería.', isPreset: true,
-    permissions: permissionsAll(['porteria', 'despachos', 'planeacion', 'monitoreo'], ['porteria']),
+    permissions: permissionsAll(['porteria', 'despachos', 'planeacion', 'monitoreo', 'chat'], ['porteria']),
   },
   {
     id: 'ROLE_PLANEADOR', name: 'PLANEADOR', description: 'Planeación de transporte y vista de despachos.', isPreset: true,
@@ -39,7 +39,7 @@ export const PRESET_ROLES: Role[] = [
   },
   {
     id: 'ROLE_SUPERVISOR', name: 'SUPERVISOR', description: 'Observación global de la operación e informes.', isPreset: true,
-    permissions: permissionsAll(['despachos', 'planeacion', 'porteria', 'monitoreo', 'informes', 'personal']),
+    permissions: permissionsAll(['despachos', 'planeacion', 'porteria', 'monitoreo', 'informes', 'personal', 'chat']),
   },
   {
     id: 'ROLE_MONITOREO', name: 'MONITOREO', description: 'Monitoreo de la operación y registro de salida de portería.', isPreset: true,

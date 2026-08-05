@@ -11,26 +11,23 @@ CREATE TABLE transportes (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   llave                 VARCHAR(20) NOT NULL UNIQUE,
   fecha_hora            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  placa                 VARCHAR(20) NOT NULL,
-  numero_pedido         VARCHAR(30),
+  placa                 VARCHAR(20) NOT NULL DEFAULT '',
   -- Datos de PLANEACIÓN
   vehiculo_tipo         VARCHAR(20) NOT NULL DEFAULT 'SENCILLO'
                         CHECK (vehiculo_tipo IN ('SENCILLO', 'TURBO', 'MINIMULA', 'LUV')),
-  denominacion_cliente  VARCHAR(200) NOT NULL DEFAULT 'CLIENTE REGIONAL',
-  destino               VARCHAR(200) NOT NULL DEFAULT 'NEIVA',
   cita_cargue           VARCHAR(50),
   transportadora        VARCHAR(200) NOT NULL DEFAULT '',
   -- Estado del módulo PLANEACIÓN
   estado_transporte     VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE'
                         CHECK (estado_transporte IN ('DESPACHADO', 'ALISTADO', 'PENDIENTE')),
-  -- Estado del módulo DESPACHOS (elegido al crear la llave)
-  estado_despacho       VARCHAR(20) NOT NULL DEFAULT 'PTE ALISTAR'
-                        CHECK (estado_despacho IN ('ALISTADO', 'DESPACHADO', 'PTE ALISTAR')),
-  -- Estado del flujo de PORTERÍA (columna ESTADO del modal principal)
+  -- Estado del flujo de PORTERÍA (columna ESTADO del modal principal).
+  -- CONFIRMADO: creado con placa. CANCELADO: vehículo cancelado (no se elimina).
   estado_porteria       VARCHAR(20) NOT NULL DEFAULT 'Pendiente'
-                        CHECK (estado_porteria IN ('Pendiente', 'LLEGO A PORTERIA', 'INGRESO A MUELLE', 'CARGANDO', 'FINALIZO CARGUE', 'SALIO DE PORTERIA')),
+                        CHECK (estado_porteria IN ('Pendiente', 'Confirmado', 'LLEGO A PORTERIA', 'INGRESO A MUELLE', 'CARGANDO', 'FINALIZO CARGUE', 'SALIO DE PORTERIA', 'CANCELADO')),
   -- Control de tiempos PORTERÍA
   muelle_asignado       VARCHAR(50),
+  hora_muelle_asignado  VARCHAR(10) DEFAULT '--:--',  -- H. ASIGNACIÓN MUELLE (SUPERVISOR)
+  cuadrilla             VARCHAR(50),                  -- CUADRILLA DE CARGUE (DESPACHOS)
   hora_llegada_porteria VARCHAR(10) DEFAULT '--:--',  -- H. LLEGADA PORTERÍA
   hora_ingreso          VARCHAR(10) DEFAULT '--:--',  -- H. INGRESO PORTERÍA
   hora_inicio_cargue    VARCHAR(10) DEFAULT '--:--',  -- H. INICIO CARGUE
@@ -43,8 +40,7 @@ CREATE TABLE transportes (
 
 CREATE INDEX idx_transportes_llave ON transportes(llave);
 CREATE INDEX idx_transportes_placa ON transportes(placa);
-CREATE INDEX idx_transportes_destino ON transportes(destino);
-CREATE INDEX idx_transportes_estado_despacho ON transportes(estado_despacho);
+CREATE INDEX idx_transportes_cuadrilla ON transportes(cuadrilla);
 CREATE INDEX idx_transportes_estado_porteria ON transportes(estado_porteria);
 CREATE INDEX idx_transportes_estado_transporte ON transportes(estado_transporte);
 CREATE INDEX idx_transportes_fecha_hora ON transportes(fecha_hora);
@@ -1175,17 +1171,18 @@ CREATE INDEX idx_historial_created ON historial_movimientos(created_at);
 -- =============================================
 
 -- Roles por defecto (ADMIN total; el resto editable desde la matriz)
+-- El módulo "chat" controla la escritura de mensajes de coordinación.
 INSERT INTO roles (id, name, description, is_preset, permissions) VALUES
   ('ROLE_ADMIN', 'ADMIN', 'Acceso total al sistema y gestión de roles, usuarios e historial.', true,
-   '{"despachos":{"canAccess":true,"canEdit":true},"planeacion":{"canAccess":true,"canEdit":true},"porteria":{"canAccess":true,"canEdit":true},"personal":{"canAccess":true,"canEdit":true},"informes":{"canAccess":true,"canEdit":true},"admin_roles":{"canAccess":true,"canEdit":true},"usuarios":{"canAccess":true,"canEdit":true}}'),
+   '{"despachos":{"canAccess":true,"canEdit":true},"planeacion":{"canAccess":true,"canEdit":true},"porteria":{"canAccess":true,"canEdit":true},"personal":{"canAccess":true,"canEdit":true},"informes":{"canAccess":true,"canEdit":true},"admin_roles":{"canAccess":true,"canEdit":true},"usuarios":{"canAccess":true,"canEdit":true},"chat":{"canAccess":true,"canEdit":false}}'),
   ('ROLE_DESPACHADOR', 'DESPACHADOR', 'Gestión de despachos y planeación.', true,
-   '{"despachos":{"canAccess":true,"canEdit":true},"planeacion":{"canAccess":true,"canEdit":true},"porteria":{"canAccess":false,"canEdit":false},"personal":{"canAccess":false,"canEdit":false},"informes":{"canAccess":true,"canEdit":false},"admin_roles":{"canAccess":false,"canEdit":false},"usuarios":{"canAccess":false,"canEdit":false}}'),
+   '{"despachos":{"canAccess":true,"canEdit":true},"planeacion":{"canAccess":true,"canEdit":true},"porteria":{"canAccess":false,"canEdit":false},"personal":{"canAccess":false,"canEdit":false},"informes":{"canAccess":true,"canEdit":false},"admin_roles":{"canAccess":false,"canEdit":false},"usuarios":{"canAccess":false,"canEdit":false},"chat":{"canAccess":false,"canEdit":false}}'),
   ('ROLE_PORTERO', 'PORTERO', 'Control de puerta, muelles y estados de portería.', true,
-   '{"despachos":{"canAccess":true,"canEdit":false},"planeacion":{"canAccess":true,"canEdit":false},"porteria":{"canAccess":true,"canEdit":true},"personal":{"canAccess":false,"canEdit":false},"informes":{"canAccess":false,"canEdit":false},"admin_roles":{"canAccess":false,"canEdit":false},"usuarios":{"canAccess":false,"canEdit":false}}'),
+   '{"despachos":{"canAccess":true,"canEdit":false},"planeacion":{"canAccess":true,"canEdit":false},"porteria":{"canAccess":true,"canEdit":true},"personal":{"canAccess":false,"canEdit":false},"informes":{"canAccess":false,"canEdit":false},"admin_roles":{"canAccess":false,"canEdit":false},"usuarios":{"canAccess":false,"canEdit":false},"chat":{"canAccess":true,"canEdit":false}}'),
   ('ROLE_PLANEADOR', 'PLANEADOR', 'Planeación de transporte y vista de despachos.', true,
-   '{"despachos":{"canAccess":true,"canEdit":true},"planeacion":{"canAccess":true,"canEdit":true},"porteria":{"canAccess":false,"canEdit":false},"personal":{"canAccess":false,"canEdit":false},"informes":{"canAccess":true,"canEdit":false},"admin_roles":{"canAccess":false,"canEdit":false},"usuarios":{"canAccess":false,"canEdit":false}}'),
+   '{"despachos":{"canAccess":true,"canEdit":true},"planeacion":{"canAccess":true,"canEdit":true},"porteria":{"canAccess":false,"canEdit":false},"personal":{"canAccess":false,"canEdit":false},"informes":{"canAccess":true,"canEdit":false},"admin_roles":{"canAccess":false,"canEdit":false},"usuarios":{"canAccess":false,"canEdit":false},"chat":{"canAccess":false,"canEdit":false}}'),
   ('ROLE_SUPERVISOR', 'SUPERVISOR', 'Observación global de la operación e informes.', true,
-   '{"despachos":{"canAccess":true,"canEdit":false},"planeacion":{"canAccess":true,"canEdit":false},"porteria":{"canAccess":true,"canEdit":false},"personal":{"canAccess":true,"canEdit":true},"informes":{"canAccess":true,"canEdit":false},"admin_roles":{"canAccess":false,"canEdit":false},"usuarios":{"canAccess":false,"canEdit":false}}');
+   '{"despachos":{"canAccess":true,"canEdit":false},"planeacion":{"canAccess":true,"canEdit":false},"porteria":{"canAccess":true,"canEdit":false},"personal":{"canAccess":true,"canEdit":true},"informes":{"canAccess":true,"canEdit":false},"admin_roles":{"canAccess":false,"canEdit":false},"usuarios":{"canAccess":false,"canEdit":false},"chat":{"canAccess":true,"canEdit":false}}');
 
 -- Usuarios por defecto (ADMIN: cédula 0000000000 / clave admin)
 INSERT INTO users (id, nombre, cedula, clave, tipo_usuario, role_id, role_name) VALUES

@@ -7,7 +7,7 @@ import { useRowFilters } from '../../hooks/useRowFilters';
 import { UnifiedTransporte } from '../../types';
 
 export const PersonalModule: React.FC = () => {
-  const { getUnifiedTransportes, updateMuelleAsignado } = useLogisticsStore();
+  const { getUnifiedTransportes, updateMuelleAsignado, updateMuelleHora } = useLogisticsStore();
   const { hasModuleEdit } = useAuthStore();
   const canEdit = hasModuleEdit('personal');
 
@@ -17,6 +17,10 @@ export const PersonalModule: React.FC = () => {
 
   const handleAsignarMuelle = (row: UnifiedTransporte, muelle: string) => {
     updateMuelleAsignado(row.id, muelle);
+  };
+
+  const handleMuelleHora = (row: UnifiedTransporte, hora: string) => {
+    updateMuelleHora(row.id, hora);
   };
 
   return (
@@ -35,6 +39,7 @@ export const PersonalModule: React.FC = () => {
       <TransportesTable
         rows={filtered}
         onAsignarMuelle={canEdit ? handleAsignarMuelle : undefined}
+        onMuelleHora={canEdit ? handleMuelleHora : undefined}
       />
     </div>
   );

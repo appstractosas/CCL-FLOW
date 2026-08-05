@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MessageSquare,
   Minimize2,
@@ -35,7 +35,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   setIsOpenExternal,
 }) => {
   const { messages, unreadChatCount, sendMessage, markChatRead, transportes } = useLogisticsStore();
-  const { currentUser } = useAuthStore();
+  const { currentUser, getActiveRole } = useAuthStore();
 
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = isOpenExternal !== undefined ? isOpenExternal : internalIsOpen;
@@ -51,13 +51,18 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   const [inputText, setInputText] = useState('');
   const [selectedLlave, setSelectedLlave] = useState<string>('');
   const [suggestedDock, setSuggestedDock] = useState<string>('Muelle 1');
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const role = currentUser?.roleName;
+  const isAdmin = role === 'ADMIN';
   const isPortero = role === 'PORTERO';
   const isSupervisor = role === 'SUPERVISOR';
-  // DESPACHOS, PLANEACIÓN y MONITOREO: chat en solo lectura.
-  const isReadOnly = role === 'DESPACHADOR' || role === 'PLANEADOR' || role === 'MONITOREO';
-  const canInteract = !isReadOnly;
+  // Solo ADMIN, PORTERÍA y SUPERVISOR usan los botones de solicitud/asignación de muelle.
+  const canSolicitud = isPortero || isAdmin;
+  const canConfirmar = isSupervisor || isAdmin;
+  // Escribir mensajes de coordinación se habilita con el módulo CHAT en la matriz de permisos (ROLES).
+  const activeRole = getActiveRole();
+  const canWrite = Boolean(activeRole?.permissions['chat']?.canAccess) && !!currentUser;
 
   // Llaves aún en operación (estado diferente a SALIO DE PORTERIA).
   const activeLlaves = useMemo(
@@ -103,36 +108,35 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   const selectedCompletada = !!selectedLlave && llaveCompletada(selectedLlave);
 
   // Habilitación por rol + estado de la llave seleccionada:
-  // - PORTERÍA: lista de llaves + "+ Solicitud Muelle" (agrega el n° de llave al chat).
-  // - SUPERVISOR: "+ Confirmar Muelle" + lista de muelles. Lo demás deshabilitado.
-  // - DESPACHADOR/PLANEADOR/MONITOREO: chat en solo lectura.
-  // - ADMIN: todo habilitado.
-  const textEnabled = canInteract && role === 'ADMIN';
-  const llaveSelectEnabled = canInteract && !isSupervisor;
-  const muelleSelectEnabled = !!selectedLlave && canInteract && !isPortero;
+  // - Chat de coordinación (escribir mensajes): habilitado si el rol tiene el módulo CHAT activado en ROLES.
+  // - Botones "+ Solicitud Muelle": PORTERÍA y ADMIN. "+ Confirmar Muelle": SUPERVISOR y ADMIN.
+  const textEnabled = canWrite;
+  const llaveSelectEnabled = canWrite && !isSupervisor;
+  const muelleSelectEnabled = !!selectedLlave && canWrite && !isPortero;
   const solicitudEnabled =
-    !!selectedLlave &&
-    canInteract &&
-    !isSupervisor &&
-    !(selectedTieneSolicitud || selectedCompletada);
+    !!selectedLlave && canSolicitud && !(selectedTieneSolicitud || selectedCompletada);
   const confirmarEnabled =
-    !!selectedLlave &&
-    canInteract &&
-    !isPortero &&
-    !(selectedTieneAsignacion || selectedCompletada);
+    !!selectedLlave && canConfirmar && !(selectedTieneAsignacion || selectedCompletada);
 
   let banner: string | null = null;
   if (!canSend) {
     banner = 'Chat deshabilitado: todas las llaves están en SALIO DE PORTERIA.';
-  } else if (isReadOnly) {
-    banner = 'Chat en solo lectura para tu rol.';
-  } else if (selectorLlaves.length === 0) {
+  } else if (!canWrite) {
+    banner = 'Chat deshabilitado para tu rol. Actívalo en la matriz de permisos (ROLES).';
+  } else if (isPortero && selectorLlaves.length === 0) {
     banner = 'Todas las llaves activas ya tienen solicitud y muelle asignado.';
-  } else if (selectedTieneSolicitud) {
+  } else if (isPortero && selectedTieneSolicitud) {
     banner = `Llave ${selectedLlave} ya tiene solicitud de muelle en espera de asignación.`;
-  } else if (selectedTieneAsignacion) {
+  } else if (isSupervisor && selectedTieneAsignacion) {
     banner = `Llave ${selectedLlave} ya tiene muelle asignado.`;
   }
+
+  // WhatsApp-style: los mensajes nuevos quedan abajo y el chat baja automáticamente al último.
+  useEffect(() => {
+    if (isOpen && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isOpen]);
 
   const toggleOpen = () => {
     if (!isOpen) {
@@ -288,7 +292,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
           </div>
 
           {/* Messages Body */}
-          <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-[#080b13] text-xs">
+          <div ref={scrollRef} className="flex-1 p-3 overflow-y-auto space-y-3 bg-[#080b13] text-xs">
             {messages.map((msg) => {
               const isPorteroMsg = msg.senderModule === 'Portería';
 

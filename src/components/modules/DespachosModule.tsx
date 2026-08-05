@@ -7,7 +7,7 @@ import { useRowFilters } from '../../hooks/useRowFilters';
 import { UnifiedTransporte, PorteriaTimeField } from '../../types';
 
 export const DespachosModule: React.FC = () => {
-  const { getUnifiedTransportes, updatePorteriaHora } = useLogisticsStore();
+  const { getUnifiedTransportes, updatePorteriaHora, updateCuadrilla } = useLogisticsStore();
   const { hasModuleEdit } = useAuthStore();
   const canEditRole = hasModuleEdit('despachos');
 
@@ -17,6 +17,10 @@ export const DespachosModule: React.FC = () => {
 
   const handlePorteriaHora = (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => {
     updatePorteriaHora(row.id, campo, hora);
+  };
+
+  const handleCuadrilla = (row: UnifiedTransporte, cuadrilla: string) => {
+    updateCuadrilla(row.id, cuadrilla);
   };
 
   return (
@@ -36,6 +40,7 @@ export const DespachosModule: React.FC = () => {
         rows={filtered}
         checklistOwner={canEditRole ? 'despachos' : undefined}
         onPorteriaHora={canEditRole ? handlePorteriaHora : undefined}
+        onCuadrilla={canEditRole ? handleCuadrilla : undefined}
       />
     </div>
   );

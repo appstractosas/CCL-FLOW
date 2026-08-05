@@ -25,10 +25,10 @@ export const UserSessionBar: React.FC<UserSessionBarProps> = ({ onOpenRoles, onO
     <div className="relative">
       <button
         onClick={() => setMenuOpen((v) => !v)}
-        className="flex items-center space-x-2.5 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 rounded-xl pl-1.5 pr-2.5 py-1.5 transition-colors"
+        className="flex items-center space-x-2.5 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 rounded-xl pl-1.5 pr-2.5 py-1 transition-colors"
         title="Menú de sesión"
       >
-        <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 flex items-center justify-center font-bold text-xs shrink-0">
+        <div className="w-7 h-7 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 flex items-center justify-center font-bold text-xs shrink-0">
           {initials || 'U'}
         </div>
         <div className="text-left min-w-0">

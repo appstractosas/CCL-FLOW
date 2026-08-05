@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Truck, X, CalendarClock } from 'lucide-react';
-import { UnifiedTransporte, TipoVehiculo, EstadoDespacho } from '../../types';
+import { UnifiedTransporte, TipoVehiculo } from '../../types';
 import { TransporteData } from '../../types';
 import { DateTimePickerModal } from '../common/DateTimePickerModal';
-import { useCatalogosStore } from '../../store/useCatalogosStore';
 
 interface TransporteFormModalProps {
   open: boolean;
@@ -16,48 +15,27 @@ interface TransporteFormModalProps {
 interface FormValues {
   vehiculoTipo: TipoVehiculo | '';
   llave: string;
-  numeroPedido: string;
-  numeroPedido2: string;
-  numeroPedido3: string;
-  numeroPedido4: string;
   fechaHora: string;
   placa: string;
   transportadora: string;
-  denominacionCliente: string;
-  destino: string;
-  estado: EstadoDespacho | '';
 }
 
-function buildInitialForm(editingRow: UnifiedTransporte | null, defaultLlave: string): FormValues {
+function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
   if (editingRow) {
     return {
       vehiculoTipo: editingRow.vehiculoTipo,
       llave: editingRow.llave,
-      numeroPedido: editingRow.numeroPedido || '',
-      numeroPedido2: editingRow.numeroPedido2 || '',
-      numeroPedido3: editingRow.numeroPedido3 || '',
-      numeroPedido4: editingRow.numeroPedido4 || '',
       fechaHora: editingRow.fechaHora || '',
       placa: editingRow.placa,
       transportadora: editingRow.transportadora || '',
-      denominacionCliente: editingRow.denominacionCliente,
-      destino: editingRow.destino,
-      estado: editingRow.estadoDespacho,
     };
   }
   return {
     vehiculoTipo: '',
     llave: '',
-    numeroPedido: '',
-    numeroPedido2: '',
-    numeroPedido3: '',
-    numeroPedido4: '',
     fechaHora: '',
     placa: '',
     transportadora: '',
-    denominacionCliente: '',
-    destino: '',
-    estado: '',
   };
 }
 
@@ -68,40 +46,28 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const { clientes, ciudades } = useCatalogosStore();
-  const [formData, setFormData] = useState<FormValues>(() => buildInitialForm(editingRow, defaultLlave));
+  const [formData, setFormData] = useState<FormValues>(() => buildInitialForm(editingRow));
   const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setFormData(buildInitialForm(editingRow, defaultLlave));
+      setFormData(buildInitialForm(editingRow));
       setPickerOpen(false);
     }
-  }, [open, editingRow, defaultLlave]);
+  }, [open, editingRow]);
 
   if (!open) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.placa) return;
-    if (!editingRow && (!formData.llave.trim() || !formData.vehiculoTipo || !formData.estado)) {
-      alert('Complete la LLAVE, el tipo de vehículo y el estado para crear la llave.');
-      return;
-    }
+    const llave = formData.llave.trim() || defaultLlave.trim();
     onSave({
-      llave: formData.llave.trim(),
+      llave,
       placa: formData.placa,
-      numeroPedido: formData.numeroPedido,
-      numeroPedido2: formData.numeroPedido2,
-      numeroPedido3: formData.numeroPedido3,
-      numeroPedido4: formData.numeroPedido4,
       fechaHora: formData.fechaHora,
       citaCargue: formData.fechaHora,
       vehiculoTipo: formData.vehiculoTipo || undefined,
       transportadora: formData.transportadora,
-      denominacionCliente: formData.denominacionCliente,
-      destino: formData.destino,
-      estado: formData.estado || undefined,
     });
   };
 
@@ -123,7 +89,7 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               <Truck className="w-4 h-4" />
             </div>
             <h3 className="text-base font-bold text-white">
-              {editingRow ? `Editar Transporte ${editingRow.placa}` : '+ Nueva Llave'}
+              {editingRow ? `Editar Transporte ${editingRow.placa || editingRow.llave}` : '+ Nueva Llave'}
             </h3>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-white p-1 rounded-lg">
@@ -137,70 +103,11 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               <label className="block text-xs font-bold text-zinc-300 mb-1">LLAVE</label>
               <input
                 type="text"
-                placeholder="Ej: LL-60538"
+                placeholder={defaultLlave}
                 value={formData.llave}
                 onChange={(e) => setFormData({ ...formData, llave: e.target.value })}
                 className={`${inputCls} font-mono uppercase`}
               />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1"># Pedido (DT)</label>
-              <input
-                type="text"
-                placeholder="Ej: 3000576478"
-                value={formData.numeroPedido}
-                onChange={(e) => setFormData({ ...formData, numeroPedido: e.target.value })}
-                className={`${inputCls} font-mono`}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1"># Pedido 2</label>
-              <input
-                type="text"
-                placeholder="Pedido 2"
-                value={formData.numeroPedido2}
-                onChange={(e) => setFormData({ ...formData, numeroPedido2: e.target.value })}
-                className={`${inputCls} font-mono`}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1"># Pedido 3</label>
-              <input
-                type="text"
-                placeholder="Pedido 3"
-                value={formData.numeroPedido3}
-                onChange={(e) => setFormData({ ...formData, numeroPedido3: e.target.value })}
-                className={`${inputCls} font-mono`}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1"># Pedido 4</label>
-              <input
-                type="text"
-                placeholder="Pedido 4"
-                value={formData.numeroPedido4}
-                onChange={(e) => setFormData({ ...formData, numeroPedido4: e.target.value })}
-                className={`${inputCls} font-mono`}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">Fecha y Hora</label>
-              <button
-                type="button"
-                onClick={() => setPickerOpen(true)}
-                className="w-full flex items-center justify-between px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs font-mono text-white focus:outline-none hover:border-blue-500/50"
-              >
-                <span className={formData.fechaHora ? 'text-white' : 'text-zinc-500'}>
-                  {formData.fechaHora || 'Seleccionar fecha y hora'}
-                </span>
-                <CalendarClock className="w-4 h-4 text-zinc-500" />
-              </button>
             </div>
             <div>
               <label className="block text-xs font-bold text-zinc-300 mb-1">Tipo Vehículo</label>
@@ -220,79 +127,39 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">Placa *</label>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Fecha y Hora</label>
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="w-full flex items-center justify-between px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs font-mono text-white focus:outline-none hover:border-blue-500/50"
+              >
+                <span className={formData.fechaHora ? 'text-white' : 'text-zinc-500'}>
+                  {formData.fechaHora || 'Seleccionar fecha y hora'}
+                </span>
+                <CalendarClock className="w-4 h-4 text-zinc-500" />
+              </button>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Placa Remolque</label>
               <input
                 type="text"
-                required
-                placeholder="Ej: TGB-512"
+                placeholder="Opcional · Ej: TGB-512"
                 value={formData.placa}
                 onChange={(e) => setFormData({ ...formData, placa: e.target.value })}
                 className={`${inputCls} font-mono uppercase`}
               />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">Transportadora</label>
-              <input
-                type="text"
-                placeholder="Ej: TRANSPORTES ANDINA"
-                value={formData.transportadora}
-                onChange={(e) => setFormData({ ...formData, transportadora: e.target.value })}
-                className={inputCls}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">Denominación / Cliente</label>
-              <input
-                type="text"
-                required
-                list="clientes-list"
-                placeholder="Seleccione o digite cliente..."
-                value={formData.denominacionCliente}
-                onChange={(e) => setFormData({ ...formData, denominacionCliente: e.target.value })}
-                className={inputCls}
-              />
-              <datalist id="clientes-list">
-                {clientes.map((c) => (
-                  <option key={c.id} value={c.denominacion}>
-                    {c.denominacion} · SHIP-TO {c.codigoShipTo}
-                  </option>
-                ))}
-              </datalist>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">Destino</label>
-              <input
-                type="text"
-                required
-                list="ciudades-list"
-                placeholder="Seleccione o digite ciudad..."
-                value={formData.destino}
-                onChange={(e) => setFormData({ ...formData, destino: e.target.value })}
-                className={`${inputCls} uppercase`}
-              />
-              <datalist id="ciudades-list">
-                {ciudades.map((c) => (
-                  <option key={c.id} value={c.ciudad} />
-                ))}
-              </datalist>
-            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-zinc-300 mb-1">Estado</label>
-            <select
-              value={formData.estado}
-              onChange={(e) => setFormData({ ...formData, estado: e.target.value as EstadoDespacho | '' })}
-              className={`${inputCls} ${formData.estado ? '' : 'text-zinc-500'}`}
-            >
-              <option value="">Seleccionar estado</option>
-              <option value="PTE ALISTAR">PTE ALISTAR</option>
-              <option value="ALISTADO">ALISTADO</option>
-              <option value="DESPACHADO">DESPACHADO</option>
-            </select>
+            <label className="block text-xs font-bold text-zinc-300 mb-1">Transportadora</label>
+            <input
+              type="text"
+              placeholder="Ej: TRANSPORTES ANDINA"
+              value={formData.transportadora}
+              onChange={(e) => setFormData({ ...formData, transportadora: e.target.value })}
+              className={inputCls}
+            />
           </div>
 
           <div className="flex items-center justify-end space-x-2 pt-4 border-t border-zinc-800">

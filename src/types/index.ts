@@ -6,7 +6,8 @@ export type AppModuleId =
   | 'planeacion' 
   | 'personal'
   | 'admin_roles'
-  | 'usuarios';
+  | 'usuarios'
+  | 'chat';
 
 /** Tipos de usuario del sistema (mapean a un rol de la matriz de permisos). */
 export type UserType = 'admin' | 'despachador' | 'portero' | 'planeador' | 'supervisor' | 'monitor';
@@ -57,9 +58,10 @@ export type HistorialAccion =
   | 'CREAR_TRANSPORTE'
   | 'EDITAR_TRANSPORTE'
   | 'ELIMINAR_TRANSPORTE'
-  | 'CAMBIO_ESTADO_DESPACHO'
+  | 'CANCELAR_TRANSPORTE'
   | 'ACTUALIZAR_PORTERIA'
   | 'ASIGNAR_MUELLE'
+  | 'ASIGNAR_CUADRILLA'
   | 'OTRO';
 
 /** Movimiento registrado por usuario (tabla `historial_movimientos` en Supabase). */
@@ -75,16 +77,16 @@ export interface HistorialMovimiento {
   createdAt: string;
 }
 
-/** Estado del módulo DESPACHOS (elegido al crear la llave). */
-export type EstadoDespacho = 'ALISTADO' | 'DESPACHADO' | 'PTE ALISTAR';
 /** Estado del flujo de PORTERÍA (columna ESTADO del modal principal de transportes). */
 export type EstadoPorteria =
   | 'Pendiente'
+  | 'Confirmado'
   | 'LLEGO A PORTERIA'
   | 'INGRESO A MUELLE'
   | 'CARGANDO'
   | 'FINALIZO CARGUE'
-  | 'SALIO DE PORTERIA';
+  | 'SALIO DE PORTERIA'
+  | 'CANCELADO';
 export type EstadoTransporte = 'DESPACHADO' | 'ALISTADO' | 'PENDIENTE';
 export type TipoVehiculo = 'SENCILLO' | 'TURBO' | 'MINIMULA' | 'LUV';
 
@@ -106,19 +108,14 @@ export interface UnifiedTransporte {
   llave: string;
   fechaHora: string;
   placa: string;
-  numeroPedido: string;
-  numeroPedido2?: string;
-  numeroPedido3?: string;
-  numeroPedido4?: string;
   vehiculoTipo: TipoVehiculo;
-  denominacionCliente: string;
-  destino: string;
   citaCargue: string;
   transportadora?: string;
   estadoTransporte: EstadoTransporte;
-  estadoDespacho: EstadoDespacho;
   estadoPorteria: EstadoPorteria;
   muelleAsignado?: string;
+  cuadrilla?: string;
+  horaMuelleAsignado?: string;
   horaIngreso?: string;
   horaSalida?: string;
   horaLlegadaPorteria?: string;
@@ -132,17 +129,12 @@ export interface TransporteData {
   placa?: string;
   fechaHora?: string;
   vehiculoTipo?: TipoVehiculo;
-  denominacionCliente?: string;
-  destino?: string;
   citaCargue?: string;
   transportadora?: string;
-  numeroPedido?: string;
-  numeroPedido2?: string;
-  numeroPedido3?: string;
-  numeroPedido4?: string;
-  estado?: EstadoDespacho;
   estadoTransporte?: EstadoTransporte;
   muelleAsignado?: string;
+  cuadrilla?: string;
+  horaMuelleAsignado?: string;
   observaciones?: string;
 }
 

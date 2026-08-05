@@ -14,7 +14,7 @@ export const PermissionMatrix: React.FC = () => {
         <div>
           <h3 className="text-sm font-bold text-white">Matriz de Permisos por Módulo</h3>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Activa o desactiva cada módulo por rol. El ADMIN mantiene acceso total por defecto.
+            Activa o desactiva cada módulo por rol, incluido el Chat de coordinación. El ADMIN mantiene acceso total por defecto.
           </p>
         </div>
         <span className="hidden md:flex items-center space-x-1.5 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-full">

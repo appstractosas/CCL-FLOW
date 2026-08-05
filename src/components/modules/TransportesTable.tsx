@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Edit2, XCircle } from 'lucide-react';
 import { UnifiedTransporte, PorteriaTimeField } from '../../types';
 import { TipoBadge, EstadoBadge } from '../common/EstadoBadge';
 import { TransporteDetailPanel } from './TransporteDetailPanel';
@@ -13,6 +13,8 @@ interface TransportesTableProps {
   onDelete?: (row: UnifiedTransporte) => void;
   hideAcciones?: boolean;
   onAsignarMuelle?: (row: UnifiedTransporte, muelle: string) => void;
+  onMuelleHora?: (row: UnifiedTransporte, hora: string) => void;
+  onCuadrilla?: (row: UnifiedTransporte, cuadrilla: string) => void;
   checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
 }
@@ -32,6 +34,8 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   onDelete,
   hideAcciones = false,
   onAsignarMuelle,
+  onMuelleHora,
+  onCuadrilla,
   checklistOwner,
   onPorteriaHora,
 }) => {
@@ -56,7 +60,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
             <tr className="bg-[#121726] border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider">
               <th className="py-3.5 px-3">FECHA</th>
               <th className="py-3.5 px-3">LLAVE</th>
-              <th className="py-3.5 px-3">PLACA</th>
+              <th className="py-3.5 px-3">PLACA REMOLQUE</th>
               <th className="py-3.5 px-3">TIPO</th>
               <th className="py-3.5 px-3">MUELLE</th>
               <th className="py-3.5 px-3">ESTADO</th>
@@ -85,9 +89,13 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                     {row.llave}
                   </td>
                   <td className="py-3.5 px-3 font-mono whitespace-nowrap">
-                    <span className="bg-zinc-800/80 text-zinc-100 font-bold px-2 py-0.5 rounded border border-zinc-700">
-                      {row.placa}
-                    </span>
+                    {row.placa ? (
+                      <span className="bg-zinc-800/80 text-zinc-100 font-bold px-2 py-0.5 rounded border border-zinc-700">
+                        {row.placa}
+                      </span>
+                    ) : (
+                      <span className="text-zinc-600 font-semibold">—</span>
+                    )}
                   </td>
                   <td className="py-3.5 px-3 whitespace-nowrap">
                     <TipoBadge tipo={row.vehiculoTipo} />
@@ -120,9 +128,9 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                               onDelete(row);
                             }}
                             className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-rose-400 hover:border-rose-500/40 transition-colors"
-                            title="Eliminar transporte"
+                            title="Cancelar transporte"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <XCircle className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
@@ -188,6 +196,8 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
           onDelete?.(row);
         }}
         onAsignarMuelle={onAsignarMuelle}
+        onMuelleHora={onMuelleHora}
+        onCuadrilla={onCuadrilla}
         checklistOwner={checklistOwner}
         onPorteriaHora={onPorteriaHora}
       />

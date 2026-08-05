@@ -45,5 +45,11 @@ export const EstadoBadge: React.FC<{ estado: string }> = ({ estado }) => {
   if (key === 'EN PROCESO' || key === 'ALISTADO') {
     return <span className="bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
   }
+  if (key === 'CANCELADO') {
+    return <span className="bg-zinc-500/10 text-zinc-400 border border-zinc-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
+  }
+  if (key === 'PENDIENTE') {
+    return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
+  }
   return <span className="bg-rose-500/10 text-rose-400 border border-rose-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
 };

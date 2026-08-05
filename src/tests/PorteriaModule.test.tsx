@@ -31,13 +31,9 @@ describe('PorteriaModule Component (Shared Unified Table)', () => {
     const base: Omit<UnifiedTransporte, 'llave' | 'placa'> = {
       id: '',
       fechaHora: `${today()} 08:00`,
-      numeroPedido: '3000576478',
       vehiculoTipo: 'TURBO',
-      denominacionCliente: 'CEDI NEIVA',
-      destino: 'NEIVA',
       citaCargue: `${today()} 07:00`,
       estadoTransporte: 'DESPACHADO',
-      estadoDespacho: 'ALISTADO',
       estadoPorteria: 'Pendiente',
       muelleAsignado: 'Muelle 4',
     };

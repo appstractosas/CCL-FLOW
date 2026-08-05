@@ -36,7 +36,7 @@ function isOnline(): boolean {
 
 export async function fetchMessages(): Promise<ChatMessage[]> {
   if (!isOnline()) return [];
-  const { data, error } = await supabase.from(TABLE).select('*').order('timestamp', { ascending: false });
+  const { data, error } = await supabase.from(TABLE).select('*').order('timestamp', { ascending: true });
   if (error) throw error;
   return (data || []).map(mapMessageFromDB);
 }

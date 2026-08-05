@@ -16,6 +16,7 @@ import { todayStr } from '../../lib/dateUtils';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { useLogisticsStore } from '../../store/useLogisticsStore';
 import { fetchTransportesByRango } from '../../services/transportesService';
+import { getEstadoPorteria } from '../../utils/porteria';
 import type { UnifiedTransporte } from '../../types';
 
 export const InformesModule: React.FC = () => {
@@ -64,17 +65,16 @@ export const InformesModule: React.FC = () => {
       }
 
       const headers = [
-        'LLAVE', 'FECHA', 'PLACA', 'N° PEDIDO', 'TIPO VEHÍCULO', 'CLIENTE',
-        'DESTINO', 'CITA CARGUE', 'TRANSPORTADORA', 'ESTADO TRANSPORTE',
-        'ESTADO DESPACHO', 'ESTADO PORTERÍA', 'MUELLE', 'H. LLEGADA PORTERÍA',
-        'H. INGRESO', 'H. INICIO CARGUE', 'H. FIN CARGUE', 'H. SALIDA', 'OBSERVACIONES',
+        'LLAVE', 'FECHA', 'PLACA REMOLQUE', 'TIPO VEHÍCULO', 'CITA CARGUE', 'TRANSPORTADORA',
+        'ESTADO TRANSPORTE', 'ESTADO', 'MUELLE', 'CUADRILLA', 'H. ASIGNACIÓN MUELLE',
+        'H. LLEGADA PORTERÍA', 'H. INGRESO', 'H. INICIO CARGUE', 'H. FIN CARGUE', 'H. SALIDA',
+        'OBSERVACIONES',
       ];
       const data = rows.map((r) => [
-        r.llave, r.fechaHora, r.placa, r.numeroPedido, r.vehiculoTipo,
-        r.denominacionCliente, r.destino, r.citaCargue, r.transportadora,
-        r.estadoTransporte, r.estadoDespacho, r.estadoPorteria, r.muelleAsignado || '',
-        r.horaLlegadaPorteria || '', r.horaIngreso || '', r.horaInicioCargue || '',
-        r.horaFinCargue || '', r.horaSalida || '', r.observaciones || '',
+        r.llave, r.fechaHora, r.placa, r.vehiculoTipo, r.citaCargue, r.transportadora,
+        r.estadoTransporte, getEstadoPorteria(r), r.muelleAsignado || '', r.cuadrilla || '',
+        r.horaMuelleAsignado || '', r.horaLlegadaPorteria || '', r.horaIngreso || '',
+        r.horaInicioCargue || '', r.horaFinCargue || '', r.horaSalida || '', r.observaciones || '',
       ]);
 
       const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Edit2, Trash2 } from 'lucide-react';
+import { X, Edit2, XCircle } from 'lucide-react';
 import { UnifiedTransporte, PorteriaTimeField } from '../../types';
 import { EstadoBadge, TipoBadge } from '../common/EstadoBadge';
 import { getEstadoPorteria, isLlaveCerrada } from '../../utils/porteria';
@@ -12,6 +12,8 @@ interface TransporteDetailPanelProps {
   onEdit?: (row: UnifiedTransporte) => void;
   onDelete?: (row: UnifiedTransporte) => void;
   onAsignarMuelle?: (row: UnifiedTransporte, muelle: string) => void;
+  onMuelleHora?: (row: UnifiedTransporte, hora: string) => void;
+  onCuadrilla?: (row: UnifiedTransporte, cuadrilla: string) => void;
   checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
 }
@@ -29,6 +31,8 @@ const PORTERIA_STEPS: PorteriaStep[] = [
   { key: 'horaFinCargue', label: 'H. Fin Cargue', msg: '¿Seguro que el vehículo finalizó cargue?' },
   { key: 'horaSalida', label: 'H. Salida Portería', msg: '¿Seguro que el vehículo salió de portería?' },
 ];
+
+export const CUADRILLAS = ['CCL', 'LTSA (Éxito)', 'SLA'] as const;
 
 function timeSet(value?: string): boolean {
   return value != null && value !== '' && value !== '--:--';
@@ -67,18 +71,23 @@ function TimeRow({
   checked,
   enabled,
   value,
+  editable,
   onCheck,
+  onEdit,
 }: {
   showCheck: boolean;
   step: PorteriaStep;
   checked: boolean;
   enabled: boolean;
   value?: string;
+  editable: boolean;
   onCheck: () => void;
+  onEdit: (hora: string) => void;
 }) {
   if (!showCheck) {
     return <DetailRow label={step.label} value={value} />;
   }
+  const hasValue = timeSet(value);
   return (
     <div className="flex items-center justify-between gap-3 py-2.5 border-b border-zinc-800/60 last:border-0">
       <label
@@ -99,9 +108,19 @@ function TimeRow({
           {step.label}
         </span>
       </label>
-      <span className={`text-xs font-semibold text-right ${checked ? 'text-emerald-300' : 'text-zinc-100'}`}>
-        {checked && value ? value : '—'}
-      </span>
+      {editable && hasValue ? (
+        <input
+          type="time"
+          value={value || ''}
+          onChange={(e) => e.target.value && onEdit(e.target.value)}
+          className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2 py-1 rounded-lg font-bold focus:outline-none text-xs"
+          title={`Editar ${step.label}`}
+        />
+      ) : (
+        <span className={`text-xs font-semibold text-right ${checked ? 'text-emerald-300' : 'text-zinc-100'}`}>
+          {hasValue ? value : '—'}
+        </span>
+      )}
     </div>
   );
 }
@@ -114,6 +133,8 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   onEdit,
   onDelete,
   onAsignarMuelle,
+  onMuelleHora,
+  onCuadrilla,
   checklistOwner,
   onPorteriaHora,
 }) => {
@@ -133,6 +154,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   const requiresMuelle = checklistOwner === 'despachos';
   const muelleOk = !requiresMuelle || Boolean(row.muelleAsignado);
   const stepEnabled = (i: number) => !cerrada && ownedIndexes.includes(i) && enabledIndex === i && muelleOk;
+  const stepEditable = (i: number) => !cerrada && ownedIndexes.includes(i) && setFlags[i];
 
   const handleEdit = () => {
     onClose();
@@ -153,27 +175,13 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
           <div className="min-w-0">
             <h3 className="text-lg font-black text-white font-mono truncate">{row.llave}</h3>
             <p className="text-[11px] text-zinc-400 font-semibold flex items-center space-x-1.5">
-              <span>{row.placa}</span>
+              <span>{row.placa || 'SIN PLACA'}</span>
               <TipoBadge tipo={row.vehiculoTipo} />
             </p>
           </div>
-          <div className="flex items-center space-x-2 shrink-0">
-            <div className="grid grid-cols-2 gap-1.5">
-              {[row.numeroPedido, row.numeroPedido2, row.numeroPedido3, row.numeroPedido4]
-                .filter((p) => p && String(p).trim() !== '')
-                .map((p, i) => (
-                  <span
-                    key={i}
-                    className="text-[10px] font-mono font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded px-1.5 py-0.5 whitespace-nowrap"
-                  >
-                    {p}
-                  </span>
-                ))}
-            </div>
-            <button onClick={onClose} className="text-zinc-400 hover:text-white p-1.5 rounded-lg">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <button onClick={onClose} className="text-zinc-400 hover:text-white p-1.5 rounded-lg shrink-0">
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Body */}
@@ -192,36 +200,62 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 step={PORTERIA_STEPS[0]}
                 checked={setFlags[0]}
                 enabled={stepEnabled(0)}
+                editable={stepEditable(0)}
                 value={row.horaLlegadaPorteria}
                 onCheck={() => setConfirmIndex(0)}
+                onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[0].key, hora)}
               />
               <TimeRow
                 showCheck={showCheck && ownedIndexes.includes(1)}
                 step={PORTERIA_STEPS[1]}
                 checked={setFlags[1]}
                 enabled={stepEnabled(1)}
+                editable={stepEditable(1)}
                 value={row.horaIngreso}
                 onCheck={() => setConfirmIndex(1)}
+                onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[1].key, hora)}
               />
               {onAsignarMuelle ? (
-                <div className="flex items-center justify-between gap-3 py-2.5 border-b border-zinc-800/60">
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
-                    Muelle Asignado
-                  </span>
-                  <select
-                    value={row.muelleAsignado || ''}
-                    onChange={(e) => onAsignarMuelle(row, e.target.value)}
-                    disabled={cerrada}
-                    className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2.5 py-1.5 rounded-lg font-bold focus:outline-none text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Asignar muelle (1 al 12)"
-                  >
-                    <option value="">Sin asignar</option>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={`Muelle ${n}`}>
-                        Muelle {n}
-                      </option>
-                    ))}
-                  </select>
+                <div className="border-b border-zinc-800/60">
+                  <div className="flex items-center justify-between gap-3 py-2.5">
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
+                      Muelle Asignado
+                    </span>
+                    <select
+                      value={row.muelleAsignado || ''}
+                      onChange={(e) => onAsignarMuelle(row, e.target.value)}
+                      disabled={cerrada}
+                      className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2.5 py-1.5 rounded-lg font-bold focus:outline-none text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Asignar muelle (incluye MUELLE CERO)"
+                    >
+                      <option value="">Sin asignar</option>
+                      <option value="MUELLE CERO">MUELLE CERO</option>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={`Muelle ${n}`}>
+                          Muelle {n}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 pb-2.5">
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
+                      H. Asignación Muelle
+                    </span>
+                    {onMuelleHora ? (
+                      <input
+                        type="time"
+                        value={timeSet(row.horaMuelleAsignado) ? row.horaMuelleAsignado : ''}
+                        onChange={(e) => e.target.value && onMuelleHora(row, e.target.value)}
+                        disabled={cerrada}
+                        className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2 py-1 rounded-lg font-bold focus:outline-none text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Editar hora de asignación del muelle"
+                      />
+                    ) : (
+                      <span className="text-xs font-semibold text-zinc-100 text-right">
+                        {timeSet(row.horaMuelleAsignado) ? row.horaMuelleAsignado : '—'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <DetailRow label="Muelle Asignado" value={row.muelleAsignado} />
@@ -231,24 +265,51 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 step={PORTERIA_STEPS[2]}
                 checked={setFlags[2]}
                 enabled={stepEnabled(2)}
+                editable={stepEditable(2)}
                 value={row.horaInicioCargue}
                 onCheck={() => setConfirmIndex(2)}
+                onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[2].key, hora)}
               />
               <TimeRow
                 showCheck={showCheck && ownedIndexes.includes(3)}
                 step={PORTERIA_STEPS[3]}
                 checked={setFlags[3]}
                 enabled={stepEnabled(3)}
+                editable={stepEditable(3)}
                 value={row.horaFinCargue}
                 onCheck={() => setConfirmIndex(3)}
+                onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[3].key, hora)}
               />
+              {checklistOwner === 'despachos' && onCuadrilla && (
+                <div className="flex items-center justify-between gap-3 py-2.5 border-b border-zinc-800/60 last:border-0">
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
+                    Cuadrilla
+                  </span>
+                  <select
+                    value={row.cuadrilla || ''}
+                    onChange={(e) => onCuadrilla(row, e.target.value)}
+                    disabled={cerrada}
+                    className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2.5 py-1.5 rounded-lg font-bold focus:outline-none text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Seleccionar cuadrilla de cargue"
+                  >
+                    <option value="">Sin cuadrilla</option>
+                    {CUADRILLAS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <TimeRow
                 showCheck={showCheck && ownedIndexes.includes(4)}
                 step={PORTERIA_STEPS[4]}
                 checked={setFlags[4]}
                 enabled={stepEnabled(4)}
+                editable={stepEditable(4)}
                 value={row.horaSalida}
                 onCheck={() => setConfirmIndex(4)}
+                onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[4].key, hora)}
               />
             </div>
           </div>
@@ -257,8 +318,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
           <div>
             <SectionTitle>Detalle</SectionTitle>
             <div className="bg-[#121726] rounded-xl border border-zinc-800 px-4">
-              <DetailRow label="Cliente / Denominación" value={row.denominacionCliente} />
-              <DetailRow label="Destino" value={row.destino} />
+              <DetailRow label="Cuadrilla" value={row.cuadrilla} />
               <DetailRow label="Observaciones" value={row.observaciones} />
             </div>
           </div>
@@ -281,7 +341,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                   onClick={handleDelete}
                   className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-2 bg-zinc-900 border border-zinc-700 text-zinc-200 hover:border-rose-500/40 hover:text-rose-400 rounded-xl text-xs font-bold transition-colors"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                  <XCircle className="w-3.5 h-3.5" /> Cancelar
                 </button>
               )}
             </div>

@@ -5,35 +5,50 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
   beforeEach(() => {
     useLogisticsStore.setState({
       nextLlaveSeq: 60533,
-      nextPedidoSeq: 3000576478,
       transportes: [],
       messages: [],
     });
   });
 
-  it('should autogenerate LLAVE starting from LL-60533 and consecutive order numbers', async () => {
+  it('should autogenerate LLAVE starting from LL-60533 and mark CONFIRMADO when placa is set', async () => {
     const store = useLogisticsStore.getState();
 
     const newOrder = await store.addTransporte({
       fechaHora: '2026-07-29 10:00',
       placa: 'XYZ-999',
-      estado: 'ALISTADO',
     });
 
     expect(newOrder.llave).toBe('LL-60533');
-    expect(newOrder.numeroPedido).toBe('3000576478');
-    expect(newOrder.estadoDespacho).toBe('ALISTADO');
-    expect(newOrder.estadoPorteria).toBe('Pendiente');
+    expect(newOrder.estadoPorteria).toBe('Confirmado');
 
     const nextOrder = await store.addTransporte({
       fechaHora: '2026-07-29 10:15',
       placa: 'ABC-123',
-      estado: 'DESPACHADO',
     });
 
     expect(nextOrder.llave).toBe('LL-60534');
-    expect(nextOrder.numeroPedido).toBe('3000576479');
-    expect(nextOrder.estadoDespacho).toBe('DESPACHADO');
+    expect(nextOrder.estadoPorteria).toBe('Confirmado');
+  });
+
+  it('should mark PENDIENTE when created without placa (placa opcional)', async () => {
+    const store = useLogisticsStore.getState();
+
+    const row = await store.addTransporte({
+      fechaHora: '2026-07-29 10:30',
+    });
+
+    expect(row.llave).toBe('LL-60533');
+    expect(row.placa).toBe('');
+    expect(row.estadoPorteria).toBe('Pendiente');
+  });
+
+  it('should reject duplicate LLAVES', async () => {
+    const store = useLogisticsStore.getState();
+    await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-50000' });
+
+    await expect(
+      store.addTransporte({ placa: 'ABC-123', llave: 'LL-50000' })
+    ).rejects.toThrow(/ya existe/i);
   });
 
   it('should advance estadoPorteria when logging a porteria hora', async () => {
@@ -43,8 +58,7 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
       placa: 'XYZ-999',
     });
 
-    expect(row.estadoDespacho).toBe('PTE ALISTAR');
-    expect(row.estadoPorteria).toBe('Pendiente');
+    expect(row.estadoPorteria).toBe('Confirmado');
 
     store.updatePorteriaHora(row.id, 'horaLlegadaPorteria', '08:00');
     let currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
@@ -75,5 +89,46 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
     expect(currentRow?.muelleAsignado).toBe('Muelle 7');
     expect(currentRow?.horaFinCargue).not.toBe('11:00');
     expect(currentRow?.placa).toBe('XYZ-999');
+  });
+
+  it('should cancel the llave (CANCELADO) instead of deleting and block further edits', async () => {
+    const store = useLogisticsStore.getState();
+
+    const row = await store.addTransporte({
+      placa: 'XYZ-999',
+    });
+
+    store.cancelTransporte(row.id);
+    let currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
+    expect(currentRow).toBeDefined();
+    expect(currentRow?.estadoPorteria).toBe('CANCELADO');
+
+    // Cancelado: ya no se puede modificar
+    store.updateMuelleAsignado(row.id, 'Muelle 8');
+    store.updatePorteriaHora(row.id, 'horaLlegadaPorteria', '09:00');
+    store.updateCuadrilla(row.id, 'CCL');
+    currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
+    expect(currentRow?.muelleAsignado).not.toBe('Muelle 8');
+    expect(currentRow?.horaLlegadaPorteria).not.toBe('09:00');
+    expect(currentRow?.cuadrilla).not.toBe('CCL');
+  });
+
+  it('should assign muelle with editable hora and set cuadrilla on despachos', async () => {
+    const store = useLogisticsStore.getState();
+
+    const row = await store.addTransporte({ placa: 'XYZ-999' });
+
+    store.updateMuelleAsignado(row.id, 'MUELLE CERO');
+    let currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
+    expect(currentRow?.muelleAsignado).toBe('MUELLE CERO');
+    expect(currentRow?.horaMuelleAsignado).toBeTruthy();
+
+    store.updateMuelleHora(row.id, '09:15');
+    currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
+    expect(currentRow?.horaMuelleAsignado).toBe('09:15');
+
+    store.updateCuadrilla(row.id, 'LTSA (Éxito)');
+    currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
+    expect(currentRow?.cuadrilla).toBe('LTSA (Éxito)');
   });
 });

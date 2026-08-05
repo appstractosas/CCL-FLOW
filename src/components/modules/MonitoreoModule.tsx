@@ -23,7 +23,7 @@ export const MonitoreoModule: React.FC = () => {
       <ModuleToolbar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        searchPlaceholder="Buscar por LLAVE, placa, cliente o destino..."
+        searchPlaceholder="Buscar por LLAVE, placa o transportadora..."
         dateFrom={dateFrom}
         dateTo={dateTo}
         onDateFromChange={setDateFrom}

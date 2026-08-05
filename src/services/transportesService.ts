@@ -8,19 +8,14 @@ function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
     llave: item.llave,
     fecha_hora: item.fechaHora,
     placa: item.placa,
-    numero_pedido: item.numeroPedido || null,
-    numero_pedido2: item.numeroPedido2 || null,
-    numero_pedido3: item.numeroPedido3 || null,
-    numero_pedido4: item.numeroPedido4 || null,
     vehiculo_tipo: item.vehiculoTipo,
-    denominacion_cliente: item.denominacionCliente,
-    destino: item.destino,
     cita_cargue: item.citaCargue || null,
     transportadora: item.transportadora || '',
     estado_transporte: item.estadoTransporte,
-    estado_despacho: item.estadoDespacho,
     estado_porteria: item.estadoPorteria,
     muelle_asignado: item.muelleAsignado || null,
+    cuadrilla: item.cuadrilla || null,
+    hora_muelle_asignado: item.horaMuelleAsignado || null,
     hora_ingreso: item.horaIngreso || null,
     hora_salida: item.horaSalida || null,
     hora_llegada_porteria: item.horaLlegadaPorteria || null,
@@ -35,20 +30,15 @@ function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
     id: item.id,
     llave: item.llave,
     fechaHora: item.fecha_hora,
-    placa: item.placa,
-    numeroPedido: item.numero_pedido || '',
-    numeroPedido2: item.numero_pedido2 || '',
-    numeroPedido3: item.numero_pedido3 || '',
-    numeroPedido4: item.numero_pedido4 || '',
+    placa: item.placa || '',
     vehiculoTipo: item.vehiculo_tipo,
-    denominacionCliente: item.denominacion_cliente,
-    destino: item.destino,
     citaCargue: item.cita_cargue || '',
     transportadora: item.transportadora || '',
     estadoTransporte: item.estado_transporte,
-    estadoDespacho: item.estado_despacho,
-    estadoPorteria: item.estado_porteria,
+    estadoPorteria: item.estado_porteria || 'Pendiente',
     muelleAsignado: item.muelle_asignado || undefined,
+    cuadrilla: item.cuadrilla || undefined,
+    horaMuelleAsignado: item.hora_muelle_asignado || undefined,
     horaIngreso: item.hora_ingreso || undefined,
     horaSalida: item.hora_salida || undefined,
     horaLlegadaPorteria: item.hora_llegada_porteria || undefined,
@@ -94,19 +84,14 @@ export async function updateTransporte(id: string, updates: Partial<UnifiedTrans
   const dbUpdates: Record<string, any> = {};
   if (updates.fechaHora !== undefined) dbUpdates.fecha_hora = updates.fechaHora;
   if (updates.placa !== undefined) dbUpdates.placa = updates.placa;
-  if (updates.numeroPedido !== undefined) dbUpdates.numero_pedido = updates.numeroPedido;
-  if (updates.numeroPedido2 !== undefined) dbUpdates.numero_pedido2 = updates.numeroPedido2;
-  if (updates.numeroPedido3 !== undefined) dbUpdates.numero_pedido3 = updates.numeroPedido3;
-  if (updates.numeroPedido4 !== undefined) dbUpdates.numero_pedido4 = updates.numeroPedido4;
   if (updates.vehiculoTipo !== undefined) dbUpdates.vehiculo_tipo = updates.vehiculoTipo;
-  if (updates.denominacionCliente !== undefined) dbUpdates.denominacion_cliente = updates.denominacionCliente;
-  if (updates.destino !== undefined) dbUpdates.destino = updates.destino;
   if (updates.citaCargue !== undefined) dbUpdates.cita_cargue = updates.citaCargue;
   if (updates.transportadora !== undefined) dbUpdates.transportadora = updates.transportadora;
   if (updates.estadoTransporte !== undefined) dbUpdates.estado_transporte = updates.estadoTransporte;
-  if (updates.estadoDespacho !== undefined) dbUpdates.estado_despacho = updates.estadoDespacho;
   if (updates.estadoPorteria !== undefined) dbUpdates.estado_porteria = updates.estadoPorteria;
   if (updates.muelleAsignado !== undefined) dbUpdates.muelle_asignado = updates.muelleAsignado;
+  if (updates.cuadrilla !== undefined) dbUpdates.cuadrilla = updates.cuadrilla;
+  if (updates.horaMuelleAsignado !== undefined) dbUpdates.hora_muelle_asignado = updates.horaMuelleAsignado;
   if (updates.horaIngreso !== undefined) dbUpdates.hora_ingreso = updates.horaIngreso;
   if (updates.horaSalida !== undefined) dbUpdates.hora_salida = updates.horaSalida;
   if (updates.horaLlegadaPorteria !== undefined) dbUpdates.hora_llegada_porteria = updates.horaLlegadaPorteria;
@@ -114,10 +99,5 @@ export async function updateTransporte(id: string, updates: Partial<UnifiedTrans
   if (updates.horaFinCargue !== undefined) dbUpdates.hora_fin_cargue = updates.horaFinCargue;
   if (updates.observaciones !== undefined) dbUpdates.observaciones = updates.observaciones;
   const { error } = await supabase.from(TABLE).update(dbUpdates).eq('id', id);
-  if (error) throw error;
-}
-
-export async function deleteTransporte(id: string): Promise<void> {
-  const { error } = await supabase.from(TABLE).delete().eq('id', id);
   if (error) throw error;
 }

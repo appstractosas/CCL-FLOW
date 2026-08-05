@@ -9,7 +9,7 @@ import { useRowFilters } from '../../hooks/useRowFilters';
 import { UnifiedTransporte, TransporteData } from '../../types';
 
 export const PlaneacionModule: React.FC = () => {
-  const { getUnifiedTransportes, addTransporte, updateTransporte, deleteTransporte } = useLogisticsStore();
+  const { getUnifiedTransportes, addTransporte, updateTransporte, cancelTransporte } = useLogisticsStore();
   const { hasModuleEdit } = useAuthStore();
   const canEdit = hasModuleEdit('planeacion');
 
@@ -30,17 +30,21 @@ export const PlaneacionModule: React.FC = () => {
   };
 
   const handleSave = async (data: TransporteData & { llave: string }) => {
-    if (editingRow) {
-      updateTransporte(editingRow.id, data);
-    } else {
-      await addTransporte(data);
+    try {
+      if (editingRow) {
+        updateTransporte(editingRow.id, data);
+      } else {
+        await addTransporte(data);
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'No se pudo guardar la llave.');
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (row: UnifiedTransporte) => {
-    if (window.confirm(`¿Eliminar el transporte ${row.placa} (${row.llave})?`)) {
-      deleteTransporte(row.id);
+  const handleCancel = (row: UnifiedTransporte) => {
+    if (window.confirm(`¿Cancelar el transporte ${row.placa || 'SIN PLACA'} (${row.llave})? No se elimina: quedará con estado CANCELADO.`)) {
+      cancelTransporte(row.id);
     }
   };
 
@@ -73,7 +77,7 @@ export const PlaneacionModule: React.FC = () => {
         showEdit={canEdit}
         showDelete={canEdit}
         onEdit={openEdit}
-        onDelete={handleDelete}
+        onDelete={handleCancel}
       />
 
       <TransporteFormModal
