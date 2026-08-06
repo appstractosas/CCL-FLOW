@@ -305,12 +305,16 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       },
 
       hasModuleAccess: (moduleId) => {
+        // El ADMIN tiene acceso total a cualquier módulo.
+        if (get().currentUser?.tipoUsuario === 'admin') return true;
         const activeRole = get().getActiveRole();
         if (!activeRole) return false;
         return Boolean(activeRole.permissions[moduleId]?.canAccess);
       },
 
       hasModuleEdit: (moduleId) => {
+        // El ADMIN puede editar en cualquier módulo.
+        if (get().currentUser?.tipoUsuario === 'admin') return true;
         const activeRole = get().getActiveRole();
         if (!activeRole) return false;
         return Boolean(activeRole.permissions[moduleId]?.canEdit);

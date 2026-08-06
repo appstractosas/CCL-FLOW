@@ -7,10 +7,11 @@ import { TransporteFormModal } from './TransporteFormModal';
 import { ModuleToolbar } from '../common/ModuleToolbar';
 import { useRowFilters } from '../../hooks/useRowFilters';
 import { UnifiedTransporte, TransporteData } from '../../types';
+import { getEstadoPorteria } from '../../utils/porteria';
 
 export const PlaneacionModule: React.FC = () => {
   const { getUnifiedTransportes, addTransporte, updateTransporte, cancelTransporte } = useLogisticsStore();
-  const { hasModuleEdit } = useAuthStore();
+  const { hasModuleEdit, isAdmin } = useAuthStore();
   const canEdit = hasModuleEdit('planeacion');
 
   const [editingRow, setEditingRow] = useState<UnifiedTransporte | null>(null);
@@ -48,6 +49,14 @@ export const PlaneacionModule: React.FC = () => {
     }
   };
 
+  // El PLANEADOR solo puede cancelar llaves que aún estén en PENDIENTE o CONFIRMADO;
+  // en estados posteriores únicamente puede editarlas. El ADMIN cancela en cualquier estado.
+  const canCancelLlave = (row: UnifiedTransporte) => {
+    const estado = getEstadoPorteria(row);
+    if (isAdmin()) return true;
+    return estado === 'Pendiente' || estado === 'Confirmado';
+  };
+
   return (
     <div className="space-y-4">
       <ModuleToolbar
@@ -76,6 +85,7 @@ export const PlaneacionModule: React.FC = () => {
         rows={filtered}
         showEdit={canEdit}
         showDelete={canEdit}
+        canCancel={canCancelLlave}
         onEdit={openEdit}
         onDelete={handleCancel}
       />

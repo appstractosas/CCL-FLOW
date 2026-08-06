@@ -4,52 +4,39 @@ import { TipoVehiculo } from '../../types';
 export const TipoBadge: React.FC<{ tipo: TipoVehiculo }> = ({ tipo }) => {
   switch (tipo) {
     case 'MINIMULA':
-      return <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded font-extrabold text-[10px]">MINIMULA</span>;
+      return <span className="bg-amber-500/10 text-white border border-amber-500/20 px-2 py-0.5 rounded-full font-bold text-[10px]">MINIMULA</span>;
     case 'SENCILLO':
-      return <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded font-extrabold text-[10px]">SENCILLO</span>;
+      return <span className="bg-blue-500/10 text-white border border-blue-500/20 px-2 py-0.5 rounded-full font-bold text-[10px]">SENCILLO</span>;
     case 'LUV':
-      return <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded font-extrabold text-[10px]">LUV</span>;
+      return <span className="bg-violet-500/10 text-white border border-violet-500/20 px-2 py-0.5 rounded-full font-bold text-[10px]">LUV</span>;
     case 'TURBO':
-      return <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-extrabold text-[10px]">TURBO</span>;
+      return <span className="bg-emerald-500/10 text-white border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold text-[10px]">TURBO</span>;
     default:
-      return <span className="bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded text-[10px]">{tipo}</span>;
+      return <span className="bg-zinc-800 text-zinc-500 border border-zinc-700 px-2 py-0.5 rounded-full font-bold text-[10px]">{tipo}</span>;
   }
 };
 
+// Color único por estado (estilo consistente con el resto de la app).
+// Tailwind genera las clases porque aparecen literalmente en este archivo.
+const ESTADO_CLASSES: Record<string, string> = {
+  PENDIENTE: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
+  CONFIRMADO: 'bg-pink-500/20 text-pink-300 border-pink-500/40',
+  'LLEGO A PORTERIA': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+  'INGRESO A MUELLE': 'bg-green-500/20 text-green-300 border-green-500/40',
+  CARGANDO: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
+  'FINALIZO CARGUE': 'bg-pink-500/20 text-pink-300 border-pink-500/40',
+  'SALIO DE PORTERIA': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+  CANCELADO: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/40',
+  DESPACHADO: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
+  CARGADO: 'bg-pink-500/20 text-pink-300 border-pink-500/40',
+  'PTE ALISTAR': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+  'EN PROCESO': 'bg-green-500/20 text-green-300 border-green-500/40',
+  ALISTADO: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
+};
+
 export const EstadoBadge: React.FC<{ estado: string }> = ({ estado }) => {
-  const key = estado.toUpperCase();
-  if (key === 'LLEGO A PORTERIA') {
-    return <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
-  }
-  if (key === 'INGRESO A MUELLE') {
-    return <span className="bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
-  }
-  if (key === 'CARGANDO') {
-    return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
-  }
-  if (key === 'FINALIZO CARGUE') {
-    return <span className="bg-sky-500/10 text-sky-400 border border-sky-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
-  }
-  if (key === 'SALIO DE PORTERIA') {
-    return <span className="bg-violet-500/10 text-violet-400 border border-violet-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
-  }
-  if (key === 'DESPACHADO' || key === 'CONFIRMADO') {
-    return <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
-  }
-  if (key === 'CARGADO') {
-    return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
-  }
-  if (key === 'PTE ALISTAR') {
-    return <span className="bg-orange-500/10 text-orange-400 border border-orange-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
-  }
-  if (key === 'EN PROCESO' || key === 'ALISTADO') {
-    return <span className="bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
-  }
-  if (key === 'CANCELADO') {
-    return <span className="bg-zinc-500/10 text-zinc-400 border border-zinc-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
-  }
-  if (key === 'PENDIENTE') {
-    return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
-  }
-  return <span className="bg-rose-500/10 text-rose-400 border border-rose-500/30 px-2.5 py-0.5 rounded-full font-bold text-[10px] whitespace-nowrap">• {estado}</span>;
+  const colorClasses = ESTADO_CLASSES[estado.toUpperCase()] || 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40';
+  return (
+    <span className={`${colorClasses} px-2.5 py-0.5 rounded-full font-extrabold text-[11px] whitespace-nowrap`}>• {estado}</span>
+  );
 };

@@ -1,13 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Sidebar } from './components/common/Sidebar';
-import { DespachosModule } from './components/modules/DespachosModule';
-import { PlaneacionModule } from './components/modules/PlaneacionModule';
-import { PorteriaModule } from './components/modules/PorteriaModule';
-import { MonitoreoModule } from './components/modules/MonitoreoModule';
-import { InformesModule } from './components/modules/InformesModule';
-import { PersonalModule } from './components/modules/PersonalModule';
-import { UsuariosModule } from './components/modules/UsuariosModule';
-import { RoleManager } from './components/rbac/RoleManager';
 import { FloatingChatWidget } from './components/chat/FloatingChatWidget';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { UserSessionBar } from './components/auth/UserSessionBar';
@@ -17,6 +9,16 @@ import { useCatalogosStore } from './store/useCatalogosStore';
 import { AppModuleId } from './types';
 import { Lock, Loader2, Menu, AlertTriangle } from 'lucide-react';
 import logoSrc from '/assets/logo.png';
+
+// Carga diferida de los módulos para no traer recharts/xlsx/etc. en el primer render.
+const DespachosModule = lazy(() => import('./components/modules/DespachosModule').then((m) => ({ default: m.DespachosModule })));
+const PlaneacionModule = lazy(() => import('./components/modules/PlaneacionModule').then((m) => ({ default: m.PlaneacionModule })));
+const PorteriaModule = lazy(() => import('./components/modules/PorteriaModule').then((m) => ({ default: m.PorteriaModule })));
+const MonitoreoModule = lazy(() => import('./components/modules/MonitoreoModule').then((m) => ({ default: m.MonitoreoModule })));
+const InformesModule = lazy(() => import('./components/modules/InformesModule').then((m) => ({ default: m.InformesModule })));
+const PersonalModule = lazy(() => import('./components/modules/PersonalModule').then((m) => ({ default: m.PersonalModule })));
+const UsuariosModule = lazy(() => import('./components/modules/UsuariosModule').then((m) => ({ default: m.UsuariosModule })));
+const RoleManager = lazy(() => import('./components/rbac/RoleManager').then((m) => ({ default: m.RoleManager })));
 
 export default function App() {
   const { hasModuleAccess, currentUser, initialize: initAuth, demoMode: authDemo } = useAuthStore();
@@ -139,7 +141,15 @@ export default function App() {
         ) : null}
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {renderActiveModule()}
+          <Suspense
+            fallback={
+              <div className="min-h-[60vh] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+              </div>
+            }
+          >
+            {renderActiveModule()}
+          </Suspense>
         </main>
 
         {/* Global Footer */}

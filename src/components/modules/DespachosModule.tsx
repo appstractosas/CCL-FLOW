@@ -8,8 +8,10 @@ import { UnifiedTransporte, PorteriaTimeField } from '../../types';
 
 export const DespachosModule: React.FC = () => {
   const { getUnifiedTransportes, updatePorteriaHora, updateCuadrilla } = useLogisticsStore();
-  const { hasModuleEdit } = useAuthStore();
+  const { hasModuleEdit, currentUser, isAdmin } = useAuthStore();
   const canEditRole = hasModuleEdit('despachos');
+  // Todos los módulos visualizan la cuadrilla; solo el DESPACHADOR (y el ADMIN) la modifican.
+  const canModifyCuadrilla = currentUser?.roleName?.toUpperCase() === 'DESPACHADOR' || isAdmin();
 
   const unifiedRows = getUnifiedTransportes();
 
@@ -40,7 +42,7 @@ export const DespachosModule: React.FC = () => {
         rows={filtered}
         checklistOwner={canEditRole ? 'despachos' : undefined}
         onPorteriaHora={canEditRole ? handlePorteriaHora : undefined}
-        onCuadrilla={canEditRole ? handleCuadrilla : undefined}
+        onCuadrilla={canModifyCuadrilla ? handleCuadrilla : undefined}
       />
     </div>
   );

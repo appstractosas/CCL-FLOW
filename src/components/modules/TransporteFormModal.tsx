@@ -18,6 +18,7 @@ interface FormValues {
   fechaHora: string;
   placa: string;
   transportadora: string;
+  observaciones: string;
 }
 
 function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
@@ -28,6 +29,7 @@ function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
       fechaHora: editingRow.fechaHora || '',
       placa: editingRow.placa,
       transportadora: editingRow.transportadora || '',
+      observaciones: editingRow.observaciones || '',
     };
   }
   return {
@@ -36,6 +38,7 @@ function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
     fechaHora: '',
     placa: '',
     transportadora: '',
+    observaciones: '',
   };
 }
 
@@ -68,6 +71,7 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
       citaCargue: formData.fechaHora,
       vehiculoTipo: formData.vehiculoTipo || undefined,
       transportadora: formData.transportadora,
+      observaciones: formData.observaciones,
     });
   };
 
@@ -159,6 +163,17 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               value={formData.transportadora}
               onChange={(e) => setFormData({ ...formData, transportadora: e.target.value })}
               className={inputCls}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-zinc-300 mb-1">Observaciones</label>
+            <textarea
+              value={formData.observaciones}
+              onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+              rows={2}
+              placeholder="Notas, instrucciones o novedades (opcional)"
+              className={`${inputCls} resize-none`}
             />
           </div>
 

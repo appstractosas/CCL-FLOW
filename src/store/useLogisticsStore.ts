@@ -208,8 +208,10 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
         if (!row || isLlaveCerrada(row)) return;
 
         const patch: Partial<UnifiedTransporte> = { muelleAsignado: muelle };
-        // Al asignar muelle se registra la hora (editable después), como las horas de portería.
-        if (muelle && !row.horaMuelleAsignado) {
+        // Al asignar un muelle distinto de MUELLE CERO se carga automáticamente
+        // la H. Asignación Muelle (editable después, como las horas de portería).
+        const esMuelleCero = (muelle || '').toUpperCase() === 'MUELLE CERO';
+        if (muelle && !esMuelleCero) {
           patch.horaMuelleAsignado = nowHHMM();
         }
 
@@ -254,6 +256,15 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
       cancelTransporte: (id) => {
         const row = get().transportes.find((t) => t.id === id);
         if (!row || isLlaveCerrada(row)) return;
+
+        // El PLANEADOR solo puede cancelar llaves en PENDIENTE o CONFIRMADO;
+        // en estados posteriores únicamente las edita. El ADMIN cancela en cualquier estado.
+        const currentUser = useAuthStore.getState().currentUser;
+        const estado = getEstadoPorteria(row);
+        const esAdmin = useAuthStore.getState().isAdmin();
+        if (!esAdmin && currentUser?.roleName === 'PLANEADOR' && estado !== 'Pendiente' && estado !== 'Confirmado') {
+          return;
+        }
 
         // No se elimina el vehículo: queda con estado CANCELADO y sin editar.
         const patch: Partial<UnifiedTransporte> = { estadoPorteria: 'CANCELADO' as EstadoPorteria };

@@ -8,8 +8,13 @@ import { UnifiedTransporte } from '../../types';
 
 export const PersonalModule: React.FC = () => {
   const { getUnifiedTransportes, updateMuelleAsignado, updateMuelleHora } = useLogisticsStore();
-  const { hasModuleEdit } = useAuthStore();
-  const canEdit = hasModuleEdit('personal');
+  const { currentUser, isAdmin } = useAuthStore();
+  // Todos los módulos visualizan el muelle; solo el SUPERVISOR lo asigna y edita su hora.
+  // Se valida con roleName y tipoUsuario (según el rol venga de la BD o del seed).
+  const canModifyMuelle =
+    currentUser?.roleName?.toUpperCase() === 'SUPERVISOR' ||
+    currentUser?.tipoUsuario === 'supervisor' ||
+    isAdmin();
 
   const unifiedRows = getUnifiedTransportes();
 
@@ -38,8 +43,8 @@ export const PersonalModule: React.FC = () => {
 
       <TransportesTable
         rows={filtered}
-        onAsignarMuelle={canEdit ? handleAsignarMuelle : undefined}
-        onMuelleHora={canEdit ? handleMuelleHora : undefined}
+        onAsignarMuelle={canModifyMuelle ? handleAsignarMuelle : undefined}
+        onMuelleHora={canModifyMuelle ? handleMuelleHora : undefined}
       />
     </div>
   );

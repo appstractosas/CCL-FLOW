@@ -11,6 +11,7 @@ interface TransporteDetailPanelProps {
   showDelete?: boolean;
   onEdit?: (row: UnifiedTransporte) => void;
   onDelete?: (row: UnifiedTransporte) => void;
+  canCancel?: (row: UnifiedTransporte) => boolean;
   onAsignarMuelle?: (row: UnifiedTransporte, muelle: string) => void;
   onMuelleHora?: (row: UnifiedTransporte, hora: string) => void;
   onCuadrilla?: (row: UnifiedTransporte, cuadrilla: string) => void;
@@ -26,7 +27,7 @@ interface PorteriaStep {
 
 const PORTERIA_STEPS: PorteriaStep[] = [
   { key: 'horaLlegadaPorteria', label: 'H. Llegada Portería', msg: '¿Seguro que el vehículo llegó a portería?' },
-  { key: 'horaIngreso', label: 'H. Ingreso Portería', msg: '¿Seguro que el vehículo ingresó a portería?' },
+  { key: 'horaIngreso', label: 'H. Ingreso a Muelle', msg: '¿Seguro que el vehículo ingresó al muelle?' },
   { key: 'horaInicioCargue', label: 'H. Inicio Cargue', msg: '¿Seguro que el vehículo inició cargue?' },
   { key: 'horaFinCargue', label: 'H. Fin Cargue', msg: '¿Seguro que el vehículo finalizó cargue?' },
   { key: 'horaSalida', label: 'H. Salida Portería', msg: '¿Seguro que el vehículo salió de portería?' },
@@ -40,6 +41,11 @@ function timeSet(value?: string): boolean {
 
 function nowHHMM(): string {
   return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Las horas de operación no pueden ser futuras (solo anteriores o iguales a la hora actual).
+function isHoraFutura(hora: string): boolean {
+  return timeSet(hora) && hora > nowHHMM();
 }
 
 function formatSlot(value?: string): string {
@@ -112,7 +118,15 @@ function TimeRow({
         <input
           type="time"
           value={value || ''}
-          onChange={(e) => e.target.value && onEdit(e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (!v) return;
+            if (isHoraFutura(v)) {
+              window.alert(`No se puede registrar una hora futura (${v}). Usa una hora anterior o igual a la hora actual (${nowHHMM()}).`);
+              return;
+            }
+            onEdit(v);
+          }}
           className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2 py-1 rounded-lg font-bold focus:outline-none text-xs"
           title={`Editar ${step.label}`}
         />
@@ -132,6 +146,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   showDelete = false,
   onEdit,
   onDelete,
+  canCancel,
   onAsignarMuelle,
   onMuelleHora,
   onCuadrilla,
@@ -172,12 +187,18 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
       <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[#0e1320] border-l border-zinc-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-zinc-800">
-          <div className="min-w-0">
-            <h3 className="text-lg font-black text-white font-mono truncate">{row.llave}</h3>
-            <p className="text-[11px] text-zinc-400 font-semibold flex items-center space-x-1.5">
-              <span>{row.placa || 'SIN PLACA'}</span>
-              <TipoBadge tipo={row.vehiculoTipo} />
-            </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">Llave</p>
+              <h3 className="text-lg font-black text-white font-mono truncate">{row.llave}</h3>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">Placa</p>
+              <p className="text-[11px] font-semibold text-zinc-100 truncate">{row.placa || 'SIN PLACA'}</p>
+            </div>
+          </div>
+          <div className="flex-1 flex justify-center">
+            <TipoBadge tipo={row.vehiculoTipo} />
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-white p-1.5 rounded-lg shrink-0">
             <X className="w-5 h-5" />
@@ -215,12 +236,12 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 onCheck={() => setConfirmIndex(1)}
                 onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[1].key, hora)}
               />
-              {onAsignarMuelle ? (
-                <div className="border-b border-zinc-800/60">
-                  <div className="flex items-center justify-between gap-3 py-2.5">
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
-                      Muelle Asignado
-                    </span>
+              <div className="border-b border-zinc-800/60">
+                <div className="flex items-center justify-between gap-3 py-2.5">
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
+                    Muelle Asignado
+                  </span>
+                  {onAsignarMuelle ? (
                     <select
                       value={row.muelleAsignado || ''}
                       onChange={(e) => onAsignarMuelle(row, e.target.value)}
@@ -236,30 +257,36 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                         </option>
                       ))}
                     </select>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 pb-2.5">
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
-                      H. Asignación Muelle
+                  ) : (
+                    <span className="text-xs font-semibold text-zinc-100 text-right">
+                      {row.muelleAsignado || '—'}
                     </span>
-                    {onMuelleHora ? (
-                      <input
-                        type="time"
-                        value={timeSet(row.horaMuelleAsignado) ? row.horaMuelleAsignado : ''}
-                        onChange={(e) => e.target.value && onMuelleHora(row, e.target.value)}
-                        disabled={cerrada}
-                        className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2 py-1 rounded-lg font-bold focus:outline-none text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Editar hora de asignación del muelle"
-                      />
-                    ) : (
-                      <span className="text-xs font-semibold text-zinc-100 text-right">
-                        {timeSet(row.horaMuelleAsignado) ? row.horaMuelleAsignado : '—'}
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
-              ) : (
-                <DetailRow label="Muelle Asignado" value={row.muelleAsignado} />
-              )}
+                <div className="flex items-center justify-between gap-3 pb-2.5">
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
+                    H. Asignación Muelle
+                  </span>
+                  {onMuelleHora ? (
+                    <input
+                      type="time"
+                      value={timeSet(row.horaMuelleAsignado) ? row.horaMuelleAsignado : ''}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (!v) return;
+                        onMuelleHora(row, v);
+                      }}
+                      disabled={cerrada}
+                      className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2 py-1 rounded-lg font-bold focus:outline-none text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Editar hora de asignación del muelle (permite horas programadas)"
+                    />
+                  ) : (
+                    <span className="text-xs font-semibold text-zinc-100 text-right">
+                      {timeSet(row.horaMuelleAsignado) ? row.horaMuelleAsignado : '—'}
+                    </span>
+                  )}
+                </div>
+              </div>
               <TimeRow
                 showCheck={showCheck && ownedIndexes.includes(2)}
                 step={PORTERIA_STEPS[2]}
@@ -280,11 +307,11 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 onCheck={() => setConfirmIndex(3)}
                 onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[3].key, hora)}
               />
-              {checklistOwner === 'despachos' && onCuadrilla && (
-                <div className="flex items-center justify-between gap-3 py-2.5 border-b border-zinc-800/60 last:border-0">
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
-                    Cuadrilla
-                  </span>
+              <div className="flex items-center justify-between gap-3 py-2.5 border-b border-zinc-800/60 last:border-0">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
+                  Cuadrilla
+                </span>
+                {onCuadrilla ? (
                   <select
                     value={row.cuadrilla || ''}
                     onChange={(e) => onCuadrilla(row, e.target.value)}
@@ -299,8 +326,12 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                       </option>
                     ))}
                   </select>
-                </div>
-              )}
+                ) : (
+                  <span className="text-xs font-semibold text-zinc-100 text-right">
+                    {row.cuadrilla || '—'}
+                  </span>
+                )}
+              </div>
               <TimeRow
                 showCheck={showCheck && ownedIndexes.includes(4)}
                 step={PORTERIA_STEPS[4]}
@@ -318,7 +349,6 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
           <div>
             <SectionTitle>Detalle</SectionTitle>
             <div className="bg-[#121726] rounded-xl border border-zinc-800 px-4">
-              <DetailRow label="Cuadrilla" value={row.cuadrilla} />
               <DetailRow label="Observaciones" value={row.observaciones} />
             </div>
           </div>
@@ -336,7 +366,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                   <Edit2 className="w-3.5 h-3.5" /> Editar
                 </button>
               )}
-              {showDelete && (
+              {showDelete && (!canCancel || canCancel(row)) && (
                 <button
                   onClick={handleDelete}
                   className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-2 bg-zinc-900 border border-zinc-700 text-zinc-200 hover:border-rose-500/40 hover:text-rose-400 rounded-xl text-xs font-bold transition-colors"

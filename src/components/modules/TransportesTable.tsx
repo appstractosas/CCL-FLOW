@@ -11,6 +11,7 @@ interface TransportesTableProps {
   showDelete?: boolean;
   onEdit?: (row: UnifiedTransporte) => void;
   onDelete?: (row: UnifiedTransporte) => void;
+  canCancel?: (row: UnifiedTransporte) => boolean;
   hideAcciones?: boolean;
   onAsignarMuelle?: (row: UnifiedTransporte, muelle: string) => void;
   onMuelleHora?: (row: UnifiedTransporte, hora: string) => void;
@@ -32,6 +33,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   showDelete = false,
   onEdit,
   onDelete,
+  canCancel,
   hideAcciones = false,
   onAsignarMuelle,
   onMuelleHora,
@@ -121,7 +123,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        {showDelete && onDelete && !isLlaveCerrada(row) && (
+                        {showDelete && onDelete && !isLlaveCerrada(row) && (!canCancel || canCancel(row)) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -187,6 +189,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
         onClose={() => setSelected(null)}
         showEdit={showEdit}
         showDelete={showDelete}
+        canCancel={canCancel}
         onEdit={(row) => {
           setSelected(null);
           onEdit?.(row);
