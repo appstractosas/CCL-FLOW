@@ -3,6 +3,7 @@ import { Sidebar } from './components/common/Sidebar';
 import { DespachosModule } from './components/modules/DespachosModule';
 import { PlaneacionModule } from './components/modules/PlaneacionModule';
 import { PorteriaModule } from './components/modules/PorteriaModule';
+import { MonitoreoModule } from './components/modules/MonitoreoModule';
 import { InformesModule } from './components/modules/InformesModule';
 import { PersonalModule } from './components/modules/PersonalModule';
 import { UsuariosModule } from './components/modules/UsuariosModule';
@@ -14,12 +15,12 @@ import { useAuthStore } from './store/useAuthStore';
 import { useLogisticsStore } from './store/useLogisticsStore';
 import { useCatalogosStore } from './store/useCatalogosStore';
 import { AppModuleId } from './types';
-import { Lock, Loader2, Menu } from 'lucide-react';
+import { Lock, Loader2, Menu, AlertTriangle } from 'lucide-react';
 import logoSrc from '/assets/logo.png';
 
 export default function App() {
-  const { hasModuleAccess, currentUser, initialize: initAuth } = useAuthStore();
-  const { loading, initialize: initLogistics } = useLogisticsStore();
+  const { hasModuleAccess, currentUser, initialize: initAuth, demoMode: authDemo } = useAuthStore();
+  const { loading, initialize: initLogistics, demoMode: logisticsDemo } = useLogisticsStore();
   const { initialize: initCatalogos } = useCatalogosStore();
   const [appReady, setAppReady] = useState(false);
   const [activeModule, setActiveModule] = useState<AppModuleId>('despachos');
@@ -69,6 +70,8 @@ export default function App() {
         return <PlaneacionModule />;
       case 'porteria':
         return <PorteriaModule />;
+      case 'monitoreo':
+        return <MonitoreoModule />;
       case 'personal':
         return <PersonalModule />;
       case 'informes':
@@ -111,7 +114,7 @@ export default function App() {
             </button>
             <img src={logoSrc} alt="CCL Logo" className="h-8 w-auto lg:hidden" />
             <span className="hidden lg:block text-xs font-mono text-zinc-500">
-              CCL · Torre de Control Operativa <span className="text-emerald-400">v3.0</span>
+              CCL · gestión de patios logísticos <span className="text-emerald-400">v1.0</span>
             </span>
           </div>
 
@@ -123,13 +126,25 @@ export default function App() {
           </div>
         </header>
 
+        {authDemo || logisticsDemo ? (
+          <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 sm:px-6 lg:px-8 py-2 flex items-start gap-2 text-amber-400">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <p className="text-xs leading-relaxed">
+              <strong className="font-bold">MODO DEMO</strong> — Sin conexión a la base de datos. Los datos mostrados
+              son de ejemplo. Configura <code className="font-mono bg-black/30 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code>{' '}
+              y <code className="font-mono bg-black/30 px-1 py-0.5 rounded">VITE_SUPABASE_ANON_KEY</code> en las variables
+              de entorno de Vercel y vuelve a desplegar.
+            </p>
+          </div>
+        ) : null}
+
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           {renderActiveModule()}
         </main>
 
         {/* Global Footer */}
         <footer className="border-t border-zinc-800/80 py-4 px-8 text-xs text-zinc-500 bg-[#090d16]">
-          <span>Torre de Control Operativa & Gestión Logística CCL © 2026</span>
+          <span>gestión de patios logísticos CCL © 2026</span>
         </footer>
       </div>
 
