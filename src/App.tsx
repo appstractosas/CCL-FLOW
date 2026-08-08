@@ -19,6 +19,7 @@ const InformesModule = lazy(() => import('./components/modules/InformesModule').
 const PersonalModule = lazy(() => import('./components/modules/PersonalModule').then((m) => ({ default: m.PersonalModule })));
 const UsuariosModule = lazy(() => import('./components/modules/UsuariosModule').then((m) => ({ default: m.UsuariosModule })));
 const RoleManager = lazy(() => import('./components/rbac/RoleManager').then((m) => ({ default: m.RoleManager })));
+const AeropuertoBoard = lazy(() => import('./components/modules/AeropuertoBoard').then((m) => ({ default: m.AeropuertoBoard })));
 
 export default function App() {
   const { hasModuleAccess, currentUser, initialize: initAuth, demoMode: authDemo } = useAuthStore();
@@ -82,6 +83,8 @@ export default function App() {
         return <RoleManager />;
       case 'usuarios':
         return <UsuariosModule />;
+      case 'tablero':
+        return <AeropuertoBoard />;
       default:
         return <DespachosModule />;
     }

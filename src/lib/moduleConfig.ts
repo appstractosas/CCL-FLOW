@@ -11,6 +11,7 @@ export const MODULE_LABELS: Record<AppModuleId, string> = {
   admin_roles: 'Roles',
   usuarios: 'Usuarios',
   chat: 'Chat',
+  tablero: 'Tablero',
 };
 
 export const ALL_MODULES: AppModuleId[] = [
@@ -23,6 +24,7 @@ export const ALL_MODULES: AppModuleId[] = [
   'admin_roles',
   'usuarios',
   'chat',
+  'tablero',
 ];
 
 /** Tipos de usuario operativos (columnas de la matriz de permisos). */

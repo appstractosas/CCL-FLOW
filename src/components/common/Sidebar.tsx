@@ -8,6 +8,7 @@ import {
   UserCheck,
   Settings,
   Users,
+  LayoutDashboard,
 } from 'lucide-react';
 import { AppModuleId } from '../../types';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -33,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'porteria' as AppModuleId, label: 'Portería', icon: DoorClosed },
     { id: 'monitoreo' as AppModuleId, label: 'Monitoreo', icon: Eye },
     { id: 'despachos' as AppModuleId, label: 'Despachos', icon: Package },
+    { id: 'tablero' as AppModuleId, label: 'Tablero', icon: LayoutDashboard },
     { id: 'personal' as AppModuleId, label: 'Supervisor', icon: UserCheck },
     { id: 'informes' as AppModuleId, label: 'Informes', icon: BarChart3 },
     { id: 'admin_roles' as AppModuleId, label: 'ROLES', icon: Settings },

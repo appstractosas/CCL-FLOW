@@ -45,6 +45,7 @@ function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
     horaInicioCargue: item.hora_inicio_cargue || undefined,
     horaFinCargue: item.hora_fin_cargue || undefined,
     observaciones: item.observaciones || undefined,
+    createdAt: item.created_at || undefined,
   };
 }
 
@@ -78,6 +79,40 @@ export async function createTransporte(item: UnifiedTransporte): Promise<Unified
   const { data, error } = await supabase.from(TABLE).insert(mapTransporteToDB(item)).select().single();
   if (error) throw error;
   return mapTransporteFromDB(data);
+}
+
+let activeRealtimeUnsubscribe: (() => void) | null = null;
+
+/**
+ * Se suscribe a cambios (INSERT/UPDATE/DELETE) en la tabla TRANSPORTES
+ * para que la app se refresque en tiempo real cuando otra fuente (p.ej. el
+ * App Script del Sheets) modifique la BD.
+ */
+export function subscribeToTransportes(onChange: () => void): () => void {
+  if (!isOnline()) return () => {};
+
+  // Si ya hay una suscripción activa, se elimina primero para no volver a usar
+  // el mismo canal tras subscribe() (evita el error de realtime y las duplicadas).
+  if (activeRealtimeUnsubscribe) {
+    activeRealtimeUnsubscribe();
+  }
+
+  const channel = supabase
+    .channel('transportes_realtime')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: TABLE },
+      (payload) => {
+        void onChange();
+      }
+    )
+    .subscribe();
+
+  activeRealtimeUnsubscribe = () => {
+    supabase.removeChannel(channel);
+    activeRealtimeUnsubscribe = null;
+  };
+
+  return activeRealtimeUnsubscribe;
 }
 
 export async function updateTransporte(id: string, updates: Partial<UnifiedTransporte>): Promise<void> {

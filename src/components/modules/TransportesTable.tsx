@@ -50,7 +50,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const showActions = (showEdit || showDelete) && !hideAcciones;
-  const colCount = showActions ? 7 : 6;
+  const colCount = showActions ? 8 : 7;
 
   const displayedRow = selected ? rows.find((r) => r.id === selected.id) || null : null;
 
@@ -61,6 +61,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
           <thead>
             <tr className="bg-[#121726] border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider">
               <th className="py-3.5 px-3">FECHA</th>
+              <th className="py-3.5 px-3">FECHA HORA CITA</th>
               <th className="py-3.5 px-3">LLAVE</th>
               <th className="py-3.5 px-3">PLACA REMOLQUE</th>
               <th className="py-3.5 px-3">TIPO</th>
@@ -85,7 +86,10 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                   title="Clic para ver detalle"
                 >
                   <td className="py-3.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
-                    {formatFechaHora(row.fechaHora)}
+                    {formatFechaHora(row.createdAt || row.fechaHora)}
+                  </td>
+                  <td className="py-3.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
+                    {formatFechaHora(row.citaCargue)}
                   </td>
                   <td className="py-3.5 px-3 font-mono font-bold text-blue-400 whitespace-nowrap">
                     {row.llave}

@@ -9,6 +9,7 @@ import {
 } from '../types';
 import {
   fetchTransportes, createTransporte, updateTransporte as updateTransporteRemote,
+  subscribeToTransportes,
 } from '../services/transportesService';
 import { fetchMessages, sendMessage, subscribeToMessages } from '../services/chatService';
 import { useAuthStore } from './useAuthStore';
@@ -41,6 +42,7 @@ interface LogisticsState {
 }
 
 let unsubscribeRealtime: (() => void) | null = null;
+let unsubscribeTransportesRealtime: (() => void) | null = null;
 
 function nowHHMM(): string {
   return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -96,6 +98,21 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
               return { messages: [...s.messages, newMsg], unreadChatCount: s.unreadChatCount + 1 };
             });
           });
+
+          // Tiempo real: si la BD cambia desde otra fuente (p.ej. el App Script
+          // del Sheets), se recargan los transportes y el tablero se actualiza solo.
+          unsubscribeTransportesRealtime = subscribeToTransportes(async () => {
+            try {
+              const transportes = await fetchTransportes();
+              const nextLlaveSeq = transportes.reduce((acc, t) => {
+                const n = parseInt(String(t.llave).replace('LL-', ''), 10);
+                return Number.isFinite(n) ? Math.max(acc, n) : acc;
+              }, 0) + 1;
+              set({ transportes, nextLlaveSeq });
+            } catch (err) {
+              console.error('Error al refrescar transportes por realtime:', err);
+            }
+          });
         } catch (err) {
           console.error('Error loading data from Supabase:', err);
           set({ loading: false, initialized: true, demoMode: true });
@@ -115,7 +132,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
         const placa = (data.placa || '').toUpperCase().trim();
 
         const newTransporte: UnifiedTransporte = {
-          id: `TR-${Date.now()}`,
+          id: `TR-${Date.now()}-${state.nextLlaveSeq}`,
           llave,
           fechaHora,
           placa,
@@ -164,6 +181,13 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
       updateTransporte: (id, updated) => {
         const current = get().transportes.find((t) => t.id === id);
         if (!current || isLlaveCerrada(current)) return;
+
+        // Si se quita la placa (o se edita vacía), la llave vuelve a PENDIENTE.
+        if (updated.placa !== undefined && !String(updated.placa).trim()) {
+          if (current.estadoPorteria === 'Confirmado') {
+            updated = { ...updated, estadoPorteria: 'Pendiente' as EstadoPorteria };
+          }
+        }
 
         if (isSupabaseConfigured) updateTransporteRemote(id, updated).catch(console.error);
         set((s) => ({

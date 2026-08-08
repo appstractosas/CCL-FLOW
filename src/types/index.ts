@@ -7,7 +7,8 @@ export type AppModuleId =
   | 'personal'
   | 'admin_roles'
   | 'usuarios'
-  | 'chat';
+  | 'chat'
+  | 'tablero';
 
 /** Tipos de usuario del sistema (mapean a un rol de la matriz de permisos). */
 export type UserType = 'admin' | 'despachador' | 'portero' | 'planeador' | 'supervisor' | 'monitor';
@@ -122,6 +123,7 @@ export interface UnifiedTransporte {
   horaInicioCargue?: string;
   horaFinCargue?: string;
   observaciones?: string;
+  createdAt?: string;
 }
 
 /** Datos de entrada para crear/editar un transporte (una fila por LLAVE). */

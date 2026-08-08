@@ -19,13 +19,13 @@ export const TipoBadge: React.FC<{ tipo: TipoVehiculo }> = ({ tipo }) => {
 // Color único por estado (estilo consistente con el resto de la app).
 // Tailwind genera las clases porque aparecen literalmente en este archivo.
 const ESTADO_CLASSES: Record<string, string> = {
-  PENDIENTE: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
-  CONFIRMADO: 'bg-pink-500/20 text-pink-300 border-pink-500/40',
-  'LLEGO A PORTERIA': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
-  'INGRESO A MUELLE': 'bg-green-500/20 text-green-300 border-green-500/40',
-  CARGANDO: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
-  'FINALIZO CARGUE': 'bg-pink-500/20 text-pink-300 border-pink-500/40',
-  'SALIO DE PORTERIA': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+  PENDIENTE: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+  CONFIRMADO: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+  'LLEGO A PORTERIA': 'bg-red-500/20 text-red-300 border-red-500/40',
+  'INGRESO A MUELLE': 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/40',
+  CARGANDO: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+  'FINALIZO CARGUE': 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+  'SALIO DE PORTERIA': 'bg-orange-500/20 text-orange-300 border-orange-500/40',
   CANCELADO: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/40',
   DESPACHADO: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
   CARGADO: 'bg-pink-500/20 text-pink-300 border-pink-500/40',

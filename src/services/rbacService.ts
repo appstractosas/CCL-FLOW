@@ -27,23 +27,23 @@ export const PRESET_ROLES: Role[] = [
   },
   {
     id: 'ROLE_DESPACHADOR', name: 'DESPACHADOR', description: 'Gestión de despachos y planeación.', isPreset: true,
-    permissions: permissionsAll(['despachos', 'planeacion', 'informes', 'monitoreo'], ['despachos', 'planeacion']),
+    permissions: permissionsAll(['despachos', 'planeacion', 'informes', 'monitoreo', 'tablero'], ['despachos', 'planeacion']),
   },
   {
     id: 'ROLE_PORTERO', name: 'PORTERO', description: 'Control de puerta, muelles y estados de portería.', isPreset: true,
-    permissions: permissionsAll(['porteria', 'despachos', 'planeacion', 'monitoreo', 'chat'], ['porteria']),
+    permissions: permissionsAll(['porteria', 'despachos', 'planeacion', 'monitoreo', 'chat', 'tablero'], ['porteria']),
   },
   {
     id: 'ROLE_PLANEADOR', name: 'PLANEADOR', description: 'Planeación de transporte y vista de despachos.', isPreset: true,
-    permissions: permissionsAll(['planeacion', 'despachos', 'informes', 'monitoreo'], ['planeacion', 'despachos']),
+    permissions: permissionsAll(['planeacion', 'despachos', 'informes', 'monitoreo', 'tablero'], ['planeacion', 'despachos']),
   },
   {
     id: 'ROLE_SUPERVISOR', name: 'SUPERVISOR', description: 'Observación global de la operación e informes.', isPreset: true,
-    permissions: permissionsAll(['despachos', 'planeacion', 'porteria', 'monitoreo', 'informes', 'personal', 'chat']),
+    permissions: permissionsAll(['despachos', 'planeacion', 'porteria', 'monitoreo', 'informes', 'personal', 'chat', 'tablero']),
   },
   {
     id: 'ROLE_MONITOREO', name: 'MONITOREO', description: 'Monitoreo de la operación y registro de salida de portería.', isPreset: true,
-    permissions: permissionsAll(['monitoreo', 'despachos', 'planeacion', 'porteria', 'informes'], ['monitoreo']),
+    permissions: permissionsAll(['monitoreo', 'despachos', 'planeacion', 'porteria', 'informes', 'tablero'], ['monitoreo']),
   },
 ];
 
