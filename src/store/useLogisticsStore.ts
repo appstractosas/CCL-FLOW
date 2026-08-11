@@ -3,6 +3,8 @@ import {
   UnifiedTransporte,
   TransporteData,
   ChatMessage,
+  Notificacion,
+  TipoNotificacion,
   KPIStats,
   EstadoPorteria,
   PorteriaTimeField,
@@ -12,11 +14,17 @@ import {
   subscribeToTransportes,
 } from '../services/transportesService';
 import { fetchMessages, sendMessage, subscribeToMessages } from '../services/chatService';
+import {
+  fetchNotificaciones,
+  createNotificacion,
+  markAllNotificacionesLeidas,
+  subscribeToNotificaciones,
+} from '../services/notificacionesService';
 import { useAuthStore } from './useAuthStore';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { initialTransportes, initialMessages } from './initialData';
 import { getEstadoPorteria, isLlaveCerrada } from '../utils/porteria';
-import { playNotificationSound } from '../utils/sound';
+import { playNotificationSound, playAlertSound } from '../utils/sound';
 
 interface LogisticsState {
   initialized: boolean;
@@ -26,6 +34,8 @@ interface LogisticsState {
   transportes: UnifiedTransporte[];
   messages: ChatMessage[];
   unreadChatCount: number;
+  notificaciones: Notificacion[];
+  unreadNotifCount: number;
 
   initialize: () => Promise<void>;
   addTransporte: (data: TransporteData & { llave?: string }) => Promise<UnifiedTransporte>;
@@ -37,25 +47,44 @@ interface LogisticsState {
   cancelTransporte: (id: string) => void;
   sendMessage: (msg: { senderRole: string; senderName: string; senderModule: 'Portería' | 'Despachos' | 'Planeación' | 'General'; content: string; llaveRelacionada?: string; muelleSugerido?: string }) => void;
   markChatRead: () => void;
+  markNotifRead: () => void;
   getKPIs: () => KPIStats;
   getUnifiedTransportes: () => UnifiedTransporte[];
 }
 
 let unsubscribeRealtime: (() => void) | null = null;
 let unsubscribeTransportesRealtime: (() => void) | null = null;
+let unsubscribeNotificacionesRealtime: (() => void) | null = null;
 
 function nowHHMM(): string {
   return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
-export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
-  initialized: false,
-  loading: true,
-  demoMode: !isSupabaseConfigured,
-  nextLlaveSeq: 60538,
-  transportes: initialTransportes,
-  messages: initialMessages,
-  unreadChatCount: 1,
+export const useLogisticsStore = create<LogisticsState>()((set, get) => {
+  // Crea una notificación in-app para TODOS los usuarios (broadcast).
+  // No se agrega en local: Realtime la reenvía a este cliente y a los demás
+  // (el banner y el sonido salen del suscriptor de tiempo real).
+  function emitNotificacion(
+    tipo: TipoNotificacion,
+    titulo: string,
+    mensaje: string,
+    llaveRelacionada: string
+  ): void {
+    if (!isSupabaseConfigured) return;
+    createNotificacion({ tipo, titulo, mensaje, llaveRelacionada })
+      .catch((err) => console.error('Error creando notificación:', err));
+  }
+
+  return {
+    initialized: false,
+    loading: true,
+    demoMode: !isSupabaseConfigured,
+    nextLlaveSeq: 60538,
+    transportes: initialTransportes,
+    messages: initialMessages,
+    unreadChatCount: 1,
+    notificaciones: [],
+    unreadNotifCount: 0,
 
   initialize: async () => {
     if (get().initialized) return;
@@ -78,11 +107,25 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
         return Number.isFinite(n) ? Math.max(acc, n) : acc;
       }, 0) + 1;
 
+      // Las notificaciones se cargan aparte: si la tabla aún no existe en la BD
+      // no se debe tumbar la inicialización (la app sigue funcionando sin ellas).
+      let notificaciones: Notificacion[] = [];
+      let notificacionesOk = false;
+      try {
+        notificaciones = await fetchNotificaciones();
+        notificacionesOk = true;
+      } catch (err) {
+        console.warn('No se pudieron cargar las notificaciones:', err);
+      }
+      const unreadNotifCount = notificaciones.filter((n) => !n.leida).length;
+
       set({
         transportes,
         messages,
         unreadChatCount: unreadCount,
         nextLlaveSeq,
+        notificaciones,
+        unreadNotifCount,
         loading: false,
         initialized: true,
         demoMode: false,
@@ -113,6 +156,19 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
               console.error('Error al refrescar transportes por realtime:', err);
             }
           });
+
+          // Notificaciones en vivo: cualquier INSERT (acción propia o de otro
+          // usuario) enciende el sonido y actualiza la campana para todos.
+          if (notificacionesOk) {
+            unsubscribeNotificacionesRealtime = subscribeToNotificaciones((newNotif) => {
+              if (get().notificaciones.some((n) => n.id === newNotif.id)) return;
+              playAlertSound();
+              set((s) => ({
+                notificaciones: [newNotif, ...s.notificaciones].slice(0, 100),
+                unreadNotifCount: s.unreadNotifCount + 1,
+              }));
+            });
+          }
         } catch (err) {
           console.error('Error loading data from Supabase:', err);
           set({ loading: false, initialized: true, demoMode: true });
@@ -215,6 +271,20 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
         };
         const patch = { [campo]: hora, estadoPorteria: estadoByCampo[campo] } as Partial<UnifiedTransporte>;
 
+        // Aviso de LLEGADA A PORTERÍA a toda la operación (una sola vez, cuando
+        // se registra la hora por primera vez y no es borrado de campo).
+        if (
+          campo === 'horaLlegadaPorteria' &&
+          hora && hora !== '--:--' && hora !== row.horaLlegadaPorteria
+        ) {
+          emitNotificacion(
+            'LLEGO_PORTERIA',
+            'Vehículo en portería',
+            `Llave ${row.llave} (${row.placa || 'SIN PLACA'}) llegó a portería a las ${hora}.`,
+            row.llave
+          );
+        }
+
         if (isSupabaseConfigured) updateTransporteRemote(id, patch).catch(console.error);
         set((s) => ({
           transportes: s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t)),
@@ -237,6 +307,16 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
         const esMuelleCero = (muelle || '').toUpperCase() === 'MUELLE CERO';
         if (muelle && !esMuelleCero) {
           patch.horaMuelleAsignado = nowHHMM();
+        }
+
+        // Aviso de ASIGNACIÓN DE MUELLE a toda la operación (solo si cambió el muelle).
+        if (muelle && !esMuelleCero && muelle !== row.muelleAsignado) {
+          emitNotificacion(
+            'MUELLE_ASIGNADO',
+            'Muelle asignado',
+            `Llave ${row.llave} (${row.placa || 'SIN PLACA'}) asignada a ${muelle}.`,
+            row.llave
+          );
         }
 
         if (isSupabaseConfigured) updateTransporteRemote(id, patch).catch(console.error);
@@ -339,6 +419,14 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
         }));
       },
 
+      markNotifRead: () => {
+        set((s) => ({
+          unreadNotifCount: 0,
+          notificaciones: s.notificaciones.map((n) => ({ ...n, leida: true })),
+        }));
+        if (isSupabaseConfigured) markAllNotificacionesLeidas().catch(console.error);
+      },
+
       getKPIs: () => {
         const { transportes } = get();
         const total = transportes.length;
@@ -351,4 +439,5 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => ({
       },
 
       getUnifiedTransportes: () => get().transportes,
-}));
+  };
+});

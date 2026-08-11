@@ -1,6 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Sidebar } from './components/common/Sidebar';
 import { FloatingChatWidget } from './components/chat/FloatingChatWidget';
+import { NotificationsBell } from './components/notifications/NotificationsBell';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { UserSessionBar } from './components/auth/UserSessionBar';
 import { useAuthStore } from './store/useAuthStore';
@@ -123,7 +124,8 @@ export default function App() {
             </span>
           </div>
 
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-2">
+            <NotificationsBell />
             <UserSessionBar
               onOpenRoles={() => setActiveModule('admin_roles')}
               onOpenUsuarios={() => setActiveModule('usuarios')}

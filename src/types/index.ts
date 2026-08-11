@@ -152,6 +152,20 @@ export interface ChatMessage {
   isRead?: boolean;
 }
 
+/** Tipo de notificación in-app (tabla `notificaciones` en Supabase). */
+export type TipoNotificacion = 'LLEGO_PORTERIA' | 'MUELLE_ASIGNADO';
+
+/** Notificación de la operación visible para todos los usuarios (broadcast). */
+export interface Notificacion {
+  id: string;
+  tipo: TipoNotificacion;
+  titulo: string;
+  mensaje: string;
+  llaveRelacionada?: string;
+  leida: boolean;
+  createdAt: string;
+}
+
 /** Cliente (tabla `clientes`): CODIGO SHIP-TO + DENOMINACION. */
 export interface Cliente {
   id: string;

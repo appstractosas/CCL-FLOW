@@ -38,3 +38,25 @@ export function playNotificationSound(): void {
     // Audio no disponible; se ignora en silencio.
   }
 }
+
+/** Timbre distinto (más agudo) para las notificaciones de la campana. */
+export function playAlertSound(): void {
+  try {
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+
+    if (!audioCtx) audioCtx = new Ctx();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+
+    const now = audioCtx.currentTime;
+    beep(audioCtx, now, 988);
+    beep(audioCtx, now + 0.16, 784);
+    beep(audioCtx, now + 0.32, 988);
+  } catch {
+    // Audio no disponible; se ignora en silencio.
+  }
+}

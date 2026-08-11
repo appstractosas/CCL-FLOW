@@ -1119,6 +1119,22 @@ CREATE INDEX idx_chat_module ON chat_messages(sender_module);
 CREATE INDEX idx_chat_read ON chat_messages(is_read);
 CREATE INDEX idx_chat_timestamp ON chat_messages("timestamp");
 
+-- 2.1 NOTIFICACIONES (campana + banner en vivo de la operación)
+CREATE TABLE notificaciones (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tipo              VARCHAR(30) NOT NULL
+                    CHECK (tipo IN ('LLEGO_PORTERIA', 'MUELLE_ASIGNADO')),
+  titulo            VARCHAR(200) NOT NULL,
+  mensaje           TEXT NOT NULL,
+  llave_relacionada VARCHAR(20) REFERENCES transportes(llave),
+  leida             BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_notif_leida ON notificaciones(leida);
+CREATE INDEX idx_notif_created ON notificaciones(created_at);
+ALTER TABLE notificaciones REPLICA IDENTITY FULL;
+
 -- 3. ROLES (RBAC)
 CREATE TABLE roles (
   id            VARCHAR(50) PRIMARY KEY,
@@ -1198,6 +1214,7 @@ INSERT INTO users (id, nombre, cedula, clave, tipo_usuario, role_id, role_name) 
 -- =============================================
 ALTER TABLE transportes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notificaciones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ciudades ENABLE ROW LEVEL SECURITY;
 ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
@@ -1206,6 +1223,7 @@ ALTER TABLE historial_movimientos ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "app_full_access_transportes" ON transportes FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "app_full_access_chat" ON chat_messages FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "app_full_access_notificaciones" ON notificaciones FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "app_full_access_clientes" ON clientes FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "app_full_access_ciudades" ON ciudades FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "app_full_access_roles" ON roles FOR ALL USING (true) WITH CHECK (true);
