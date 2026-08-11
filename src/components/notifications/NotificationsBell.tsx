@@ -91,7 +91,7 @@ export const NotificationsBell: React.FC = () => {
           {/* Fondo invisible: un clic fuera cierra el panel */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
 
-          <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 z-50 bg-[#121726] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="fixed top-16 left-3 right-3 z-50 sm:absolute sm:top-full sm:right-0 sm:left-auto sm:mt-2 sm:w-96 bg-[#121726] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="px-3 py-2.5 border-b border-zinc-800 flex items-center justify-between bg-[#0b0f19]">
               <div className="flex items-center space-x-2">
@@ -151,7 +151,7 @@ export const NotificationsBell: React.FC = () => {
 
       {/* Banner flotante (estilo WhatsApp) al llegar una notificación nueva */}
       {toast && (
-        <div className="fixed top-16 right-4 sm:right-6 z-[70] w-80 sm:w-96 animate-in slide-in-from-top-5 fade-in duration-200">
+        <div className="fixed top-16 right-3 left-3 z-[70] sm:right-6 sm:left-auto sm:w-96 animate-in slide-in-from-top-5 fade-in duration-200">
           <div className={`bg-[#121726] border rounded-xl shadow-2xl overflow-hidden ${notifMeta(toast).border}`}>
             <div className="flex items-start gap-2.5 p-3.5">
               <div className={`p-2 rounded-lg shrink-0 ${notifMeta(toast).box}`}>{notifMeta(toast).icon}</div>

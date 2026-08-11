@@ -158,6 +158,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   if (!row) return null;
 
   const cerrada = isLlaveCerrada(row);
+  const estado = getEstadoPorteria(row);
   const setFlags = PORTERIA_STEPS.map((s) => timeSet((row as Record<string, unknown>)[s.key] as string | undefined));
   const enabledIndex = setFlags.findIndex((f) => !f);
   // Matriz de control de tiempos por módulo:
@@ -168,7 +169,15 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   const showCheck = Boolean(checklistOwner) && Boolean(onPorteriaHora);
   const requiresMuelle = checklistOwner === 'despachos';
   const muelleOk = !requiresMuelle || Boolean(row.muelleAsignado);
-  const stepEnabled = (i: number) => !cerrada && ownedIndexes.includes(i) && enabledIndex === i && muelleOk;
+  // PORTERÍA solo puede iniciar el proceso (H. Llegada Portería) si la llave
+  // está CONFIRMADA; una llave en PENDIENTE (sin placa) no se puede iniciar.
+  const puedeIniciarPorteria = estado === 'Confirmado';
+  const stepEnabled = (i: number) =>
+    !cerrada &&
+    ownedIndexes.includes(i) &&
+    enabledIndex === i &&
+    muelleOk &&
+    (checklistOwner !== 'porteria' || i !== 0 || puedeIniciarPorteria);
   const stepEditable = (i: number) => !cerrada && ownedIndexes.includes(i) && setFlags[i];
 
   const handleEdit = () => {
@@ -213,6 +222,12 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
               <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Control de Tiempos</h4>
               <EstadoBadge estado={getEstadoPorteria(row)} />
             </div>
+            {checklistOwner === 'porteria' && estado === 'Pendiente' && (
+              <div className="mb-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] rounded-lg px-3 py-2 leading-relaxed">
+                Llave en <strong>PENDIENTE</strong>: el proceso de portería no se puede iniciar hasta que la
+                llave esté <strong>CONFIRMADA</strong> (placa asignada).
+              </div>
+            )}
             <div className="bg-[#121726] rounded-xl border border-zinc-800 px-4">
               <DetailRow label="Transportadora" value={row.transportadora} />
               <DetailRow label="Hora Cita (Slot programado)" value={formatSlot(row.citaCargue)} />

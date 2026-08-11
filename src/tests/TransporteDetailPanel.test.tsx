@@ -94,6 +94,22 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
     expect(screen.getByLabelText('H. Salida Portería')).toBeEnabled();
   });
 
+  it('bloquea el inicio de portería en llaves PENDIENTE (solo CONFIRMADO puede iniciar)', () => {
+    // Llave sin placa (PENDIENTE): PORTERÍA no puede iniciar el proceso.
+    const pendiente = render(
+      <TransporteDetailPanel row={makeRow({ estadoPorteria: 'Pendiente' })} onClose={onClose} checklistOwner="porteria" onPorteriaHora={() => {}} />
+    );
+    expect(screen.getByLabelText('H. Llegada Portería')).toBeDisabled();
+    expect(screen.getByLabelText('H. Ingreso a Muelle')).toBeDisabled();
+    pendiente.unmount();
+
+    // Llave CONFIRMADA: sí puede iniciar (H. Llegada habilitada).
+    render(
+      <TransporteDetailPanel row={makeRow({ estadoPorteria: 'Confirmado' })} onClose={onClose} checklistOwner="porteria" onPorteriaHora={() => {}} />
+    );
+    expect(screen.getByLabelText('H. Llegada Portería')).toBeEnabled();
+  });
+
   it('permite asignar muelle en cualquier momento, sin depender de las horas previas', () => {
     // Llave recién creada (ninguna hora registrada): el select de muelle ya está habilitado.
     render(
