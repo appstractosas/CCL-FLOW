@@ -6,10 +6,7 @@ import { useLogisticsStore } from '../store/useLogisticsStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { PRESET_ROLES } from '../services/rbacService';
 import { UnifiedTransporte } from '../types';
-
-function today() {
-  return new Date().toISOString().split('T')[0];
-}
+import { todayStr } from '../lib/dateUtils';
 
 describe('PorteriaModule Component (Shared Unified Table)', () => {
   beforeEach(() => {
@@ -30,9 +27,9 @@ describe('PorteriaModule Component (Shared Unified Table)', () => {
 
     const base: Omit<UnifiedTransporte, 'llave' | 'placa'> = {
       id: '',
-      fechaHora: `${today()} 08:00`,
+      fechaHora: `${todayStr()} 08:00`,
       vehiculoTipo: 'TURBO',
-      citaCargue: `${today()} 07:00`,
+      citaCargue: `${todayStr()} 07:00`,
       estadoTransporte: 'DESPACHADO',
       estadoPorteria: 'Pendiente',
       muelleAsignado: 'Muelle 4',
