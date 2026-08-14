@@ -2,23 +2,18 @@ import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useLogisticsStore } from '../../store/useLogisticsStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { TransportesTable } from './TransportesTable';
+import { CrudModule } from '../common/CrudModule';
 import { TransporteFormModal } from './TransporteFormModal';
-import { ModuleToolbar } from '../common/ModuleToolbar';
-import { useRowFilters } from '../../hooks/useRowFilters';
 import { UnifiedTransporte, TransporteData } from '../../types';
 import { getEstadoPorteria } from '../../utils/porteria';
 
 export const PlaneacionModule: React.FC = () => {
-  const { getUnifiedTransportes, addTransporte, updateTransporte, cancelTransporte } = useLogisticsStore();
+  const { addTransporte, updateTransporte, cancelTransporte } = useLogisticsStore();
   const { hasModuleEdit, isAdmin } = useAuthStore();
   const canEdit = hasModuleEdit('planeacion');
 
   const [editingRow, setEditingRow] = useState<UnifiedTransporte | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const unifiedRows = getUnifiedTransportes();
-  const { searchTerm, setSearchTerm, dateFrom, setDateFrom, dateTo, setDateTo, filtered } = useRowFilters(unifiedRows, { keepActiveLlaves: true });
 
   const openCreate = () => {
     setEditingRow(null);
@@ -58,38 +53,28 @@ export const PlaneacionModule: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <ModuleToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        searchPlaceholder="Buscar placa, llave, pedido o cliente..."
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        onDateFromChange={setDateFrom}
-        onDateToChange={setDateTo}
-        counter={`Mostrando ${filtered.length} de ${unifiedRows.length} transportes`}
-        rightContent={
-          canEdit ? (
-            <button
-              onClick={openCreate}
-              className="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>NUEVA LLAVE</span>
-            </button>
-          ) : undefined
-        }
-      />
-
-      <TransportesTable
-        rows={filtered}
-        showEdit={canEdit}
-        showDelete={canEdit}
-        canCancel={canCancelLlave}
-        onEdit={openEdit}
-        onDelete={handleCancel}
-      />
-
+    <CrudModule
+      searchPlaceholder="Buscar placa, llave, pedido o cliente..."
+      tableProps={{
+        showEdit: canEdit,
+        showDelete: canEdit,
+        showCajas: true,
+        canCancel: canCancelLlave,
+        onEdit: openEdit,
+        onDelete: handleCancel,
+      }}
+      rightContent={
+        canEdit ? (
+          <button
+            onClick={openCreate}
+            className="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>NUEVA LLAVE</span>
+          </button>
+        ) : undefined
+      }
+    >
       <TransporteFormModal
         open={isModalOpen}
         editingRow={editingRow}
@@ -97,6 +82,6 @@ export const PlaneacionModule: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSave}
       />
-    </div>
+    </CrudModule>
   );
 };

@@ -10,11 +10,12 @@ interface ModuleToolbarProps {
   dateTo?: string;
   onDateFromChange?: (value: string) => void;
   onDateToChange?: (value: string) => void;
+  leftContent?: React.ReactNode;
   rightContent?: React.ReactNode;
   counter?: string;
 }
 
-/** Barra única por módulo: rango de fechas + buscador en la misma fila (y acciones a la derecha). */
+/** Barra única por módulo: rango de fechas + buscador + filtros en la misma fila (y acciones a la derecha). */
 export const ModuleToolbar: React.FC<ModuleToolbarProps> = ({
   searchTerm,
   onSearchChange,
@@ -23,6 +24,7 @@ export const ModuleToolbar: React.FC<ModuleToolbarProps> = ({
   dateTo,
   onDateFromChange,
   onDateToChange,
+  leftContent,
   rightContent,
   counter,
 }) => {
@@ -50,6 +52,8 @@ export const ModuleToolbar: React.FC<ModuleToolbarProps> = ({
             className="w-full pl-9 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500/50"
           />
         </div>
+
+        {leftContent}
       </div>
 
       <div className="flex items-center gap-2.5">

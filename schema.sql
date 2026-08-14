@@ -14,7 +14,7 @@ CREATE TABLE transportes (
   placa                 VARCHAR(20) NOT NULL DEFAULT '',
   -- Datos de PLANEACIÓN
   vehiculo_tipo         VARCHAR(20) NOT NULL DEFAULT 'SENCILLO'
-                        CHECK (vehiculo_tipo IN ('SENCILLO', 'TURBO', 'MINIMULA', 'LUV')),
+                        CHECK (vehiculo_tipo IN ('SENCILLO', 'TURBO', 'MINIMULA', 'LUV', 'MULA')),
   cita_cargue           VARCHAR(50),
   transportadora        VARCHAR(200) NOT NULL DEFAULT '',
   -- Estado del módulo PLANEACIÓN

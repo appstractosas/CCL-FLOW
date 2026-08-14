@@ -1,47 +1,173 @@
-import React, { useMemo, useState } from 'react';
-import { CheckCircle2, Clock, FileDown } from 'lucide-react';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Activity, CheckCircle2, Clock, FileDown, Loader2, Truck } from 'lucide-react';
 import { ModuleToolbar } from '../common/ModuleToolbar';
 import { todayStr } from '../../lib/dateUtils';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { useLogisticsStore } from '../../store/useLogisticsStore';
 import { fetchTransportesByRango } from '../../services/transportesService';
+import { fetchInformesRango } from '../../services/informesService';
+import { subscribeToTransportes } from '../../services/transportesService';
 import { getEstadoPorteria } from '../../utils/porteria';
+import {
+  calcularKPIs,
+  embudoEstados,
+  porTipo,
+  porTransportadora,
+  volumenPorDia,
+  filasPorRango,
+  filasParaTabla,
+  tipoGrupo,
+  usoPorMuelle,
+  operacionesPorCliente,
+  rentabilidadCuadrillas,
+  cajasPorDia,
+  cajasPorCuadrilla,
+} from '../../utils/informes';
 import type { UnifiedTransporte } from '../../types';
+import {
+  EmbudoPanel,
+  FlotaPanel,
+  TransportadorasPanel,
+  VolumenPanel,
+  MuellesPanel,
+  ClientesPanel,
+  RentabilidadPanel,
+  CajasDiariasPanel,
+  CajasGrupoPanel,
+  DetalleTabla,
+} from './informes/panels';
 
 export const InformesModule: React.FC = () => {
-  const fleetData = [
-    { name: 'Sencillo', value: 52, percentage: '42%', color: '#3b82f6' },
-    { name: 'Turbo', value: 35, percentage: '28%', color: '#10b981' },
-    { name: 'LUV', value: 22, percentage: '18%', color: '#f59e0b' },
-    { name: 'Minimula', value: 15, percentage: '12%', color: '#8b5cf6' },
-  ];
-
-  const cuadrillasData = [
-    { name: 'Cuadrilla 1', trabajadas: 180, capacidad: 200 },
-    { name: 'Cuadrilla 2', trabajadas: 195, capacidad: 200 },
-    { name: 'Cuadrilla 3', trabajadas: 160, capacidad: 180 },
-    { name: 'Cuadrilla 4', trabajadas: 210, capacidad: 220 },
-    { name: 'Cuadrilla 5', trabajadas: 175, capacidad: 190 },
-  ];
-
-  const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-  const zones = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6', 'Z7', 'Z8', 'Z9', 'Z10', 'Z11', 'Z12'];
-
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState(todayStr());
   const [dateTo, setDateTo] = useState(todayStr());
+  const [rangoPreset, setRangoPreset] = useState<'dia' | 'semana' | 'mes' | 'anio'>('dia');
   const [exporting, setExporting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [rows, setRows] = useState<UnifiedTransporte[]>([]);
+  const refreshTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Fecha local "YYYY-MM-DD" desplazada n días desde hoy. */
+  const shiftDate = useCallback((days: number): string => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }, []);
+
+  /** Aplica el rango del botón: semana/mes/año (siempre terminando en hoy). */
+  const aplicarRango = useCallback(
+    (preset: 'dia' | 'semana' | 'mes' | 'anio') => {
+      setRangoPreset(preset);
+      const hoy = todayStr();
+      if (preset === 'dia') {
+        setDateFrom(hoy);
+        setDateTo(hoy);
+      } else if (preset === 'semana') {
+        setDateFrom(shiftDate(-6));
+        setDateTo(hoy);
+      } else if (preset === 'mes') {
+        setDateFrom(shiftDate(-29));
+        setDateTo(hoy);
+      } else {
+        setDateFrom(shiftDate(-364));
+        setDateTo(hoy);
+      }
+    },
+    [shiftDate]
+  );
+
+  const load = useCallback(async (fs: string, ft: string) => {
+    setError(null);
+    try {
+      const data = await fetchInformesRango(fs, ft);
+      setRows(data);
+    } catch (err) {
+      console.error('Error cargando informes:', err);
+      setError('No se pudo cargar la información. Revisa la conexión con la base de datos.');
+      setRows([]);
+    } finally {
+      // Solo la carga inicial muestra el spinner; los refrescos (realtime, cambio
+      // de rango) actualizan en segundo plano sin parpadeo.
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load(dateFrom, dateTo);
+  }, [dateFrom, dateTo, load]);
+
+  // Refresco en vivo: cuando la operación cambia (Sheets, portería, etc.) se recalculan las métricas.
+  // Con DEBOUNCE: el sync del Sheets dispara muchos eventos seguidos y refrescar cada uno
+  // haría parpadear las filas; se agrupan y se refresca una sola vez por ráfaga.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const unsubscribe = subscribeToTransportes(() => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      refreshTimer.current = setTimeout(() => {
+        void load(dateFrom, dateTo);
+      }, 350);
+    });
+    return () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      unsubscribe();
+    };
+  }, [dateFrom, dateTo, load]);
+
+  const s = searchTerm.trim().toLowerCase();
+  const rowsFiltradas = useMemo(() => {
+    if (!s) return rows;
+    return rows.filter((r) =>
+      [r.llave, r.placa, r.transportadora].some((v) => String(v || '').toLowerCase().includes(s))
+    );
+  }, [rows, s]);
+
+  const kpis = useMemo(() => calcularKPIs(rowsFiltradas), [rowsFiltradas]);
+  const embudo = useMemo(() => embudoEstados(rowsFiltradas), [rowsFiltradas]);
+  const flota = useMemo(() => porTipo(rowsFiltradas), [rowsFiltradas]);
+  const transportadoras = useMemo(() => porTransportadora(rowsFiltradas, 8), [rowsFiltradas]);
+  const volumen = useMemo(() => volumenPorDia(rowsFiltradas), [rowsFiltradas]);
+
+  // Fase 3: filas detalle del rango (demora contra SLA).
+  const filasTabla = useMemo(
+    () => filasParaTabla(filasPorRango(rowsFiltradas, dateFrom, dateTo)),
+    [rowsFiltradas, dateFrom, dateTo]
+  );
+
+  // Nuevos gráficos (según el rango seleccionado).
+  const usoMuelle = useMemo(() => usoPorMuelle(rowsFiltradas), [rowsFiltradas]);
+  const clientes = useMemo(() => operacionesPorCliente(rowsFiltradas, 10), [rowsFiltradas]);
+  const rentabilidad = useMemo(() => rentabilidadCuadrillas(rowsFiltradas), [rowsFiltradas]);
+  const cajasDia = useMemo(() => cajasPorDia(rowsFiltradas), [rowsFiltradas]);
+  const cajasGrupo = useMemo(() => cajasPorCuadrilla(rowsFiltradas), [rowsFiltradas]);
+
+  // Inversiones del periodo según el rango de fechas.
+  const { diasRango, inversionCCL, inversionSLA, cajasPeriodo, inversionTotal } = useMemo(() => {
+    // Nº de días del rango (inclusivo).
+    const t0 = new Date(`${dateFrom}T00:00:00`).getTime();
+    const t1 = new Date(`${dateTo}T00:00:00`).getTime();
+    const dias = t1 >= t0 ? Math.floor((t1 - t0) / 86_400_000) + 1 : 0;
+
+    const cajasCCL = rowsFiltradas.filter((r) => tipoGrupo(r.cuadrilla) === 'CCL').reduce((a, r) => a + (r.cajas ?? 0), 0);
+    const cajasSLA = rowsFiltradas.filter((r) => tipoGrupo(r.cuadrilla) === 'SLA').reduce((a, r) => a + (r.cajas ?? 0), 0);
+    const cajasTodas = rowsFiltradas.reduce((a, r) => a + (r.cajas ?? 0), 0);
+
+    const inversionCCL = dias * 1_432_000;
+    const inversionSLA = cajasSLA * 140;
+    return {
+      diasRango: dias,
+      inversionCCL,
+      inversionSLA,
+      cajasPeriodo: cajasTodas,
+      inversionTotal: inversionCCL + inversionSLA,
+      cajasCCL,
+    };
+  }, [rowsFiltradas, dateFrom, dateTo]);
+
+  const sinDatos = rowsFiltradas.length === 0;
 
   const handleExportExcel = async () => {
     if (exporting || !dateFrom || !dateTo) return;
@@ -49,30 +175,30 @@ export const InformesModule: React.FC = () => {
     try {
       const XLSX = await import('xlsx');
 
-      let rows: UnifiedTransporte[];
+      let dataRows: UnifiedTransporte[];
       if (isSupabaseConfigured) {
-        rows = await fetchTransportesByRango(dateFrom, dateTo);
+        dataRows = await fetchTransportesByRango(dateFrom, dateTo);
       } else {
-        rows = useLogisticsStore.getState().transportes.filter((t) => {
-          const d = String(t.fechaHora || '').split(' ')[0];
+        dataRows = useLogisticsStore.getState().transportes.filter((t) => {
+          const d = String(t.citaCargue || '').slice(0, 10);
           return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
         });
       }
 
-      if (rows.length === 0) {
+      if (dataRows.length === 0) {
         alert('No hay transportes registrados en el rango de fechas seleccionado.');
         return;
       }
 
       const headers = [
-        'LLAVE', 'FECHA', 'PLACA REMOLQUE', 'TIPO VEHÍCULO', 'CITA CARGUE', 'TRANSPORTADORA',
-        'ESTADO TRANSPORTE', 'ESTADO', 'MUELLE', 'CUADRILLA', 'H. ASIGNACIÓN MUELLE',
+        'LLAVE', 'FECHA', 'PLACA REMOLQUE', 'TIPO VEHÍCULO', 'CITA CARGUE', 'TRANSPORTE', 'DENOMINACIÓN', 'CAJAS',
+        'TRANSPORTADORA', 'ESTADO TRANSPORTE', 'ESTADO', 'MUELLE', 'CUADRILLA', 'H. ASIGNACIÓN MUELLE',
         'H. LLEGADA PORTERÍA', 'H. INGRESO', 'H. INICIO CARGUE', 'H. FIN CARGUE', 'H. SALIDA',
         'OBSERVACIONES',
       ];
-      const data = rows.map((r) => [
-        r.llave, r.fechaHora, r.placa, r.vehiculoTipo, r.citaCargue, r.transportadora,
-        r.estadoTransporte, getEstadoPorteria(r), r.muelleAsignado || '', r.cuadrilla || '',
+      const data = dataRows.map((r) => [
+        r.llave, r.fechaHora, r.placa, r.vehiculoTipo, r.citaCargue, r.transporte || '', r.denominacion || '', r.cajas ?? '',
+        r.transportadora, r.estadoTransporte, getEstadoPorteria(r), r.muelleAsignado || '', r.cuadrilla || '',
         r.horaMuelleAsignado || '', r.horaLlegadaPorteria || '', r.horaIngreso || '',
         r.horaInicioCargue || '', r.horaFinCargue || '', r.horaSalida || '', r.observaciones || '',
       ]);
@@ -98,244 +224,169 @@ export const InformesModule: React.FC = () => {
     }
   };
 
-  const s = searchTerm.trim().toLowerCase();
-  const filteredFleet = useMemo(
-    () => (s ? fleetData.filter((d) => d.name.toLowerCase().includes(s)) : fleetData),
-    [s, fleetData]
-  );
-  const filteredCuadrillas = useMemo(
-    () => (s ? cuadrillasData.filter((d) => d.name.toLowerCase().includes(s)) : cuadrillasData),
-    [s, cuadrillasData]
-  );
+  const kpiCards = [
+    {
+      label: 'TOTAL LLAVES',
+      value: kpis.total,
+      sub: 'En el rango seleccionado',
+      icon: <Truck className="w-4 h-4 text-blue-400" />,
+      accent: 'text-white',
+    },
+    {
+      label: 'LLAVES ACTIVAS',
+      value: kpis.activas,
+      sub: 'En operación ahora',
+      icon: <Activity className="w-4 h-4 text-emerald-400" />,
+      accent: 'text-emerald-400',
+    },
+    {
+      label: 'FINALIZADAS',
+      value: kpis.finalizadas,
+      sub: 'Salieron de portería',
+      icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" />,
+      accent: 'text-white',
+    },
+    {
+      label: 'CUMPLIMIENTO',
+      value: kpis.total > 0 ? `${kpis.cumplimientoPct}%` : '—',
+      sub: 'Finalizadas / total',
+      icon: <Clock className="w-4 h-4 text-amber-400" />,
+      accent: 'text-amber-400',
+    },
+  ];
 
   return (
     <div className="space-y-6">
       <ModuleToolbar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        searchPlaceholder="Buscar flota o cuadrilla..."
+        searchPlaceholder="Buscar llave, placa o transportadora..."
         dateFrom={dateFrom}
         dateTo={dateTo}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
         rightContent={
-          <button
-            onClick={handleExportExcel}
-            disabled={exporting}
-            className="flex items-center space-x-1.5 px-3 py-2 bg-emerald-600/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/25 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <FileDown className="w-4 h-4" />
-            <span>{exporting ? 'Exportando...' : 'Exportar Excel'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center rounded-xl bg-zinc-900 border border-zinc-800 p-0.5">
+              {(
+                [
+                  ['dia', 'Día'],
+                  ['semana', 'Semana'],
+                  ['mes', 'Mes'],
+                  ['anio', 'Año'],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => aplicarRango(key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    rangoPreset === key
+                      ? 'bg-blue-600 text-white'
+                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleExportExcel}
+              disabled={exporting}
+              className="flex items-center space-x-1.5 px-3 py-2 bg-emerald-600/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/25 rounded-xl text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileDown className="w-4 h-4" />
+              <span>{exporting ? 'Exportando...' : 'Exportar Excel'}</span>
+            </button>
+          </div>
         }
       />
 
-      {/* 4 Top KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#0e1320] border border-zinc-800/80 rounded-2xl p-4 flex flex-col justify-between space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">TOTAL PEDIDOS</p>
-            <span className="text-emerald-400 text-[10px] font-bold">+12.4%</span>
-          </div>
-          <p className="text-3xl font-black text-white">1,247</p>
-          <p className="text-[10px] text-zinc-500 font-mono">vs mes anterior</p>
+      {error && (
+        <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl px-4 py-3">
+          {error}
         </div>
+      )}
 
-        <div className="bg-[#0e1320] border border-zinc-800/80 rounded-2xl p-4 flex flex-col justify-between space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">CUMPLIMIENTO CCL</p>
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          </div>
-          <p className="text-3xl font-black text-emerald-400">94.2%</p>
-          <p className="text-[10px] text-zinc-500 font-mono">+2.1 PTS meta 92%</p>
+      {loading ? (
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
         </div>
-
-        <div className="bg-[#0e1320] border border-zinc-800/80 rounded-2xl p-4 flex flex-col justify-between space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">TIEMPO MUERTO</p>
-            <Clock className="w-4 h-4 text-amber-400" />
-          </div>
-          <p className="text-3xl font-black text-amber-400">187 hrs</p>
-          <p className="text-[10px] text-zinc-500 font-mono">+8.3% vs mes anterior</p>
-        </div>
-
-        <div className="bg-[#0e1320] border border-zinc-800/80 rounded-2xl p-4 flex flex-col justify-between space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">CARGAS ACTIVAS</p>
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          </div>
-          <p className="text-3xl font-black text-blue-400">38</p>
-          <p className="text-[10px] text-zinc-500 font-mono">en tránsito ahora</p>
-        </div>
-      </div>
-
-      {/* Middle Grid: Heatmap Left + Donut Chart Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Heatmap Panel (8 cols) */}
-        <div className="lg:col-span-8 bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
-            <div>
-              <h3 className="text-sm font-bold text-white">Mapa de Calor · Posicionamiento y Demoras</h3>
-              <p className="text-[11px] text-zinc-400">Distribución de vehículos por zona y estado</p>
+      ) : (
+        <>
+          {/* Tags de inversión del periodo (una sola fila en PC, cascada en móvil) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-[#0e1320] border border-blue-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
+              <p className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">CCL (inversión)</p>
+              <p className="text-[10px] text-zinc-500 font-mono">{diasRango} días × $1.432.000</p>
+              <p className="text-xl font-black text-white">${inversionCCL.toLocaleString('es-CO')}</p>
             </div>
 
-            <div className="flex items-center space-x-3 text-[10px] font-bold">
-              <span className="flex items-center space-x-1 text-emerald-400">
-                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span>A tiempo</span>
-              </span>
-              <span className="flex items-center space-x-1 text-amber-400">
-                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                <span>Demora 1-3h</span>
-              </span>
-              <span className="flex items-center space-x-1 text-blue-400">
-                <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                <span>&gt;3h</span>
-              </span>
-              <span className="flex items-center space-x-1 text-rose-400">
-                <span className="w-2 h-2 rounded-full bg-rose-400"></span>
-                <span>Tiempo muerto</span>
-              </span>
+            <div className="bg-[#0e1320] border border-emerald-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
+              <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">SLA (inversión)</p>
+              <p className="text-[10px] text-zinc-500 font-mono">
+                {inversionSLA > 0 ? `${inversionSLA / 140} cajas SLA × $140` : 'sin cajas SLA en el rango'}
+              </p>
+              <p className="text-xl font-black text-white">${inversionSLA.toLocaleString('es-CO')}</p>
+            </div>
+
+            <div className="bg-[#0e1320] border border-amber-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
+              <p className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Cajas del periodo</p>
+              <p className="text-[10px] text-zinc-500 font-mono">Suma de cajas de todas las cuadrillas</p>
+              <p className="text-xl font-black text-white">{cajasPeriodo.toLocaleString('es-CO')}</p>
+            </div>
+
+            <div className="bg-[#0e1320] border border-violet-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
+              <p className="text-[11px] font-bold text-violet-400 uppercase tracking-wider">Inversión total del periodo</p>
+              <p className="text-[10px] text-zinc-500 font-mono">CCL + SLA</p>
+              <p className="text-xl font-black text-white">${inversionTotal.toLocaleString('es-CO')}</p>
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-xs">
-            <span className="bg-zinc-900 text-zinc-300 font-bold px-3 py-1 rounded-full border border-zinc-800">
-              CEDI CALI
-            </span>
-            <span className="text-zinc-500 font-mono text-[11px]">
-              CALI · Vie · A tiempo
-            </span>
-          </div>
-
-          {/* Matrix Grid */}
-          <div className="overflow-x-auto">
-            <div className="min-w-[500px] space-y-2">
-              <div className="grid grid-cols-13 text-[10px] text-zinc-500 font-mono text-center">
-                <span>DÍA</span>
-                {zones.map((z) => <span key={z}>{z}</span>)}
-              </div>
-
-              {days.map((day, idx) => (
-                <div key={day} className="grid grid-cols-13 items-center text-xs">
-                  <span className="font-bold text-zinc-400 font-mono text-[11px]">{day}</span>
-                  {zones.map((z, zIdx) => {
-                    const isGreen = (idx + zIdx) % 3 === 0;
-                    const isYellow = (idx + zIdx) % 5 === 0;
-                    const isRose = (idx + zIdx) % 7 === 0;
-
-                    const colorClass = isRose
-                      ? 'bg-rose-500/80 hover:bg-rose-400'
-                      : isYellow
-                      ? 'bg-amber-500/80 hover:bg-amber-400'
-                      : isGreen
-                      ? 'bg-emerald-500/80 hover:bg-emerald-400'
-                      : 'bg-blue-500/80 hover:bg-blue-400';
-
-                    return (
-                      <div
-                        key={z}
-                        className={`h-7 mx-0.5 rounded-lg transition-transform hover:scale-105 cursor-pointer ${colorClass}`}
-                        title={`${day} - ${z}`}
-                      />
-                    );
-                  })}
+          {/* 4 KPI Cards (datos reales del rango) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {kpiCards.map((k) => (
+              <div
+                key={k.label}
+                className="bg-[#0e1320] border border-zinc-800/80 rounded-2xl px-4 py-2 flex items-center justify-between gap-3"
+              >
+                <div className="flex flex-col">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{k.label}</p>
+                  <p className="text-[9px] text-zinc-500 font-mono">{k.sub}</p>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <p className="text-[10px] text-zinc-500 font-mono text-right border-t border-zinc-800/80 pt-2">
-            Última actualización: hace 4 min
-          </p>
-        </div>
-
-        {/* Donut Chart Panel (4 cols) */}
-        <div className="lg:col-span-4 bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-white">Flota por Tipo de Vehículo</h3>
-            <p className="text-[11px] text-zinc-400">Composición actual</p>
-
-            <div className="h-48 relative my-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={filteredFleet}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={80}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {filteredFleet.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#121726', borderColor: '#27272a', borderRadius: '12px', color: '#fff' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-2xl font-black text-white">124</span>
-                <span className="text-[10px] text-zinc-400 font-medium uppercase">vehículos</span>
+                <p className={`text-lg font-black ${k.accent}`}>{k.value}</p>
               </div>
-            </div>
-
-            {/* Donut Legend */}
-            <div className="space-y-2 pt-2 border-t border-zinc-800/80">
-              {filteredFleet.map((item) => (
-                <div key={item.name} className="flex items-center justify-between text-xs font-medium">
-                  <div className="flex items-center space-x-2">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-zinc-300">{item.name}</span>
-                  </div>
-                  <div className="space-x-2 font-mono">
-                    <span className="text-white font-bold">{item.value}</span>
-                    <span className="text-zinc-500">({item.percentage})</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Bar Chart Panel */}
-      <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
-          <div>
-            <h3 className="text-sm font-bold text-white">Horas Trabajadas vs Capacidad de Cuadrillas</h3>
-            <p className="text-[11px] text-zinc-400">Comparativo semanal por cuadrilla</p>
+            ))}
           </div>
 
-          <div className="flex items-center space-x-4 text-xs font-semibold">
-            <span className="flex items-center space-x-1.5 text-sky-400">
-              <span className="w-3 h-3 rounded bg-sky-500"></span>
-              <span>Trabajadas</span>
-            </span>
-            <span className="flex items-center space-x-1.5 text-zinc-400">
-              <span className="w-3 h-3 rounded bg-zinc-700"></span>
-              <span>Capacidad</span>
-            </span>
+          {/* Embudo de estados + Flota donut + Transportadoras */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <EmbudoPanel data={embudo} sinDatos={sinDatos} />
+            <FlotaPanel data={flota} sinDatos={sinDatos} />
+            <TransportadorasPanel data={transportadoras} sinDatos={sinDatos} />
           </div>
-        </div>
 
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={filteredCuadrillas} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <XAxis dataKey="name" stroke="#71717a" fontSize={11} tickLine={false} />
-              <YAxis stroke="#71717a" fontSize={11} tickLine={false} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#121726', borderColor: '#27272a', borderRadius: '12px', color: '#fff' }}
-              />
-              <Bar dataKey="trabajadas" fill="#0284c7" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="capacidad" fill="#3f3f46" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+          {/* Volumen de llaves por día */}
+          <VolumenPanel data={volumen} sinDatos={sinDatos} />
+
+          {/* Uso y Ocupación de Muelles */}
+          <MuellesPanel data={usoMuelle} sinDatos={sinDatos} />
+
+          {/* Operaciones por cliente + Rentabilidad cuadrillas */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <ClientesPanel data={clientes} sinDatos={sinDatos} />
+            <RentabilidadPanel data={rentabilidad} sinDatos={sinDatos} />
+          </div>
+
+          {/* Cajas diarias + Cajas cargadas */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <CajasDiariasPanel data={cajasDia} sinDatos={sinDatos} />
+            <CajasGrupoPanel data={cajasGrupo} sinDatos={sinDatos} />
+          </div>
+
+          {/* Fase 3+5: Tabla detalle del rango */}
+          <DetalleTabla filas={filasTabla} />
+        </>
+      )}
     </div>
   );
 };

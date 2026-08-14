@@ -1,22 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Bell, BellOff, CheckCheck, DoorClosed, MapPin, X } from 'lucide-react';
 import { useLogisticsStore } from '../../store/useLogisticsStore';
+import { timeAgo } from '../../lib/dateUtils';
 import type { Notificacion } from '../../types';
 
 const TOAST_MS = 6000;
-
-function timeAgo(iso?: string): string {
-  if (!iso) return '';
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return '';
-  const seconds = Math.max(1, Math.floor((Date.now() - t) / 1000));
-  if (seconds < 60) return 'ahora';
-  const mins = Math.floor(seconds / 60);
-  if (mins < 60) return `hace ${mins} min`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `hace ${hours} h`;
-  return `hace ${Math.floor(hours / 24)} d`;
-}
 
 function notifMeta(n: Notificacion): { icon: React.ReactNode; box: string; border: string } {
   if (n.tipo === 'MUELLE_ASIGNADO') {

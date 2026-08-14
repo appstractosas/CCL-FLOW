@@ -8,7 +8,7 @@ import { useAuthStore } from './store/useAuthStore';
 import { useLogisticsStore } from './store/useLogisticsStore';
 import { useCatalogosStore } from './store/useCatalogosStore';
 import { AppModuleId } from './types';
-import { Lock, Loader2, Menu, AlertTriangle } from 'lucide-react';
+import { Loader2, Menu, AlertTriangle } from 'lucide-react';
 import logoSrc from '/assets/logo.png';
 
 // Carga diferida de los módulos para no traer recharts/xlsx/etc. en el primer render.
@@ -30,9 +30,35 @@ export default function App() {
   const [activeModule, setActiveModule] = useState<AppModuleId>('despachos');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Prioridad de módulos para ubicar al usuario tras el login (mismo orden del sidebar).
+  const MODULE_PRIORITY: AppModuleId[] = [
+    'planeacion',
+    'porteria',
+    'despachos',
+    'personal',
+    'monitoreo',
+    'tablero',
+    'informes',
+    'admin_roles',
+    'usuarios',
+  ];
+
+  /** Primer módulo al que el usuario tiene acceso según la prioridad. */
+  const firstAllowedModule = (): AppModuleId =>
+    MODULE_PRIORITY.find((mod) => hasModuleAccess(mod)) ?? 'despachos';
+
   useEffect(() => {
     Promise.all([initAuth(), initLogistics(), initCatalogos()]).finally(() => setAppReady(true));
   }, []);
+
+  // Tras el login (o si cambia el rol/permisos) se ubica al usuario en el primer
+  // módulo al que tiene acceso, en lugar de mostrar "Módulo Restringido".
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!hasModuleAccess(activeModule)) {
+      setActiveModule(firstAllowedModule());
+    }
+  }, [currentUser, activeModule, hasModuleAccess]);
 
   if (!appReady || loading) {
     return (
@@ -51,23 +77,12 @@ export default function App() {
 
   const isCurrentModuleAllowed = hasModuleAccess(activeModule);
 
-  const renderActiveModule = () => {
-    if (!isCurrentModuleAllowed) {
-      return (
-        <div className="bg-[#0b0f19] rounded-2xl p-12 text-center border border-zinc-800 shadow-2xl max-w-lg mx-auto my-12 space-y-4">
-          <div className="bg-rose-500/10 p-4 rounded-full text-rose-400 inline-block border border-rose-500/20">
-            <Lock className="w-8 h-8" />
-          </div>
-          <h3 className="text-xl font-bold text-white">Módulo Restringido</h3>
-          <p className="text-sm text-zinc-400">
-            El usuario <strong className="text-white font-bold">{currentUser.name}</strong> ({currentUser.roleName}) no
-            tiene permisos para acceder a este módulo.
-          </p>
-        </div>
-      );
-    }
+  // Si el módulo seleccionado no está permitido, se renderiza el primer módulo
+  // al que el usuario SÍ tiene acceso (evita la pantalla "Módulo Restringido").
+  const effectiveModule = isCurrentModuleAllowed ? activeModule : firstAllowedModule();
 
-    switch (activeModule) {
+  const renderActiveModule = () => {
+    switch (effectiveModule) {
       case 'despachos':
         return <DespachosModule />;
       case 'planeacion':

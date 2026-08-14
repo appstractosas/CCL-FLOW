@@ -93,7 +93,11 @@ export const UsuariosModule: React.FC = () => {
                   <tr key={u.id} className="hover:bg-zinc-900/40 transition-colors">
                     <td className="py-3 px-5 font-bold text-white whitespace-nowrap">{u.nombre}</td>
                     <td className="py-3 px-4 font-mono text-zinc-400 whitespace-nowrap">{u.cedula}</td>
-                    <td className="py-3 px-4 font-mono text-zinc-400 whitespace-nowrap">{u.clave}</td>
+                    <td className="py-3 px-4 font-mono text-zinc-400 whitespace-nowrap">
+                      <span title={u.clave} className="cursor-help select-none">
+                        {'•'.repeat(Math.min(u.clave.length, 12))}
+                      </span>
+                    </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-0.5 rounded-full font-bold text-[10px] border ${

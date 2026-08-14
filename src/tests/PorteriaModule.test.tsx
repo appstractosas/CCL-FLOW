@@ -59,7 +59,6 @@ describe('PorteriaModule Component (Shared Unified Table)', () => {
     render(<PorteriaModule />);
 
     // The shared table shows the joined transportes (one per LLAVE)
-    expect(screen.getByText(/Mostrando/)).toBeInTheDocument();
     expect(screen.getByText('LL-60533')).toBeInTheDocument();
     expect(screen.getByText('LL-60534')).toBeInTheDocument();
 

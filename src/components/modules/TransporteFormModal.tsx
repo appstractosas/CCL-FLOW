@@ -125,6 +125,7 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
                 <option value="SENCILLO">SENCILLO</option>
                 <option value="LUV">LUV</option>
                 <option value="TURBO">TURBO</option>
+                <option value="MULA">MULA</option>
               </select>
             </div>
           </div>

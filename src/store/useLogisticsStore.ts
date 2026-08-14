@@ -23,8 +23,10 @@ import {
 import { useAuthStore } from './useAuthStore';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { initialTransportes, initialMessages } from './initialData';
-import { getEstadoPorteria, isLlaveCerrada } from '../utils/porteria';
+import { getEstadoPorteria, isLlaveCerrada, sortTransportesPorEstado } from '../utils/porteria';
 import { playNotificationSound, playAlertSound } from '../utils/sound';
+import { MUELLE_CERO } from '../lib/muelles';
+import { nowHHMM } from '../lib/dateUtils';
 
 interface LogisticsState {
   initialized: boolean;
@@ -49,16 +51,12 @@ interface LogisticsState {
   markChatRead: () => void;
   markNotifRead: () => void;
   getKPIs: () => KPIStats;
-  getUnifiedTransportes: () => UnifiedTransporte[];
 }
 
 let unsubscribeRealtime: (() => void) | null = null;
 let unsubscribeTransportesRealtime: (() => void) | null = null;
 let unsubscribeNotificacionesRealtime: (() => void) | null = null;
-
-function nowHHMM(): string {
-  return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
+let transportesRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useLogisticsStore = create<LogisticsState>()((set, get) => {
   // Crea una notificación in-app para TODOS los usuarios (broadcast).
@@ -120,7 +118,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
       const unreadNotifCount = notificaciones.filter((n) => !n.leida).length;
 
       set({
-        transportes,
+        transportes: sortTransportesPorEstado(transportes),
         messages,
         unreadChatCount: unreadCount,
         nextLlaveSeq,
@@ -144,17 +142,23 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
           // Tiempo real: si la BD cambia desde otra fuente (p.ej. el App Script
           // del Sheets), se recargan los transportes y el tablero se actualiza solo.
-          unsubscribeTransportesRealtime = subscribeToTransportes(async () => {
-            try {
-              const transportes = await fetchTransportes();
-              const nextLlaveSeq = transportes.reduce((acc, t) => {
-                const n = parseInt(String(t.llave).replace('LL-', ''), 10);
-                return Number.isFinite(n) ? Math.max(acc, n) : acc;
-              }, 0) + 1;
-              set({ transportes, nextLlaveSeq });
-            } catch (err) {
-              console.error('Error al refrescar transportes por realtime:', err);
-            }
+          // Se hace con DEBOUNCE: el sync del Sheets hace UPSERT fila por fila y
+          // dispara muchos eventos seguidos; refrescar cada uno haría que las filas
+          // parpadearan. Se agrupan y se refresca una sola vez por ráfaga.
+          unsubscribeTransportesRealtime = subscribeToTransportes(() => {
+            if (transportesRefreshTimer) clearTimeout(transportesRefreshTimer);
+            transportesRefreshTimer = setTimeout(async () => {
+              try {
+                const transportes = await fetchTransportes();
+                const nextLlaveSeq = transportes.reduce((acc, t) => {
+                  const n = parseInt(String(t.llave).replace('LL-', ''), 10);
+                  return Number.isFinite(n) ? Math.max(acc, n) : acc;
+                }, 0) + 1;
+                set({ transportes: sortTransportesPorEstado(transportes), nextLlaveSeq });
+              } catch (err) {
+                console.error('Error al refrescar transportes por realtime:', err);
+              }
+            }, 350);
           });
 
           // Notificaciones en vivo: cualquier INSERT (acción propia o de otro
@@ -221,7 +225,10 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
         set((s) => ({
           nextLlaveSeq: s.nextLlaveSeq + 1,
-          transportes: [{ ...newTransporte, id: savedId || newTransporte.id }, ...s.transportes],
+          transportes: sortTransportesPorEstado([
+            { ...newTransporte, id: savedId || newTransporte.id },
+            ...s.transportes,
+          ]),
         }));
 
         useAuthStore.getState().addMovimiento(
@@ -247,7 +254,9 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
         if (isSupabaseConfigured) updateTransporteRemote(id, updated).catch(console.error);
         set((s) => ({
-          transportes: s.transportes.map((t) => (t.id === id ? { ...t, ...updated } : t)),
+          transportes: sortTransportesPorEstado(
+            s.transportes.map((t) => (t.id === id ? { ...t, ...updated } : t))
+          ),
         }));
         const row = get().transportes.find((t) => t.id === id);
         useAuthStore.getState().addMovimiento(
@@ -287,7 +296,9 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
         if (isSupabaseConfigured) updateTransporteRemote(id, patch).catch(console.error);
         set((s) => ({
-          transportes: s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+          transportes: sortTransportesPorEstado(
+            s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t))
+          ),
         }));
         useAuthStore.getState().addMovimiento(
           'ACTUALIZAR_PORTERIA',
@@ -304,7 +315,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         const patch: Partial<UnifiedTransporte> = { muelleAsignado: muelle };
         // Al asignar un muelle distinto de MUELLE CERO se carga automáticamente
         // la H. Asignación Muelle (editable después, como las horas de portería).
-        const esMuelleCero = (muelle || '').toUpperCase() === 'MUELLE CERO';
+        const esMuelleCero = (muelle || '').toUpperCase() === MUELLE_CERO.toUpperCase();
         if (muelle && !esMuelleCero) {
           patch.horaMuelleAsignado = nowHHMM();
         }
@@ -321,7 +332,9 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
         if (isSupabaseConfigured) updateTransporteRemote(id, patch).catch(console.error);
         set((s) => ({
-          transportes: s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+          transportes: sortTransportesPorEstado(
+            s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t))
+          ),
         }));
         useAuthStore.getState().addMovimiento(
           'ASIGNAR_MUELLE',
@@ -337,7 +350,9 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
         if (isSupabaseConfigured) updateTransporteRemote(id, { horaMuelleAsignado: hora }).catch(console.error);
         set((s) => ({
-          transportes: s.transportes.map((t) => (t.id === id ? { ...t, horaMuelleAsignado: hora } : t)),
+          transportes: sortTransportesPorEstado(
+            s.transportes.map((t) => (t.id === id ? { ...t, horaMuelleAsignado: hora } : t))
+          ),
         }));
       },
 
@@ -347,7 +362,9 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
         if (isSupabaseConfigured) updateTransporteRemote(id, { cuadrilla }).catch(console.error);
         set((s) => ({
-          transportes: s.transportes.map((t) => (t.id === id ? { ...t, cuadrilla } : t)),
+          transportes: sortTransportesPorEstado(
+            s.transportes.map((t) => (t.id === id ? { ...t, cuadrilla } : t))
+          ),
         }));
         useAuthStore.getState().addMovimiento(
           'ASIGNAR_CUADRILLA',
@@ -374,7 +391,9 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         const patch: Partial<UnifiedTransporte> = { estadoPorteria: 'CANCELADO' as EstadoPorteria };
         if (isSupabaseConfigured) updateTransporteRemote(id, patch).catch(console.error);
         set((s) => ({
-          transportes: s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+          transportes: sortTransportesPorEstado(
+            s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t))
+          ),
         }));
         useAuthStore.getState().addMovimiento(
           'CANCELAR_TRANSPORTE',
@@ -437,7 +456,5 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
         return { totalPedidos: total, cumplimientoSLA, tiempoMuertoHoras, cargasActivas };
       },
-
-      getUnifiedTransportes: () => get().transportes,
   };
 });
