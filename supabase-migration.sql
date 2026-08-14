@@ -54,7 +54,7 @@ CREATE TABLE transportes (
   fecha_hora            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   placa                 VARCHAR(20) NOT NULL DEFAULT '',
   vehiculo_tipo         VARCHAR(20) NOT NULL DEFAULT 'SENCILLO'
-                        CHECK (vehiculo_tipo IN ('SENCILLO', 'TURBO', 'MINIMULA', 'LUV')),
+                        CHECK (vehiculo_tipo IN ('SENCILLO', 'TURBO', 'MINIMULA', 'LUV', 'MULA')),
   cita_cargue           VARCHAR(50),
   transportadora        VARCHAR(200) NOT NULL DEFAULT '',
   estado_transporte     VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE'

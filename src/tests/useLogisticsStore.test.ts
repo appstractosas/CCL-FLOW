@@ -240,4 +240,73 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
     currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
     expect(currentRow?.estadoPorteria).toBe('CANCELADO');
   });
+
+  it('debería enviar mensajes de chat y no incrementar no leídos propios', () => {
+    const store = useLogisticsStore.getState();
+    const unreadBefore = useLogisticsStore.getState().unreadChatCount;
+    store.sendMessage({
+      senderRole: 'portero',
+      senderName: 'Ramiro (Portería)',
+      senderModule: 'Portería',
+      content: 'Llegando a portería',
+      llaveRelacionada: 'LL-60533',
+    });
+    const msgs = useLogisticsStore.getState().messages;
+    expect(msgs.length).toBe(1);
+    expect(msgs[0].senderModule).toBe('Portería');
+    expect(msgs[0].llaveRelacionada).toBe('LL-60533');
+    // El propio emisor ve su mensaje como leído (no incrementa no leídos).
+    expect(msgs[0].isRead).toBe(true);
+    expect(useLogisticsStore.getState().unreadChatCount).toBe(unreadBefore);
+  });
+
+  it('debería marcar el chat como leído (unreadChatCount=0)', () => {
+    const store = useLogisticsStore.getState();
+    store.sendMessage({ senderRole: 'portero', senderName: 'R', senderModule: 'Portería', content: 'Hola' });
+    store.markChatRead();
+    expect(useLogisticsStore.getState().unreadChatCount).toBe(0);
+    expect(useLogisticsStore.getState().messages.every((m) => m.isRead)).toBe(true);
+  });
+
+  it('debería marcar las notificaciones como leídas', () => {
+    useLogisticsStore.setState({
+      notificaciones: [
+        { id: 'N-1', tipo: 'LLEGO_PORTERIA', titulo: 't', mensaje: 'm', leida: false, createdAt: 'x' },
+      ],
+      unreadNotifCount: 1,
+    });
+    useLogisticsStore.getState().markNotifRead();
+    expect(useLogisticsStore.getState().unreadNotifCount).toBe(0);
+    expect(useLogisticsStore.getState().notificaciones[0].leida).toBe(true);
+  });
+
+  it('debería calcular KPIs desde los transportes', async () => {
+    useAuthStore.setState({
+      currentUser: {
+        id: 'USER_ADMIN',
+        name: 'ADMIN',
+        cedula: '0000000000',
+        tipoUsuario: 'admin',
+        roleId: 'ROLE_ADMIN',
+        roleName: 'ADMIN',
+      },
+    });
+    const store = useLogisticsStore.getState();
+    const row = await store.addTransporte({ placa: 'XYZ-999' });
+    store.updatePorteriaHora(row.id, 'horaSalida', '12:00');
+    await store.addTransporte({ placa: 'ABC-123' });
+
+    const kpis = useLogisticsStore.getState().getKPIs();
+    expect(kpis.totalPedidos).toBe(2);
+    expect(kpis.cumplimientoSLA).toBe(50); // 1 cerrada / 2 total
+    expect(kpis.cargasActivas).toBe(1);
+  });
+
+  it('debería poder actualizar la hora del muelle', async () => {
+    const store = useLogisticsStore.getState();
+    const row = await store.addTransporte({ placa: 'XYZ-999' });
+    store.updateMuelleHora(row.id, '10:30');
+    const current = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
+    expect(current?.horaMuelleAsignado).toBe('10:30');
+  });
 });

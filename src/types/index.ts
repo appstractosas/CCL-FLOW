@@ -89,7 +89,7 @@ export type EstadoPorteria =
   | 'SALIO DE PORTERIA'
   | 'CANCELADO';
 export type EstadoTransporte = 'DESPACHADO' | 'ALISTADO' | 'PENDIENTE';
-export type TipoVehiculo = 'SENCILLO' | 'TURBO' | 'MINIMULA' | 'LUV';
+export type TipoVehiculo = 'SENCILLO' | 'TURBO' | 'MINIMULA' | 'LUV' | 'MULA';
 
 /** Campos de tiempo del control de portería (secuencia de registro de horas). */
 export type PorteriaTimeField =
@@ -111,6 +111,12 @@ export interface UnifiedTransporte {
   placa: string;
   vehiculoTipo: TipoVehiculo;
   citaCargue: string;
+  /** Número de pedido (no es placa ni vehículo). Alimenta el módulo de informes. */
+  transporte?: string;
+  /** Nombre del cliente (denominación). Alimenta el módulo de informes. */
+  denominacion?: string;
+  /** Cantidad de cajas del pedido. Alimenta el módulo de informes. */
+  cajas?: number;
   transportadora?: string;
   estadoTransporte: EstadoTransporte;
   estadoPorteria: EstadoPorteria;

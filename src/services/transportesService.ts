@@ -10,6 +10,9 @@ function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
     placa: item.placa,
     vehiculo_tipo: item.vehiculoTipo,
     cita_cargue: item.citaCargue || null,
+    transporte: item.transporte || null,
+    denominacion: item.denominacion || null,
+    cajas: item.cajas ?? null,
     transportadora: item.transportadora || '',
     estado_transporte: item.estadoTransporte,
     estado_porteria: item.estadoPorteria,
@@ -33,6 +36,9 @@ function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
     placa: item.placa || '',
     vehiculoTipo: item.vehiculo_tipo,
     citaCargue: item.cita_cargue || '',
+    transporte: item.transporte || undefined,
+    denominacion: item.denominacion || undefined,
+    cajas: item.cajas ?? undefined,
     transportadora: item.transportadora || '',
     estadoTransporte: item.estado_transporte,
     estadoPorteria: item.estado_porteria || 'Pendiente',
@@ -60,17 +66,20 @@ export async function fetchTransportes(): Promise<UnifiedTransporte[]> {
   return (data || []).map(mapTransporteFromDB);
 }
 
-/** Consulta la tabla TRANSPORTES de la BD acotada al rango [fechaDesde, fechaHasta] (YYYY-MM-DD, hora local). */
+/** Consulta la tabla TRANSPORTES de la BD acotada al rango [fechaDesde, fechaHasta] (YYYY-MM-DD, hora local)
+ *  según la columna cita_cargue (FECHA HORA CITA). Es VARCHAR y admite formatos
+ *  "YYYY-MM-DD HH:MM" (app) y "YYYY-MM-DDTHH:MM" (sync ISO); por eso los límites
+ *  se comparan como texto cubriendo ambos: day+espacio y day+T. */
 export async function fetchTransportesByRango(fechaDesde: string, fechaHasta: string): Promise<UnifiedTransporte[]> {
   if (!isOnline()) return [];
-  const desde = new Date(`${fechaDesde}T00:00:00`).toISOString();
-  const hasta = new Date(`${fechaHasta}T23:59:59.999`).toISOString();
+  const desde = `${fechaDesde} `;
+  const hasta = `${fechaHasta}~`;
   const { data, error } = await supabase
     .from(TABLE)
     .select('*')
-    .gte('fecha_hora', desde)
-    .lte('fecha_hora', hasta)
-    .order('fecha_hora', { ascending: true });
+    .gte('cita_cargue', desde)
+    .lte('cita_cargue', hasta)
+    .order('cita_cargue', { ascending: true });
   if (error) throw error;
   return (data || []).map(mapTransporteFromDB);
 }
@@ -121,6 +130,9 @@ export async function updateTransporte(id: string, updates: Partial<UnifiedTrans
   if (updates.placa !== undefined) dbUpdates.placa = updates.placa;
   if (updates.vehiculoTipo !== undefined) dbUpdates.vehiculo_tipo = updates.vehiculoTipo;
   if (updates.citaCargue !== undefined) dbUpdates.cita_cargue = updates.citaCargue;
+  if (updates.transporte !== undefined) dbUpdates.transporte = updates.transporte;
+  if (updates.denominacion !== undefined) dbUpdates.denominacion = updates.denominacion;
+  if (updates.cajas !== undefined) dbUpdates.cajas = updates.cajas;
   if (updates.transportadora !== undefined) dbUpdates.transportadora = updates.transportadora;
   if (updates.estadoTransporte !== undefined) dbUpdates.estado_transporte = updates.estadoTransporte;
   if (updates.estadoPorteria !== undefined) dbUpdates.estado_porteria = updates.estadoPorteria;

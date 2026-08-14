@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { todayStr } from '../lib/dateUtils';
 import { getEstadoPorteria } from '../utils/porteria';
 
-interface RowFiltersOptions {
-  /** Nombre de la propiedad que contiene la fecha (por defecto 'fechaHora'). Se extrae el fragmento YYYY-MM-DD. */
+interface RowFiltersOptions<T extends object = Record<string, any>> {
+  /** Nombre de la propiedad que contiene la fecha del rango (por defecto 'citaCargue' = FECHA HORA CITA). Se extrae el fragmento YYYY-MM-DD. */
   dateKey?: string;
   /** Si se especifica, busca únicamente en estas columnas; si no, busca en TODAS las columnas de la fila. */
   searchKeys?: string[];
@@ -15,6 +15,12 @@ interface RowFiltersOptions {
    * rango seleccionado (llaves activas de cualquier día).
    */
   keepActiveLlaves?: boolean;
+  /**
+   * Predicado adicional: si devuelve true para una fila, esta se muestra
+   * aunque su fecha esté fuera del rango. Útil para que el filtro de estado
+   * (p.ej. FINALIZADAS/CANCELADAS) conserve las filas de cualquier día.
+   */
+  keepIf?: (row: T) => boolean;
 }
 
 /** Extrae el fragmento YYYY-MM-DD de un valor de fecha (soporta "2026-08-01 08:30" e ISO). */
@@ -24,8 +30,8 @@ function extractDatePart(value: unknown): string {
 }
 
 /** Filtro compartido: buscador (todas las columnas) + rango de fechas, en la misma fila. */
-export function useRowFilters<T extends object>(rows: T[], options: RowFiltersOptions = {}) {
-  const { dateKey = 'fechaHora', searchKeys, enableDate = true, keepActiveLlaves = false } = options;
+export function useRowFilters<T extends object>(rows: T[], options: RowFiltersOptions<T> = {}) {
+  const { dateKey = 'citaCargue', searchKeys, enableDate = true, keepActiveLlaves = false, keepIf } = options;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState(enableDate ? todayStr() : '');
@@ -53,6 +59,8 @@ export function useRowFilters<T extends object>(rows: T[], options: RowFiltersOp
             // Llaves activas (aún no SALIO DE PORTERIA) se conservan sin importar el día.
             if (keepActiveLlaves && getEstadoPorteria(record as Parameters<typeof getEstadoPorteria>[0]) !== 'SALIO DE PORTERIA') {
               // keep
+            } else if (keepIf && keepIf(row)) {
+              // keep (filtro de estado: FINALIZADAS/CANCELADAS de cualquier día)
             } else {
               return false;
             }
@@ -62,7 +70,7 @@ export function useRowFilters<T extends object>(rows: T[], options: RowFiltersOp
 
       return true;
     });
-  }, [rows, searchTerm, dateFrom, dateTo, dateKey, searchKeys, enableDate, keepActiveLlaves]);
+  }, [rows, searchTerm, dateFrom, dateTo, dateKey, searchKeys, enableDate, keepActiveLlaves, keepIf]);
 
   const resetFilters = () => {
     setSearchTerm('');

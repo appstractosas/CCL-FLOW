@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Edit2, XCircle } from 'lucide-react';
 import { UnifiedTransporte, PorteriaTimeField } from '../../types';
 import { TipoBadge, EstadoBadge } from '../common/EstadoBadge';
 import { TransporteDetailPanel } from './TransporteDetailPanel';
+import { Pagination } from '../common/Pagination';
 import { getEstadoPorteria, isLlaveCerrada } from '../../utils/porteria';
+import { formatFechaHora } from '../../lib/dateUtils';
 
-interface TransportesTableProps {
+export interface TransportesTableProps {
   rows: UnifiedTransporte[];
   showEdit?: boolean;
   showDelete?: boolean;
@@ -18,13 +20,10 @@ interface TransportesTableProps {
   onCuadrilla?: (row: UnifiedTransporte, cuadrilla: string) => void;
   checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
-}
-
-function formatFechaHora(value?: string): string {
-  if (!value) return '—';
-  const m = value.match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})/);
-  if (!m) return value.split('T')[0];
-  return `${m[1]} ${m[2]}:${m[3]}`;
+  showCajas?: boolean;
+  /** Llave que cambia solo cuando los FILTROS cambian (no cuando refrescan los datos por time real).
+   *  Al cambiar, se vuelve a la página 1. Si no se pasa, se usa la identidad de `rows`. */
+  pageResetKey?: string;
 }
 
 export const TransportesTable: React.FC<TransportesTableProps> = ({
@@ -40,25 +39,35 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   onCuadrilla,
   checklistOwner,
   onPorteriaHora,
+  showCajas = false,
+  pageResetKey,
 }) => {
-  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<UnifiedTransporte | null>(null);
-  const PAGE_SIZE = 8;
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+
+  // Se vuelve a la página 1 solo cuando cambian los filtros (vía pageResetKey),
+  // no cuando el array `rows` se refresca por time real (misma identidad de filtros).
+  const resetKey = pageResetKey ?? rows;
+  useEffect(() => {
+    setPage(1);
+  }, [resetKey]);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const showActions = (showEdit || showDelete) && !hideAcciones;
-  const colCount = showActions ? 8 : 7;
+  const colCount = 7 + (showCajas ? 1 : 0) + (showActions ? 1 : 0);
 
   const displayedRow = selected ? rows.find((r) => r.id === selected.id) || null : null;
 
   return (
     <div className="bg-[#0b0f19] rounded-2xl border border-zinc-800/90 overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* Cabecera inmovilizada: se mantiene fija al hacer scroll vertical del cuerpo. */}
+      <div className="overflow-x-auto max-h-[calc(100vh-260px)]">
         <table className="w-full text-left border-collapse text-xs">
-          <thead>
+          <thead className="sticky top-0 z-10">
             <tr className="bg-[#121726] border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider">
               <th className="py-3.5 px-3">FECHA</th>
               <th className="py-3.5 px-3">FECHA HORA CITA</th>
@@ -66,6 +75,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
               <th className="py-3.5 px-3">PLACA REMOLQUE</th>
               <th className="py-3.5 px-3">TIPO</th>
               <th className="py-3.5 px-3">MUELLE</th>
+              {showCajas && <th className="py-3.5 px-3">CAJAS</th>}
               <th className="py-3.5 px-3">ESTADO</th>
               {showActions && <th className="py-3.5 px-3 text-right">ACCIONES</th>}
             </tr>
@@ -86,7 +96,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                   title="Clic para ver detalle"
                 >
                   <td className="py-3.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
-                    {formatFechaHora(row.createdAt || row.fechaHora)}
+                    {formatFechaHora(row.fechaHora)}
                   </td>
                   <td className="py-3.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
                     {formatFechaHora(row.citaCargue)}
@@ -109,6 +119,11 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                   <td className="py-3.5 px-3 font-bold text-emerald-400 whitespace-nowrap">
                     {row.muelleAsignado || '—'}
                   </td>
+                  {showCajas && (
+                    <td className="py-3.5 px-3 font-mono font-bold text-amber-400 whitespace-nowrap">
+                      {row.cajas ? row.cajas.toLocaleString('es-CO') : '—'}
+                    </td>
+                  )}
                   <td className="py-3.5 px-3 whitespace-nowrap">
                     <EstadoBadge estado={getEstadoPorteria(row)} />
                   </td>
@@ -149,43 +164,12 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
         </table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-800/80 text-xs">
-          <span className="text-zinc-500 font-mono">
-            Página {safePage} de {totalPages}
-          </span>
-          <div className="flex items-center space-x-1.5">
-            <button
-              onClick={() => setPage(safePage - 1)}
-              disabled={safePage === 1}
-              className="px-3 py-1.5 rounded-lg border border-zinc-800 text-zinc-300 font-semibold hover:bg-zinc-800 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-            >
-              ← Anterior
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className={`w-8 h-8 rounded-lg font-bold transition-colors ${
-                  p === safePage
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:border-blue-500/40'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-            <button
-              onClick={() => setPage(safePage + 1)}
-              disabled={safePage === totalPages}
-              className="px-3 py-1.5 rounded-lg border border-zinc-800 text-zinc-300 font-semibold hover:bg-zinc-800 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-            >
-              Siguiente →
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={safePage}
+        totalPages={totalPages}
+        totalItems={rows.length}
+        onPageChange={setPage}
+      />
 
       {/* Detalle en panel lateral */}
       <TransporteDetailPanel

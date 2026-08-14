@@ -32,10 +32,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: 'planeacion' as AppModuleId, label: 'Planeación', icon: Truck },
     { id: 'porteria' as AppModuleId, label: 'Portería', icon: DoorClosed },
-    { id: 'monitoreo' as AppModuleId, label: 'Monitoreo', icon: Eye },
     { id: 'despachos' as AppModuleId, label: 'Despachos', icon: Package },
-    { id: 'tablero' as AppModuleId, label: 'Tablero', icon: LayoutDashboard },
     { id: 'personal' as AppModuleId, label: 'Supervisor', icon: UserCheck },
+    { id: 'monitoreo' as AppModuleId, label: 'Monitoreo', icon: Eye },
+    { id: 'tablero' as AppModuleId, label: 'Tablero', icon: LayoutDashboard },
     { id: 'informes' as AppModuleId, label: 'Informes', icon: BarChart3 },
     { id: 'admin_roles' as AppModuleId, label: 'ROLES', icon: Settings },
     { id: 'usuarios' as AppModuleId, label: 'USUARIOS', icon: Users },

@@ -11,6 +11,8 @@ export const TipoBadge: React.FC<{ tipo: TipoVehiculo }> = ({ tipo }) => {
       return <span className="bg-violet-500/10 text-white border border-violet-500/20 px-2 py-0.5 rounded-full font-bold text-[10px]">LUV</span>;
     case 'TURBO':
       return <span className="bg-emerald-500/10 text-white border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold text-[10px]">TURBO</span>;
+    case 'MULA':
+      return <span className="bg-rose-500/10 text-white border border-rose-500/20 px-2 py-0.5 rounded-full font-bold text-[10px]">MULA</span>;
     default:
       return <span className="bg-zinc-800 text-zinc-500 border border-zinc-700 px-2 py-0.5 rounded-full font-bold text-[10px]">{tipo}</span>;
   }
