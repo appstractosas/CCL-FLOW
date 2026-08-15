@@ -71,10 +71,12 @@ export const CONSTANTES = {
 
 export type DemoraNivel = 'aTiempo' | 'leve' | 'critico';
 
-/** "HH:MM" (o "HH:MM:SS") → minutos desde las 00:00; null si no es hora válida. */
+/** "HH:MM" (o "HH:MM:SS", o "YYYY-MM-DD HH:MM") → minutos desde las 00:00; null si no es hora válida. */
 export function minutosHora(hora?: string): number | null {
   if (!hora) return null;
-  const m = hora.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  const m = hora
+    .trim()
+    .match(/(?:^|\s)(\d{1,2}):(\d{2})(?::\d{2})?$/);
   if (!m) return null;
   const h = Number(m[1]);
   const min = Number(m[2]);

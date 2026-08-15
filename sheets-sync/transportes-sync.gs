@@ -604,3 +604,18 @@ function installTriggers() {
 
   Logger.log('Disparadores creados: onEdit + cada 1 minuto.');
 }
+
+/**
+ * Elimina TODOS los disparadores instalados del proyecto (onEdit + el temporal
+ * de cada 1 minuto) mientras Power Automate (Excel 365) es el sync activo.
+ * El resto del script queda intacto como respaldo:
+ *   - syncTransportes() sigue siendo ejecutable a mano (botón ▶ en el editor).
+ *   - Para REACTIVAR el respaldo cuando Power Automate falle, ejecutar:
+ *       installTriggers();
+ */
+function uninstallTriggers() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    ScriptApp.deleteTrigger(t);
+  });
+  Logger.log('Disparadores eliminados. El sync queda a cargo de Power Automate (Excel 365).');
+}

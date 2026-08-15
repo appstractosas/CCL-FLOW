@@ -26,7 +26,7 @@ import { initialTransportes, initialMessages } from './initialData';
 import { getEstadoPorteria, isLlaveCerrada, sortTransportesPorEstado } from '../utils/porteria';
 import { playNotificationSound, playAlertSound } from '../utils/sound';
 import { MUELLE_CERO } from '../lib/muelles';
-import { nowHHMM } from '../lib/dateUtils';
+import { nowHHMM, nowDateTime } from '../lib/dateUtils';
 
 interface LogisticsState {
   initialized: boolean;
@@ -241,7 +241,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         return newTransporte;
       },
 
-      updateTransporte: (id, updated) => {
+      updateTransporte: async (id, updated) => {
         const current = get().transportes.find((t) => t.id === id);
         if (!current || isLlaveCerrada(current)) return;
 
@@ -252,7 +252,11 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
           }
         }
 
-        if (isSupabaseConfigured) updateTransporteRemote(id, updated).catch(console.error);
+        // Primero la BD; solo si el write remoto llega se refleja en la UI.
+        // (antes era fire-and-forget con .catch silencioso y revertía por realtime).
+        if (isSupabaseConfigured) {
+          await updateTransporteRemote(id, updated);
+        }
         set((s) => ({
           transportes: sortTransportesPorEstado(
             s.transportes.map((t) => (t.id === id ? { ...t, ...updated } : t))
@@ -317,7 +321,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         // la H. Asignación Muelle (editable después, como las horas de portería).
         const esMuelleCero = (muelle || '').toUpperCase() === MUELLE_CERO.toUpperCase();
         if (muelle && !esMuelleCero) {
-          patch.horaMuelleAsignado = nowHHMM();
+          patch.horaMuelleAsignado = nowDateTime();
         }
 
         // Aviso de ASIGNACIÓN DE MUELLE a toda la operación (solo si cambió el muelle).

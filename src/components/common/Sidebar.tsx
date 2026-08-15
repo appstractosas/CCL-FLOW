@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Package,
   Truck,
+  Container,
   DoorClosed,
   Eye,
   BarChart3,
@@ -31,6 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = [
     { id: 'planeacion' as AppModuleId, label: 'Planeación', icon: Truck },
+    { id: 'transportes' as AppModuleId, label: 'Transportes', icon: Container },
     { id: 'porteria' as AppModuleId, label: 'Portería', icon: DoorClosed },
     { id: 'despachos' as AppModuleId, label: 'Despachos', icon: Package },
     { id: 'personal' as AppModuleId, label: 'Supervisor', icon: UserCheck },

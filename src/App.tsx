@@ -14,6 +14,7 @@ import logoSrc from '/assets/logo.png';
 // Carga diferida de los módulos para no traer recharts/xlsx/etc. en el primer render.
 const DespachosModule = lazy(() => import('./components/modules/DespachosModule').then((m) => ({ default: m.DespachosModule })));
 const PlaneacionModule = lazy(() => import('./components/modules/PlaneacionModule').then((m) => ({ default: m.PlaneacionModule })));
+const TransportesModule = lazy(() => import('./components/modules/TransportesModule').then((m) => ({ default: m.TransportesModule })));
 const PorteriaModule = lazy(() => import('./components/modules/PorteriaModule').then((m) => ({ default: m.PorteriaModule })));
 const MonitoreoModule = lazy(() => import('./components/modules/MonitoreoModule').then((m) => ({ default: m.MonitoreoModule })));
 const InformesModule = lazy(() => import('./components/modules/InformesModule').then((m) => ({ default: m.InformesModule })));
@@ -33,6 +34,7 @@ export default function App() {
   // Prioridad de módulos para ubicar al usuario tras el login (mismo orden del sidebar).
   const MODULE_PRIORITY: AppModuleId[] = [
     'planeacion',
+    'transportes',
     'porteria',
     'despachos',
     'personal',
@@ -87,6 +89,8 @@ export default function App() {
         return <DespachosModule />;
       case 'planeacion':
         return <PlaneacionModule />;
+      case 'transportes':
+        return <TransportesModule />;
       case 'porteria':
         return <PorteriaModule />;
       case 'monitoreo':

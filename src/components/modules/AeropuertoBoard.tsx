@@ -24,7 +24,7 @@ export const AeropuertoBoard: React.FC = () => {
     estadoFiltro,
     setEstadoFiltro,
     pageResetKey,
-  } = useFiltrosTransportes(transportes);
+  } = useFiltrosTransportes(transportes, { estadoInicial: 'todas' });
 
   const rows = useMemo(() => sortTransportesPorEstado(rowsFiltradas), [rowsFiltradas]);
   const [page, setPage] = React.useState(1);

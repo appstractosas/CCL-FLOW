@@ -62,13 +62,13 @@ CREATE TABLE transportes (
   estado_porteria       VARCHAR(20) NOT NULL DEFAULT 'Pendiente'
                         CHECK (estado_porteria IN ('Pendiente', 'Confirmado', 'LLEGO A PORTERIA', 'INGRESO A MUELLE', 'CARGANDO', 'FINALIZO CARGUE', 'SALIO DE PORTERIA', 'CANCELADO')),
   muelle_asignado       VARCHAR(50),
-  hora_muelle_asignado  VARCHAR(10) DEFAULT '--:--',
+  hora_muelle_asignado  VARCHAR(19) DEFAULT '--:--',
   cuadrilla             VARCHAR(50),
-  hora_llegada_porteria VARCHAR(10) DEFAULT '--:--',  -- H. LLEGADA PORTERÍA
-  hora_ingreso          VARCHAR(10) DEFAULT '--:--',  -- H. INGRESO PORTERÍA
-  hora_inicio_cargue    VARCHAR(10) DEFAULT '--:--',  -- H. INICIO CARGUE
-  hora_fin_cargue       VARCHAR(10) DEFAULT '--:--',  -- H. FIN CARGUE
-  hora_salida           VARCHAR(10) DEFAULT '--:--',  -- H. SALIDA PORTERÍA
+  hora_llegada_porteria VARCHAR(19) DEFAULT '--:--',  -- H. LLEGADA PORTERÍA
+  hora_ingreso          VARCHAR(19) DEFAULT '--:--',  -- H. INGRESO PORTERÍA
+  hora_inicio_cargue    VARCHAR(19) DEFAULT '--:--',  -- H. INICIO CARGUE
+  hora_fin_cargue       VARCHAR(19) DEFAULT '--:--',  -- H. FIN CARGUE
+  hora_salida           VARCHAR(19) DEFAULT '--:--',  -- H. SALIDA PORTERÍA
   observaciones         TEXT,
   created_at            TIMESTAMPTZ DEFAULT NOW(),
   updated_at            TIMESTAMPTZ DEFAULT NOW()

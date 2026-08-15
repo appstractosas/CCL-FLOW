@@ -45,7 +45,7 @@ ALTER TABLE public.transportes
 --    muelle (SUPERVISOR). Se registra la hora actual al asignar muelle.
 ALTER TABLE public.transportes
   ADD COLUMN IF NOT EXISTS cuadrilla VARCHAR(50),
-  ADD COLUMN IF NOT EXISTS hora_muelle_asignado VARCHAR(10) DEFAULT '--:--';
+  ADD COLUMN IF NOT EXISTS hora_muelle_asignado VARCHAR(19) DEFAULT '--:--';
 
 CREATE INDEX IF NOT EXISTS idx_transportes_cuadrilla
   ON public.transportes(cuadrilla);

@@ -31,10 +31,23 @@ describe('AeropuertoBoard (Tablero)', () => {
     expect(screen.getAllByText(/• Confirmado/)).toHaveLength(2);
   });
 
-  it('filtra llaves canceladas al seleccionar el filtro Canceladas', async () => {
+  it('muestra TODAS las llaves por defecto (filtro inicial TODAS)', async () => {
     await useLogisticsStore.getState().addTransporte({ placa: 'XYZ-999' });
-    const row = useLogisticsStore.getState().transportes[0];
-    useLogisticsStore.getState().cancelTransporte(row.id);
+    await useLogisticsStore.getState().addTransporte({ placa: 'ABC-123' });
+    const cancelada = useLogisticsStore.getState().transportes.find((t) => t.placa === 'XYZ-999')!;
+    useLogisticsStore.getState().cancelTransporte(cancelada.id);
+
+    render(<AeropuertoBoard />);
+
+    expect(screen.getByText(/• CANCELADO/)).toBeInTheDocument();
+    expect(screen.getByText(/• Confirmado/)).toBeInTheDocument();
+  });
+
+  it('permite filtrar por estado desde el selector', async () => {
+    await useLogisticsStore.getState().addTransporte({ placa: 'XYZ-999' });
+    await useLogisticsStore.getState().addTransporte({ placa: 'ABC-123' });
+    const cancelada = useLogisticsStore.getState().transportes.find((t) => t.placa === 'XYZ-999')!;
+    useLogisticsStore.getState().cancelTransporte(cancelada.id);
 
     render(<AeropuertoBoard />);
     fireEvent.click(screen.getByText('Canceladas'));

@@ -10,8 +10,14 @@ import { UnifiedTransporte } from '../types';
  * sin importar el día. Devuelve además un `pageResetKey` que cambia solo cuando
  * cambian los filtros, para que la paginación no se reinicie al refrescar datos.
  */
-export function useFiltrosTransportes(rows: UnifiedTransporte[]) {
-  const [estadoFiltro, setEstadoFiltro] = useState<FiltroEstadoId>('todas');
+interface UseFiltrosTransportesOptions {
+  /** Valor inicial del filtro de estado (por defecto 'activas'). El selector queda funcional. */
+  estadoInicial?: FiltroEstadoId;
+}
+
+export function useFiltrosTransportes(rows: UnifiedTransporte[], options?: UseFiltrosTransportesOptions) {
+  const estadoInicial = options?.estadoInicial ?? 'activas';
+  const [estadoFiltro, setEstadoFiltro] = useState<FiltroEstadoId>(estadoInicial);
 
   const { searchTerm, setSearchTerm, dateFrom, setDateFrom, dateTo, setDateTo, filtered } = useRowFilters(rows, {
     // Filtro estricto por fechas: el rango seleccionado (FECHA HORA CITA) es el

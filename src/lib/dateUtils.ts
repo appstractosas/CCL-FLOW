@@ -17,6 +17,28 @@ export function nowHHMM(): string {
   return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
+/** Fecha y hora actuales "YYYY-MM-DD HH:MM" (hora local, no UTC). */
+export function nowDateTime(): string {
+  return `${todayStr()} ${nowHHMM()}`;
+}
+
+/** Extrae la parte "HH:MM" de un valor "YYYY-MM-DD HH:MM"; si ya es solo hora, la devuelve tal cual. */
+export function horaOf(value?: string): string {
+  if (!value) return '';
+  const m = value.trim().match(/(?:^|\s)(\d{2}:\d{2})$/);
+  return m ? m[1] : value.trim();
+}
+
+/** Convierte "HH:MM" a "YYYY-MM-DD HH:MM" combinándola con la fecha base
+ *  ("YYYY-MM-DD" o "YYYY-MM-DD HH:MM"); si la base no trae fecha, usa el día actual. */
+export function combinarFechaHora(value?: string, baseDate?: string): string {
+  const hora = horaOf(value);
+  if (!hora) return '';
+  const m = (baseDate || '').match(/(\d{4}-\d{2}-\d{2})/);
+  const fecha = (m && m[1]) || todayStr();
+  return `${fecha} ${hora}`;
+}
+
 /** Formatea "YYYY-MM-DD[T ]HH:MM..." a "YYYY-MM-DD HH:MM"; si no hay match, quita la parte de tiempo. */
 export function formatFechaHora(value?: string): string {
   if (!value) return '—';

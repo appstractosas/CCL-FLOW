@@ -8,6 +8,8 @@ interface TransporteFormModalProps {
   open: boolean;
   editingRow: UnifiedTransporte | null;
   defaultLlave: string;
+  /** En edición solo se permite modificar la placa (resto de campos bloqueados). */
+  editPlacaOnly?: boolean;
   onClose: () => void;
   onSave: (data: TransporteData & { llave: string }) => void;
 }
@@ -46,6 +48,7 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
   open,
   editingRow,
   defaultLlave,
+  editPlacaOnly = false,
   onClose,
   onSave,
 }) => {
@@ -64,6 +67,12 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const llave = formData.llave.trim() || defaultLlave.trim();
+    if (locked) {
+      // Modo "solo placa": enviar únicamente la placa y la llave, sin reescribir
+      // los campos bloqueados (evita pisar fecha_hora/cita_cargue con valores viejos).
+      onSave({ llave, placa: formData.placa });
+      return;
+    }
     onSave({
       llave,
       placa: formData.placa,
@@ -77,6 +86,10 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
 
   const inputCls =
     'w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white focus:outline-none';
+
+  const lockedCls =
+    'w-full px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-xl text-xs text-zinc-500 focus:outline-none';
+  const locked = Boolean(editingRow && editPlacaOnly);
 
   return (
     <div
@@ -109,16 +122,18 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
                 type="text"
                 placeholder={defaultLlave}
                 value={formData.llave}
+                disabled={locked}
                 onChange={(e) => setFormData({ ...formData, llave: e.target.value })}
-                className={`${inputCls} font-mono uppercase`}
+                className={`${locked ? lockedCls : inputCls} font-mono uppercase`}
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-zinc-300 mb-1">Tipo Vehículo</label>
               <select
                 value={formData.vehiculoTipo}
+                disabled={locked}
                 onChange={(e) => setFormData({ ...formData, vehiculoTipo: e.target.value as TipoVehiculo | '' })}
-                className={`${inputCls} ${formData.vehiculoTipo ? '' : 'text-zinc-500'}`}
+                className={`${locked ? lockedCls : inputCls} ${formData.vehiculoTipo ? '' : 'text-zinc-500'}`}
               >
                 <option value="">Seleccionar tipo</option>
                 <option value="MINIMULA">MINIMULA</option>
@@ -135,10 +150,15 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               <label className="block text-xs font-bold text-zinc-300 mb-1">Fecha y Hora</label>
               <button
                 type="button"
+                disabled={locked}
                 onClick={() => setPickerOpen(true)}
-                className="w-full flex items-center justify-between px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-xs font-mono text-white focus:outline-none hover:border-blue-500/50"
+                className={`w-full flex items-center justify-between px-3 py-2 ${
+                  locked
+                    ? 'bg-zinc-900/50 border border-zinc-800 rounded-xl text-xs font-mono text-zinc-500'
+                    : 'bg-zinc-900 border border-zinc-700 rounded-xl text-xs font-mono text-white hover:border-blue-500/50'
+                }`}
               >
-                <span className={formData.fechaHora ? 'text-white' : 'text-zinc-500'}>
+                <span className={formData.fechaHora ? (locked ? 'text-zinc-500' : 'text-white') : 'text-zinc-500'}>
                   {formData.fechaHora || 'Seleccionar fecha y hora'}
                 </span>
                 <CalendarClock className="w-4 h-4 text-zinc-500" />
@@ -156,27 +176,29 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-zinc-300 mb-1">Transportadora</label>
-            <input
-              type="text"
-              placeholder="Ej: TRANSPORTES ANDINA"
-              value={formData.transportadora}
-              onChange={(e) => setFormData({ ...formData, transportadora: e.target.value })}
-              className={inputCls}
-            />
-          </div>
+<div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Transportadora</label>
+              <input
+                type="text"
+                placeholder="Ej: TRANSPORTES ANDINA"
+                value={formData.transportadora}
+                disabled={locked}
+                onChange={(e) => setFormData({ ...formData, transportadora: e.target.value })}
+                className={locked ? lockedCls : inputCls}
+              />
+            </div>
 
-          <div>
-            <label className="block text-xs font-bold text-zinc-300 mb-1">Observaciones</label>
-            <textarea
-              value={formData.observaciones}
-              onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-              rows={2}
-              placeholder="Notas, instrucciones o novedades (opcional)"
-              className={`${inputCls} resize-none`}
-            />
-          </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Observaciones</label>
+              <textarea
+                value={formData.observaciones}
+                disabled={locked}
+                onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+                rows={2}
+                placeholder="Notas, instrucciones o novedades (opcional)"
+                className={`${locked ? lockedCls : inputCls} resize-none`}
+              />
+            </div>
 
           <div className="flex items-center justify-end space-x-2 pt-4 border-t border-zinc-800">
             <button
@@ -190,7 +212,7 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               type="submit"
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md"
             >
-              {editingRow ? 'Guardar Cambios' : 'Guardar Llave'}
+              {editingRow ? (locked ? 'Guardar Placa' : 'Guardar Cambios') : 'Guardar Llave'}
             </button>
           </div>
         </form>

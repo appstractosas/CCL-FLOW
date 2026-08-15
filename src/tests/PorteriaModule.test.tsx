@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PorteriaModule } from '../components/modules/PorteriaModule';
 import { useLogisticsStore } from '../store/useLogisticsStore';
@@ -68,7 +68,10 @@ describe('PorteriaModule Component (Shared Unified Table)', () => {
     // The ESTADO column shows the unified estado_porteria state
     expect(screen.getAllByText(/Pendiente/).length).toBeGreaterThan(0);
 
-    // A llave with hora_salida already logged shows SALIO DE PORTERIA
+    // Con el filtro por defecto en "Activas" la llave ya salida no aparece;
+    // al cambiar a "Todas" se muestra SALIO DE PORTERIA.
+    expect(screen.queryByText(/SALIO DE PORTERIA/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Todas'));
     expect(screen.getByText(/SALIO DE PORTERIA/)).toBeInTheDocument();
   });
 });

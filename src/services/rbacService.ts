@@ -45,6 +45,10 @@ export const PRESET_ROLES: Role[] = [
     id: 'ROLE_MONITOREO', name: 'MONITOREO', description: 'Monitoreo de la operación y registro de salida de portería.', isPreset: true,
     permissions: permissionsAll(['monitoreo', 'despachos', 'planeacion', 'porteria', 'informes', 'tablero'], ['monitoreo']),
   },
+  {
+    id: 'ROLE_TRANSPORTES', name: 'TRANSPORTES', description: 'Registro y edición de placas de transportes.', isPreset: true,
+    permissions: permissionsAll(['transportes', 'informes', 'tablero'], ['transportes']),
+  },
 ];
 
 export const ROLE_ID_BY_TYPE: Record<UserType, string> = ROLE_ID_BY_USER_TYPE;
@@ -58,6 +62,7 @@ export const PRESET_USERS: UserRecord[] = [
   { id: 'USER_PLAN', nombre: 'Ana Gómez', cedula: '1000000003', clave: '1234', tipoUsuario: 'planeador', roleId: 'ROLE_PLANEADOR', roleName: 'PLANEADOR' },
   { id: 'USER_SUP', nombre: 'Luis Mora', cedula: '1000000004', clave: '1234', tipoUsuario: 'supervisor', roleId: 'ROLE_SUPERVISOR', roleName: 'SUPERVISOR' },
   { id: 'USER_MONITOREO', nombre: 'Carlos Montero', cedula: '1000000005', clave: '1234', tipoUsuario: 'monitor', roleId: 'ROLE_MONITOREO', roleName: 'MONITOREO' },
+  { id: 'USER_TRANSPORTES', nombre: 'Diana Ríos', cedula: '1000000006', clave: '1234', tipoUsuario: 'transportes', roleId: 'ROLE_TRANSPORTES', roleName: 'TRANSPORTES' },
 ];
 
 export function roleForUserType(tipo: UserType): { roleId: string; roleName: string } {

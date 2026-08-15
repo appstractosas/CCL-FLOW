@@ -28,7 +28,7 @@ export const PlaneacionModule: React.FC = () => {
   const handleSave = async (data: TransporteData & { llave: string }) => {
     try {
       if (editingRow) {
-        updateTransporte(editingRow.id, data);
+        await updateTransporte(editingRow.id, data);
       } else {
         await addTransporte(data);
       }

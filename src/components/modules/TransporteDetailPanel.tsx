@@ -4,7 +4,7 @@ import { UnifiedTransporte, PorteriaTimeField } from '../../types';
 import { EstadoBadge, TipoBadge } from '../common/EstadoBadge';
 import { getEstadoPorteria, isLlaveCerrada } from '../../utils/porteria';
 import { MUELLES, MUELLE_CERO } from '../../lib/muelles';
-import { timeSet, nowHHMM, formatSlot } from '../../lib/dateUtils';
+import { timeSet, nowDateTime, formatSlot, horaOf, combinarFechaHora, formatFechaHora } from '../../lib/dateUtils';
 import { CUADRILLAS, PORTERIA_STEPS, DetailRow, SectionTitle, TimeRow } from './TransporteDetailBits';
 
 interface TransporteDetailPanelProps {
@@ -169,11 +169,11 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                   {onMuelleHora ? (
                     <input
                       type="time"
-                      value={timeSet(row.horaMuelleAsignado) ? row.horaMuelleAsignado : ''}
+                      value={timeSet(row.horaMuelleAsignado) ? horaOf(row.horaMuelleAsignado) : ''}
                       onChange={(e) => {
                         const v = e.target.value;
                         if (!v) return;
-                        onMuelleHora(row, v);
+                        onMuelleHora(row, combinarFechaHora(v, row.horaMuelleAsignado));
                       }}
                       disabled={cerrada}
                       className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2 py-1 rounded-lg font-bold focus:outline-none text-xs disabled:opacity-50 disabled:cursor-not-allowed"
@@ -181,7 +181,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                     />
                   ) : (
                     <span className="text-xs font-semibold text-zinc-100 text-right">
-                      {timeSet(row.horaMuelleAsignado) ? row.horaMuelleAsignado : '—'}
+                      {timeSet(row.horaMuelleAsignado) ? formatFechaHora(row.horaMuelleAsignado) : '—'}
                     </span>
                   )}
                 </div>
@@ -293,7 +293,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
               </button>
               <button
                 onClick={() => {
-                  onPorteriaHora?.(row, PORTERIA_STEPS[confirmIndex].key, nowHHMM());
+                  onPorteriaHora?.(row, PORTERIA_STEPS[confirmIndex].key, nowDateTime());
                   setConfirmIndex(null);
                 }}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition-colors"

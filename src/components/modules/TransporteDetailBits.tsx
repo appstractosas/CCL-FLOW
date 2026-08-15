@@ -1,6 +1,6 @@
 import React from 'react';
 import { PorteriaTimeField } from '../../types';
-import { timeSet, nowHHMM } from '../../lib/dateUtils';
+import { timeSet, formatFechaHora, nowDateTime, horaOf, combinarFechaHora } from '../../lib/dateUtils';
 
 export interface PorteriaStep {
   key: PorteriaTimeField;
@@ -19,8 +19,14 @@ export const PORTERIA_STEPS: PorteriaStep[] = [
 export const CUADRILLAS = ['CCL', 'LTSA (Éxito)', 'SLA'] as const;
 
 // Las horas de operación no pueden ser futuras (solo anteriores o iguales a la hora actual).
+// Acepta "HH:MM" o "YYYY-MM-DD HH:MM" y compara contra el instante actual.
 export function isHoraFutura(hora: string): boolean {
-  return timeSet(hora) && hora > nowHHMM();
+  const withFecha = hora.includes('-') ? hora : combinarFechaHora(hora, todayStrBase());
+  return timeSet(withFecha) && withFecha > nowDateTime();
+}
+
+function todayStrBase(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export function DetailRow({ label, value }: { label: string; value?: string | number }) {
@@ -59,7 +65,7 @@ export function TimeRow({
   onEdit: (hora: string) => void;
 }) {
   if (!showCheck) {
-    return <DetailRow label={step.label} value={value} />;
+    return <DetailRow label={step.label} value={value && timeSet(value) ? formatFechaHora(value) : value} />;
   }
   const hasValue = timeSet(value);
   return (
@@ -85,22 +91,25 @@ export function TimeRow({
       {editable && hasValue ? (
         <input
           type="time"
-          value={value || ''}
+          value={horaOf(value) || ''}
           onChange={(e) => {
             const v = e.target.value;
             if (!v) return;
-            if (isHoraFutura(v)) {
-              window.alert(`No se puede registrar una hora futura (${v}). Usa una hora anterior o igual a la hora actual (${nowHHMM()}).`);
+            const comb = combinarFechaHora(v, value);
+            if (isHoraFutura(comb)) {
+              window.alert(
+                `No se puede registrar una hora futura (${comb}). Usa una hora anterior o igual a la hora actual (${nowDateTime()}).`
+              );
               return;
             }
-            onEdit(v);
+            onEdit(comb);
           }}
           className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2 py-1 rounded-lg font-bold focus:outline-none text-xs"
           title={`Editar ${step.label}`}
         />
       ) : (
         <span className={`text-xs font-semibold text-right ${checked ? 'text-emerald-300' : 'text-zinc-100'}`}>
-          {hasValue ? value : '—'}
+          {hasValue ? formatFechaHora(value) : '—'}
         </span>
       )}
     </div>

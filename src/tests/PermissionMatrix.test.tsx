@@ -24,16 +24,18 @@ describe('PermissionMatrix', () => {
   it('muestra un toggle por celda de rol activada', () => {
     render(<PermissionMatrix />);
     const switches = screen.getAllByRole('switch');
-    // 10 módulos x 5 roles operativos = 50 toggles
-    expect(switches.length).toBe(50);
+    // 11 módulos x 6 roles operativos = 66 toggles
+    expect(switches.length).toBe(66);
   });
 
-  it('lista solo los 5 roles operativos como columnas (sin ADMIN)', () => {
+  it('lista solo los roles operativos como columnas (sin ADMIN)', () => {
     render(<PermissionMatrix />);
     const headerRoles = ['Despachador', 'Portero', 'Planeador', 'Monitor'];
     headerRoles.forEach((r) => expect(screen.getByText(r)).toBeInTheDocument());
     // "Supervisor" aparece tanto como rol (columna) como módulo (personal), por eso getAllByText.
     expect(screen.getAllByText('Supervisor').length).toBeGreaterThanOrEqual(1);
+    // "Transportes" es a la vez un rol (columna) y un módulo (fila): aparecen ambos.
+    expect(screen.getAllByText('Transportes').length).toBeGreaterThanOrEqual(2);
   });
 });
 

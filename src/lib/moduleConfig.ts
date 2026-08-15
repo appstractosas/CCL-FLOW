@@ -4,6 +4,7 @@ import { AppModuleId, UserType } from '../types';
 export const MODULE_LABELS: Record<AppModuleId, string> = {
   despachos: 'Despachos',
   planeacion: 'Planeación',
+  transportes: 'Transportes',
   porteria: 'Portería',
   monitoreo: 'Monitoreo',
   personal: 'Supervisor',
@@ -17,6 +18,7 @@ export const MODULE_LABELS: Record<AppModuleId, string> = {
 export const ALL_MODULES: AppModuleId[] = [
   'despachos',
   'planeacion',
+  'transportes',
   'porteria',
   'monitoreo',
   'personal',
@@ -34,6 +36,7 @@ export const USER_TYPES: { value: UserType; label: string }[] = [
   { value: 'planeador', label: 'Planeador' },
   { value: 'supervisor', label: 'Supervisor' },
   { value: 'monitor', label: 'Monitor' },
+  { value: 'transportes', label: 'Transportes' },
 ];
 
 /** Rol por tipo de usuario. */
@@ -44,6 +47,7 @@ export const ROLE_ID_BY_USER_TYPE: Record<UserType, string> = {
   planeador: 'ROLE_PLANEADOR',
   supervisor: 'ROLE_SUPERVISOR',
   monitor: 'ROLE_MONITOREO',
+  transportes: 'ROLE_TRANSPORTES',
 };
 
 export const ROLE_NAME_BY_USER_TYPE: Record<UserType, string> = {
@@ -53,6 +57,7 @@ export const ROLE_NAME_BY_USER_TYPE: Record<UserType, string> = {
   planeador: 'PLANEADOR',
   supervisor: 'SUPERVISOR',
   monitor: 'MONITOREO',
+  transportes: 'TRANSPORTES',
 };
 
 export function userTypeLabel(tipo: UserType | string): string {
