@@ -51,8 +51,8 @@ export type GrupoCuadrilla = 'CCL' | 'SLA' | 'LTSA';
 
 /** Umbrales y reglas de negocio usados por los reportes (ajustables). */
 export const CONSTANTES = {
-  /** Costo diario por vehículo de la flota CCL (reporte de determinación horaria). */
-  COSTO_DIARIO_CCL: 1_000_000,
+  /** Costo diario de la cuadrilla CCL (se multiplica por los días del rango del informe). */
+  COSTO_DIARIO_CCL: 1_432_000,
   /** Meta SLA (min) para clasificar el tiempo en muelle. */
   SLA_MINUTOS: 45,
   /** Minutos de demora para considerarla leve (sobre el SLA). */
@@ -66,7 +66,7 @@ export const CONSTANTES = {
   /** Costo por caja para la flota CCL (rentabilidad de cuadrillas). */
   COSTO_CAJA_CCL: 200,
   /** Ingreso por caja para SLA/LTSA (rentabilidad de cuadrillas). */
-  INGRESO_CAJA_SLA: 350,
+  INGRESO_CAJA_SLA: 140,
 } as const;
 
 export type DemoraNivel = 'aTiempo' | 'leve' | 'critico';
@@ -444,32 +444,29 @@ export interface RentabilidadBucket {
 }
 
 /**
- * Rentabilidad por cuadrilla agrupada cada 5 días.
- * Costo CCL = cajas CCL × COSTO_CAJA_CCL; ingreso SLA/LTSA = cajas × INGRESO_CAJA_SLA.
+ * Rentabilidad por cuadrilla con granularidad diaria según el rango [desde, hasta].
+ * Cada día: Costo CCL = COSTO_DIARIO_CCL (tarifa fija diaria de la cuadrilla interna)
+ * e ingreso SLA/LTSA = cajas de terceros de ese día × INGRESO_CAJA_SLA.
  */
-export function rentabilidadCuadrillas(rows: UnifiedTransporte[]): RentabilidadBucket[] {
-  const bucketMin = 5;
-  const keys = [...new Set(rows.map((r) => String(r.citaCargue || '').slice(0, 10)).filter(Boolean))].sort();
-  const buckets = new Map<number, RentabilidadBucket>();
-  keys.forEach((dia) => {
-    const t = new Date(`${dia}T00:00:00`).getTime();
-    const idx = Math.floor(t / (bucketMin * 86_400_000));
-    if (!buckets.has(idx)) {
-      buckets.set(idx, { name: dia, costoCCL: 0, ingresoSLA: 0 });
-    }
-  });
+export function rentabilidadCuadrillas(rows: UnifiedTransporte[], desde: string, hasta: string): RentabilidadBucket[] {
+  const buckets = new Map<string, RentabilidadBucket>();
+  for (const dia of generarDias(desde, hasta)) {
+    buckets.set(dia, { name: dia, costoCCL: CONSTANTES.COSTO_DIARIO_CCL, ingresoSLA: 0 });
+  }
+
+  // Ingreso de cuadrillas terceras (SLA/LTSA) según las cajas de cada día.
+  // Las llaves sin cuadrilla asignada no se consideran operación de terceros.
   for (const r of rows) {
     const dia = String(r.citaCargue || '').slice(0, 10);
-    if (!dia) continue;
-    const t = new Date(`${dia}T00:00:00`).getTime();
-    const idx = Math.floor(t / (bucketMin * 86_400_000));
-    const bucket = buckets.get(idx);
+    const bucket = buckets.get(dia);
     if (!bucket) continue;
-    const cajas = r.cajas ?? 0;
+    if (!String(r.cuadrilla || '').trim()) continue;
     const grupo = tipoGrupo(r.cuadrilla);
-    if (grupo === 'CCL') bucket.costoCCL += cajas * CONSTANTES.COSTO_CAJA_CCL;
-    else bucket.ingresoSLA += cajas * CONSTANTES.INGRESO_CAJA_SLA;
+    if (grupo === 'SLA' || grupo === 'LTSA') {
+      bucket.ingresoSLA += (r.cajas ?? 0) * CONSTANTES.INGRESO_CAJA_SLA;
+    }
   }
+
   return [...buckets.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -486,11 +483,12 @@ export function cajasPorDia(rows: UnifiedTransporte[]): ValorConteo[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Distribución de cajas por tipo de cuadrilla (CCL/SLA/LTSA). */
+/** Distribución de cajas por tipo de cuadrilla (CCL/SLA/LTSA). Las llaves sin cuadrilla no se asignan a LTSA. */
 export function cajasPorCuadrilla(rows: UnifiedTransporte[]): ValorConteo[] {
   const mapa = new Map<GrupoCuadrilla, number>();
   for (const r of rows) {
     const grupo = tipoGrupo(r.cuadrilla);
+    if (grupo === 'LTSA' && !String(r.cuadrilla || '').trim()) continue;
     mapa.set(grupo, (mapa.get(grupo) || 0) + (r.cajas ?? 0));
   }
   return (['CCL', 'SLA', 'LTSA'] as GrupoCuadrilla[]).map((g) => ({ name: g, value: mapa.get(g) || 0 }));

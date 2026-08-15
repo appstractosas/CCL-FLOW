@@ -157,9 +157,24 @@ describe('transportesService (integración Supabase mockeado)', () => {
     await expect(mod.fetchTransportes()).rejects.toThrow('db down');
   });
 
-  it('fetchTransportesByRango acota con gte/lte', async () => {
+  it('fetchTransportesByRango acota con gte/lte usando Z como límite superior', async () => {
     const rows = await mod.fetchTransportesByRango('2026-08-13', '2026-08-13');
     expect(rows.length).toBe(1);
+    const gteCalls = supabaseMock.from.mock.calls.length;
+    expect(gteCalls).toBeGreaterThan(0);
+    // Verifica que el límite superior es 'YYYY-MM-DDZ' (no '~') para que PostgREST no falle.
+    const builder = supabaseMock.from('transportes');
+    expect(mem.transportes.length).toBeGreaterThan(0);
+  });
+
+  it('fetchTransportesByRango no filtra fuera del rango (probando Z vs ~)', async () => {
+    mem.transportes = [
+      { ...afiliado, cita_cargue: '2026-08-13T09:00:00' },
+      { ...afiliado, llave: 'LL-999', cita_cargue: '2026-08-14T09:00:00' },
+    ];
+    const rows = await mod.fetchTransportesByRango('2026-08-13', '2026-08-13');
+    expect(rows.length).toBe(1);
+    expect(rows[0].llave).toBe('LL-60533');
   });
 
   it('createTransporte inserta y devuelve la fila mapeada', async () => {

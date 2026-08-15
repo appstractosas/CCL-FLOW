@@ -331,15 +331,38 @@ describe('utils/informes (nuevos gráficos)', () => {
     expect(ops).toHaveLength(2);
   });
 
-  it('rentabilidadCuadrillas separa costo CCL e ingreso SLA agrupado', () => {
-    const rent = rentabilidadCuadrillas([
-      g({ llave: 'LL-1', cuadrilla: 'CCL', cajas: 100, citaCargue: '2026-08-12 08:00' }),
-      g({ llave: 'LL-2', cuadrilla: 'SLA', cajas: 100, citaCargue: '2026-08-12 09:00' }),
-    ]);
-    expect(rent).toHaveLength(1);
-    expect(rent[0].costoCCL).toBeGreaterThan(0);
-    expect(rent[0].ingresoSLA).toBeGreaterThan(0);
-    expect(rent[0].costoCCL).not.toBe(rent[0].ingresoSLA);
+  it('rentabilidadCuadrillas costea CCL por día (1.432.000) e ingresa SLA según cajas del día × 140', () => {
+    const rent = rentabilidadCuadrillas(
+      [
+        g({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 100, citaCargue: '2026-08-12 08:00' }),
+        g({ llave: 'LL-2', cuadrilla: 'SLV', cajas: 5, citaCargue: '2026-08-13 09:00' }),
+      ],
+      '2026-08-12',
+      '2026-08-13'
+    );
+    expect(rent).toHaveLength(2);
+    // Cada día cuesta la tarifa diaria fija de CCL (no depende de cajas).
+    expect(rent[0].costoCCL).toBe(1_432_000);
+    expect(rent[1].costoCCL).toBe(1_432_000);
+    // Ingreso SLA: cajas de terceros de ese día × 140 (SLV cae en LTSA → tercero).
+    expect(rent[0].ingresoSLA).toBe(100 * 140);
+    expect(rent[1].ingresoSLA).toBe(5 * 140);
+  });
+
+  it('rentabilidadCuadrillas no cuenta filas sin cuadrilla como ingreso SLA (solo días con cuadrilla real)', () => {
+    const rent = rentabilidadCuadrillas(
+      [
+        g({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 711, citaCargue: '2026-08-15 08:00' }),
+        g({ llave: 'LL-2', cuadrilla: '', cajas: 808, citaCargue: '2026-08-15 09:00' }),
+        g({ llave: 'LL-3', cuadrilla: 'SLA', cajas: 100, citaCargue: '2026-08-14 08:00' }),
+      ],
+      '2026-08-14',
+      '2026-08-15'
+    );
+    expect(rent).toHaveLength(2);
+    // Solo las filas con cuadrilla SLA/LTSA generan ingreso SLA; las sin cuadrilla no.
+    expect(rent.find((b) => b.name === '2026-08-14')?.ingresoSLA).toBe(100 * 140);
+    expect(rent.find((b) => b.name === '2026-08-15')?.ingresoSLA).toBe(711 * 140);
   });
 
   it('cajasPorDia suma cajas por día de cita estremente', () => {

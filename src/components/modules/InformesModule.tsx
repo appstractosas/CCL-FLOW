@@ -140,7 +140,10 @@ export const InformesModule: React.FC = () => {
   // Nuevos gráficos (según el rango seleccionado).
   const usoMuelle = useMemo(() => usoPorMuelle(rowsFiltradas), [rowsFiltradas]);
   const clientes = useMemo(() => operacionesPorCliente(rowsFiltradas, 10), [rowsFiltradas]);
-  const rentabilidad = useMemo(() => rentabilidadCuadrillas(rowsFiltradas), [rowsFiltradas]);
+  const rentabilidad = useMemo(
+    () => rentabilidadCuadrillas(rowsFiltradas, dateFrom, dateTo),
+    [rowsFiltradas, dateFrom, dateTo]
+  );
   const cajasDia = useMemo(() => cajasPorDia(rowsFiltradas), [rowsFiltradas]);
   const cajasGrupo = useMemo(() => cajasPorCuadrilla(rowsFiltradas), [rowsFiltradas]);
 
@@ -368,19 +371,19 @@ export const InformesModule: React.FC = () => {
           {/* Volumen de llaves por día */}
           <VolumenPanel data={volumen} sinDatos={sinDatos} />
 
-          {/* Uso y Ocupación de Muelles */}
-          <MuellesPanel data={usoMuelle} sinDatos={sinDatos} />
+          {/* Cajas diarias */}
+          <CajasDiariasPanel data={cajasDia} sinDatos={sinDatos} />
+
+          {/* Uso y Ocupación de Muelles + Cajas cargadas por cuadrilla */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <MuellesPanel data={usoMuelle} sinDatos={sinDatos} />
+            <CajasGrupoPanel data={cajasGrupo} sinDatos={sinDatos} />
+          </div>
 
           {/* Operaciones por cliente + Rentabilidad cuadrillas */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <ClientesPanel data={clientes} sinDatos={sinDatos} />
             <RentabilidadPanel data={rentabilidad} sinDatos={sinDatos} />
-          </div>
-
-          {/* Cajas diarias + Cajas cargadas */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <CajasDiariasPanel data={cajasDia} sinDatos={sinDatos} />
-            <CajasGrupoPanel data={cajasGrupo} sinDatos={sinDatos} />
           </div>
 
           {/* Fase 3+5: Tabla detalle del rango */}

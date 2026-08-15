@@ -63,6 +63,14 @@ function tickCada5Dias(fecha: string): string {
 }
 
 /**
+ * Formatea valores del eje Y en miles de pesos: 1432000 → "1.432 k".
+ */
+function fmtEje(v: number): string {
+  if (!Number.isFinite(v)) return '';
+  return `${Math.round(v / 1000).toLocaleString('es-CO')} k`;
+}
+
+/**
  * Punto (dot) de una línea: los domingos se pintan de rojo, el resto del color base.
  */
 export function dotPorDia(base: string, esDomingoCheck: (fecha: string) => boolean = esDomingo) {
@@ -72,6 +80,41 @@ export function dotPorDia(base: string, esDomingoCheck: (fecha: string) => boole
     const fecha = payload?.name ?? '';
     const domingo = esDomingoCheck(fecha);
     return <circle cx={cx} cy={cy} r={domingo ? 3.5 : 2.5} fill={domingo ? '#ef4444' : base} />;
+  };
+}
+
+/**
+ * Punto con etiqueta de valor solo en el último punto de la serie. Útil para
+ * costos fijos (Costo CCL) que se repiten cada día: evita repetir la misma
+ * etiqueta y la sitúa sobre el punto, alineada con el eje Y.
+ */
+export function dotUltimoConEtiqueta(base: string, ultimaFecha: string, formatear: (n: number) => string) {
+  return (props: { cx?: number; cy?: number; payload?: { name?: string; value?: number } }) => {
+    const { cx, cy, payload } = props;
+    if (cx == null || cy == null) return null;
+    const fecha = payload?.name ?? '';
+    const domingo = esDomingo(fecha);
+    const esUltimo = fecha === ultimaFecha;
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={domingo ? 3.5 : 2.5} fill={domingo ? '#ef4444' : base} />
+        {esUltimo ? (
+          <text
+            x={cx}
+            y={cy - 8}
+            fill="#93c5fd"
+            fontSize={9}
+            fontFamily="monospace"
+            textAnchor="middle"
+            stroke="#0b0f19"
+            strokeWidth={3}
+            paintOrder="stroke"
+          >
+            {formatear(payload?.value ?? 0)}
+          </text>
+        ) : null}
+      </g>
+    );
   };
 }
 
@@ -340,16 +383,29 @@ export const ClientesPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }>
   </div>
 );
 
-/** Rentabilidad por cuadrilla (líneas costo CCL vs ingresos SLA, domingos en rojo). */
+/** Rentabilidad por cuadrilla (áreas sombreadas costo CCL vs ingresos SLA, domingos en rojo). */
 export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos: boolean }> = ({ data, sinDatos }) => (
   <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
-    <ChartHeader title="Rentabilidad por Cuadrilla" subtitle="Costos CCL vs Ingresos SLA agrupado cada 5 días" />
+    <ChartHeader
+      title="Rentabilidad por Cuadrilla"
+      subtitle={`Costo CCL: ${CONSTANTES.COSTO_DIARIO_CCL.toLocaleString('es-CO')} por día · Ingresos SLA: cajas del día × ${CONSTANTES.INGRESO_CAJA_SLA.toLocaleString('es-CO')}`}
+    />
     {sinDatos ? (
       <PanelEmpty />
     ) : (
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 18, right: 10, bottom: 0, left: -20 }}>
+          <AreaChart data={data} margin={{ top: 18, right: 10, bottom: 0, left: -20 }}>
+            <defs>
+              <linearGradient id="gradCostoCCL" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.5} />
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="gradIngresoSLA" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.5} />
+                <stop offset="100%" stopColor="#22c55e" stopOpacity={0.05} />
+              </linearGradient>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
             <XAxis
               dataKey="name"
@@ -359,34 +415,33 @@ export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos:
               tickLine={false}
               interval={0}
             />
-            <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <YAxis
+              tick={{ fill: '#71717a', fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+              tickFormatter={(v: number) => fmtEje(v)}
+            />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
             <Legend wrapperStyle={{ fontSize: 10 }} />
-            <Line
+            <Area
               type="monotone"
               dataKey="costoCCL"
               name="Costo CCL"
               stroke="#3b82f6"
               strokeWidth={2}
-              dot={dotPorDia('#3b82f6')}
+              fill="url(#gradCostoCCL)"
+              dot={dotUltimoConEtiqueta('#3b82f6', data[data.length - 1]?.name ?? '', (v) => v.toLocaleString('es-CO'))}
               activeDot={{ r: 4, fill: '#3b82f6' }}
               isAnimationActive={false}
-            >
-              <LabelList
-                dataKey="costoCCL"
-                position="top"
-                formatter={(v: unknown) =>
-                  String(v).length > 0 ? Number(v).toLocaleString('es-CO') : ''
-                }
-                style={{ fill: '#93c5fd', fontSize: 9, fontFamily: 'monospace' }}
-              />
-            </Line>
-            <Line
+            />
+            <Area
               type="monotone"
               dataKey="ingresoSLA"
               name="Ingresos SLA"
               stroke="#22c55e"
               strokeWidth={2}
+              fill="url(#gradIngresoSLA)"
               dot={dotPorDia('#22c55e')}
               activeDot={{ r: 4, fill: '#22c55e' }}
               isAnimationActive={false}
@@ -395,12 +450,12 @@ export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos:
                 dataKey="ingresoSLA"
                 position="top"
                 formatter={(v: unknown) =>
-                  String(v).length > 0 ? Number(v).toLocaleString('es-CO') : ''
+                  String(v).length > 0 && Number(v) > 0 ? Number(v).toLocaleString('es-CO') : ''
                 }
                 style={{ fill: '#86efac', fontSize: 9, fontFamily: 'monospace' }}
               />
-            </Line>
-          </LineChart>
+            </Area>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
     )}
@@ -464,13 +519,14 @@ export const CajasDiariasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolea
   </div>
 );
 
-/** Cajas cargadas por cuadrilla (donut + leyenda). */
+/** Cajas cargadas por cuadrilla (donut + leyenda). Solo muestra grupos con cajas. */
 export const CajasGrupoPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({ data, sinDatos }) => {
-  const total = data.reduce((acc, c) => acc + c.value, 0);
+  const conDatos = data.filter((d) => d.value > 0);
+  const total = conDatos.reduce((acc, c) => acc + c.value, 0);
   return (
     <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
       <ChartHeader title="Cajas Cargadas por Cuadrilla" subtitle="Distribución porcentual por tipo de cuadrilla" />
-      {sinDatos ? (
+      {sinDatos || conDatos.length === 0 ? (
         <PanelEmpty />
       ) : (
         <>
@@ -478,7 +534,7 @@ export const CajasGrupoPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean 
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={data}
+                  data={conDatos}
                   cx="50%"
                   cy="50%"
                   innerRadius={55}
@@ -489,7 +545,7 @@ export const CajasGrupoPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean 
                   strokeWidth={0}
                   isAnimationActive={false}
                 >
-                  {data.map((entry) => (
+                  {conDatos.map((entry) => (
                     <Cell key={entry.name} fill={COLOR_GRUPO[entry.name] ?? '#3b82f6'} />
                   ))}
                   <LabelList
@@ -509,7 +565,7 @@ export const CajasGrupoPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean 
             </div>
           </div>
           <div className="space-y-2 pt-2 border-t border-zinc-800/80">
-            {data.map((item) => {
+            {conDatos.map((item) => {
               const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
               return (
                 <div key={item.name} className="flex items-center justify-between text-xs font-medium">

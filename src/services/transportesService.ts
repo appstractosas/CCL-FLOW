@@ -68,12 +68,13 @@ export async function fetchTransportes(): Promise<UnifiedTransporte[]> {
 
 /** Consulta la tabla TRANSPORTES de la BD acotada al rango [fechaDesde, fechaHasta] (YYYY-MM-DD, hora local)
  *  según la columna cita_cargue (FECHA HORA CITA). Es VARCHAR y admite formatos
- *  "YYYY-MM-DD HH:MM" (app) y "YYYY-MM-DDTHH:MM" (sync ISO); por eso los límites
- *  se comparan como texto cubriendo ambos: day+espacio y day+T. */
+ *  "YYYY-MM-DD HH:MM" (app) y "YYYY-MM-DDTHH:MM" (sync ISO). Los límites se comparan
+ *  como texto: desde = día + espacio, hasta = día + 'Z' (carácter mayor que T y
+ *  que el espacio; el '~' falla en PostgREST al combinarse con gte). */
 export async function fetchTransportesByRango(fechaDesde: string, fechaHasta: string): Promise<UnifiedTransporte[]> {
   if (!isOnline()) return [];
   const desde = `${fechaDesde} `;
-  const hasta = `${fechaHasta}~`;
+  const hasta = `${fechaHasta}Z`;
   const { data, error } = await supabase
     .from(TABLE)
     .select('*')
