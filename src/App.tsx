@@ -177,7 +177,7 @@ export default function App() {
         </main>
 
         {/* Global Footer */}
-        <footer className="border-t border-zinc-800/80 py-4 px-8 text-xs text-zinc-500 bg-[#090d16]">
+        <footer className="border-t border-zinc-800/80 py-3 px-8 text-xs text-zinc-500 bg-[#090d16]">
           <span>gestión de patios logísticos CCL © 2026</span>
         </footer>
       </div>

@@ -65,7 +65,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   return (
     <div className="bg-[#0b0f19] rounded-2xl border border-zinc-800/90 overflow-hidden">
       {/* Cabecera inmovilizada: se mantiene fija al hacer scroll vertical del cuerpo. */}
-      <div className="overflow-x-auto max-h-[calc(100vh-260px)]">
+      <div className="overflow-x-auto max-h-[calc(100vh-160px)]">
         <table className="w-full text-left border-collapse text-xs">
           <thead className="sticky top-0 z-10">
             <tr className="bg-[#121726] border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider">
