@@ -46,6 +46,7 @@ interface LogisticsState {
   updateMuelleAsignado: (id: string, muelle: string) => void;
   updateMuelleHora: (id: string, hora: string) => void;
   updateCuadrilla: (id: string, cuadrilla: string) => void;
+  updateCajas: (id: string, cajas: number) => void;
   cancelTransporte: (id: string) => void;
   sendMessage: (msg: { senderRole: string; senderName: string; senderModule: 'Portería' | 'Despachos' | 'Planeación' | 'General'; content: string; llaveRelacionada?: string; muelleSugerido?: string }) => void;
   markChatRead: () => void;
@@ -204,6 +205,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
           estadoPorteria: placa ? 'Confirmado' : 'Pendiente',
           muelleAsignado: data.muelleAsignado || '',
           cuadrilla: data.cuadrilla || '',
+          cajas: data.cajas,
           horaMuelleAsignado: data.horaMuelleAsignado || '',
           horaIngreso: '--:--',
           horaSalida: '--:--',
@@ -374,6 +376,34 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
           'ASIGNAR_CUADRILLA',
           'despachos',
           `Cuadrilla ${cuadrilla || '—'} asignada a ${row.llave}`,
+          row.llave
+        );
+      },
+
+      updateCajas: (id, cajas) => {
+        const row = get().transportes.find((t) => t.id === id);
+        if (!row) return;
+        if (!Number.isFinite(cajas) || cajas < 0) return;
+        // Editable en cualquier estado EXCEPTO llave cerrada (CANCELADO o SALIO
+        // DE PORTERIA): se muestra alerta y NO se aplica el cambio.
+        if (isLlaveCerrada(row)) {
+          window.alert(
+            'No se puede editar cajas en una llave con estado CANCELADO o SALIO DE PORTERIA.'
+          );
+          return;
+        }
+
+        const patch: Partial<UnifiedTransporte> = { cajas };
+        if (isSupabaseConfigured) updateTransporteRemote(id, patch).catch(console.error);
+        set((s) => ({
+          transportes: sortTransportesPorEstado(
+            s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t))
+          ),
+        }));
+        useAuthStore.getState().addMovimiento(
+          'ACTUALIZAR_CAJAS',
+          'despachos',
+          `Cajas de ${row.llave} actualizadas: ${row.cajas ?? 0} → ${cajas}`,
           row.llave
         );
       },

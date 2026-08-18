@@ -18,6 +18,7 @@ export interface TransportesTableProps {
   onAsignarMuelle?: (row: UnifiedTransporte, muelle: string) => void;
   onMuelleHora?: (row: UnifiedTransporte, hora: string) => void;
   onCuadrilla?: (row: UnifiedTransporte, cuadrilla: string) => void;
+  onCajas?: (row: UnifiedTransporte, cajas: number) => void;
   checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
   showCajas?: boolean;
@@ -37,6 +38,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   onAsignarMuelle,
   onMuelleHora,
   onCuadrilla,
+  onCajas,
   checklistOwner,
   onPorteriaHora,
   showCajas = false,
@@ -189,6 +191,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
         onAsignarMuelle={onAsignarMuelle}
         onMuelleHora={onMuelleHora}
         onCuadrilla={onCuadrilla}
+        onCajas={onCajas}
         checklistOwner={checklistOwner}
         onPorteriaHora={onPorteriaHora}
       />

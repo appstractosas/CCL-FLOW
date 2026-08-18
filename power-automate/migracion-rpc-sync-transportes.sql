@@ -19,6 +19,15 @@
 --      convierten a ISO; si ya vienen en ISO se usan tal cual.
 --   6) UPSERT ON CONFLICT(llave): solo actualiza campos no vacíos y NUNCA pisa
 --      el estado de portería salvo que venga CANCELADO.
+--   7) cajas se omite en el UPDATE: el Excel la fija solo al INSERTAR la llave.
+--      Si el despachador edita cajas en la app, persiste en la BD y el sync no
+--      la sobreescribe (la edición no se escribe en el Excel). Sin columna extra.
+--
+-- NOTA DE FUENTE (corregido): el "Select" de Power Automate envía cada fila con
+-- las claves = encabezados del Excel (ej. 'Olt Inicial', 'Cita de cargue') y/o
+-- los nombres de campo (ej. 'transportadora'). La función _sync_campo busca el
+-- valor probando varias claves alternativas (normalizadas sin espacios) para
+-- que 'transportadora' se llene con 'Olt Inicial'.
 --
 -- Cómo se llama desde Power Automate:
 --   URI:  https://<ref>.supabase.co/rest/v1/rpc/sync_transportes
@@ -26,6 +35,33 @@
 --
 -- Ejecutar en Supabase > SQL Editor.
 -- =============================================================================
+
+-- Helper: devuelve el primer valor no vacío probando varias claves de la fila.
+-- Compara ignorando mayúsculas/minúsculas, espacios, guiones y guiones bajos,
+-- de modo que 'Olt Inicial' ~ 'olt_inicial' ~ 'Olt-Inicial' son equivalentes.
+CREATE OR REPLACE FUNCTION public._sync_campo(fila jsonb, claves text[])
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+  c text;
+  k text;
+  v text;
+BEGIN
+  FOREACH c IN ARRAY claves LOOP
+    FOR k IN SELECT * FROM jsonb_object_keys(fila) LOOP
+      IF lower(regexp_replace(k, '[\s_-]', '', 'g')) = lower(regexp_replace(c, '[\s_-]', '', 'g')) THEN
+        v := fila->>k;
+        IF v IS NOT NULL AND NULLIF(TRIM(v), '') IS NOT NULL THEN
+          RETURN TRIM(v);
+        END IF;
+      END IF;
+    END LOOP;
+  END LOOP;
+  RETURN NULL;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION public.sync_transportes(_filas jsonb)
 RETURNS void
@@ -43,15 +79,17 @@ BEGIN
   END IF;
 
   -- 1) NORMALIZAR: UPPER/TRIM, estatus CANCELADO, cajas -> número.
+  --    transportadora/transporte/denominacion se leen con _sync_campo para
+  --    tolerar que el flujo envíe el encabezado del Excel o el nombre del campo.
   CREATE TEMP TABLE tmp_sync ON COMMIT DROP AS
   SELECT
     row_number() OVER ()::int AS row_id,
     UPPER(TRIM(COALESCE(f->>'llave','')))                AS llave,
     NULLIF(UPPER(TRIM(COALESCE(f->>'placa',''))) ,'')    AS placa,
     NULLIF(UPPER(TRIM(COALESCE(f->>'vehiculo_tipo',''))),'') AS vehiculo_tipo,
-    NULLIF(TRIM(f->>'transportadora'),'')                AS transportadora,
-    NULLIF(TRIM(f->>'transporte'),'')                    AS transporte,
-    NULLIF(TRIM(f->>'denominacion'),'')                  AS denominacion,
+    NULLIF(_sync_campo(f, ARRAY['transportadora','olt inicial']),'') AS transportadora,
+    NULLIF(_sync_campo(f, ARRAY['transporte']),'') AS transporte,
+    NULLIF(_sync_campo(f, ARRAY['denominacion','denominación']),'') AS denominacion,
     NULLIF(TRIM(f->>'cita_cargue'),'')                   AS cita_cargue,
     NULLIF(TRIM(f->>'fecha_hora'),'')                    AS fecha_hora,
     ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'cajas',''),'[.,]','','g'),'')::numeric) AS cajas,
@@ -123,7 +161,10 @@ BEGIN
       transporte     = COALESCE(NULLIF(EXCLUDED.transporte,''), transportes.transporte),
       denominacion   = COALESCE(NULLIF(EXCLUDED.denominacion,''), transportes.denominacion),
       cita_cargue    = COALESCE(NULLIF(EXCLUDED.cita_cargue,''), transportes.cita_cargue),
-      cajas          = EXCLUDED.cajas,
+      -- cajas: se deja fuera del UPDATE a propósito. El Excel la fija solo al
+      -- INSERTAR la llave; después, si el despachador la edita en la app, el
+      -- sync NO la sobreescribe (la edición vive solo en la BD; el Excel no
+      -- guarda ese cambio y no se necesita columna extra en la BD).
       -- estado_porteria: SOLO se pisa si llega CANCELADO; el resto del flujo de
       -- portería (Confirmado, INGRESO A MUELLE, etc.) NUNCA se sobreescribe.
       estado_porteria = CASE WHEN EXCLUDED.estado_porteria = 'CANCELADO'

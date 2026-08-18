@@ -198,6 +198,11 @@ describe('transportesService (integración Supabase mockeado)', () => {
     // Los campos no actualizados se conservan.
     expect(mem.transportes[0].placa).toBe('XYZ-999');
   });
+
+  it('updateTransporte persiste cajas en la columna cajas de la BD', async () => {
+    await mod.updateTransporte('T-1', { cajas: 721 });
+    expect(mem.transportes[0].cajas).toBe(721);
+  });
 });
 
 describe('chatService (integración)', () => {

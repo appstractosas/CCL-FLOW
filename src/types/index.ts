@@ -143,6 +143,7 @@ export interface TransporteData {
   estadoTransporte?: EstadoTransporte;
   muelleAsignado?: string;
   cuadrilla?: string;
+  cajas?: number;
   horaMuelleAsignado?: string;
   observaciones?: string;
 }

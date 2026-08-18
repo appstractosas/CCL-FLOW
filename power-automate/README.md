@@ -48,6 +48,16 @@ El repo queda así en la rama `dev`:
 > renombras (p. ej. a "Redactar"), el Cuerpo del HTTP debe usar `outputs('Redactar')`
 > — siempre con el nombre EXACTO que muestra la pestaña de contenido dinámico.
 
+> ⚠️ El `Select` puede enviar cada fila tanto con los nombres de campo de la BD
+> (`transportadora`) como con los encabezados del Excel (`Olt Inicial`). La función
+> `sync_transportes` ya tolera ambas (normaliza claves sin espacios/guiones), de modo
+> que `transportadora` se llena con `Olt Inicial` aunque el `Select` mande el encabezado.
+
+> 📌 `cajas` (y sus sumatorias): el Excel la fija solo cuando la llave es NUEVA
+> (INSERT). Para llaves que ya existen, el sync NO sobreescribe `cajas`: si el
+> despachador la edita en la app, ese valor persiste en la BD (no se escribe en el
+> Excel). Así se evita que la corrida de cada minuto revierta la edición manual.
+
 > 1 solo POST por corrida, igual que el `.gs`. La **suma de cajas y la conversión de fechas las hace la función** en Supabase (ver script `migracion-rpc-sync-transportes.sql`). El antiguo POST row-by-row con `Apply to each` se descartó: no puede sumar `cajas` entre llaves repetidas.
 
 > Nota de permisos: SharePoint requiere ser MIEMBRO del sitio (no basta con

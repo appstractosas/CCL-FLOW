@@ -18,6 +18,7 @@ interface TransporteDetailPanelProps {
   onAsignarMuelle?: (row: UnifiedTransporte, muelle: string) => void;
   onMuelleHora?: (row: UnifiedTransporte, hora: string) => void;
   onCuadrilla?: (row: UnifiedTransporte, cuadrilla: string) => void;
+  onCajas?: (row: UnifiedTransporte, cajas: number) => void;
   checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
 }
@@ -33,6 +34,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   onAsignarMuelle,
   onMuelleHora,
   onCuadrilla,
+  onCajas,
   checklistOwner,
   onPorteriaHora,
 }) => {
@@ -60,6 +62,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
     ownedIndexes.includes(i) &&
     enabledIndex === i &&
     muelleOk &&
+    (i !== 3 || Boolean(row.cuadrilla)) &&
     (checklistOwner !== 'porteria' || i !== 0 || puedeIniciarPorteria);
 
   const stepEditable = (i: number) => !cerrada && ownedIndexes.includes(i) && setFlags[i];
@@ -196,16 +199,6 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 onCheck={() => setConfirmIndex(2)}
                 onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[2].key, hora)}
               />
-              <TimeRow
-                showCheck={showCheck && ownedIndexes.includes(3)}
-                step={PORTERIA_STEPS[3]}
-                checked={setFlags[3]}
-                enabled={stepEnabled(3)}
-                editable={stepEditable(3)}
-                value={row.horaFinCargue}
-                onCheck={() => setConfirmIndex(3)}
-                onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[3].key, hora)}
-              />
               <div className="flex items-center justify-between gap-3 py-2.5 border-b border-zinc-800/60 last:border-0">
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
                   Cuadrilla
@@ -231,6 +224,39 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                   </span>
                 )}
               </div>
+              <div className="flex items-center justify-between gap-3 py-2.5 border-b border-zinc-800/60 last:border-0">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
+                  Cajas
+                </span>
+                {onCajas ? (
+                  <input
+                    type="number"
+                    min={0}
+                    value={row.cajas ?? ''}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (!Number.isFinite(v) || v < 0) return;
+                      onCajas(row, v);
+                    }}
+                    title="Editar número de cajas"
+                    className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2.5 py-1.5 rounded-lg font-bold focus:outline-none text-xs text-right"
+                  />
+                ) : (
+                  <span className="text-xs font-semibold text-zinc-100 text-right">
+                    {row.cajas != null ? row.cajas.toLocaleString('es-CO') : '—'}
+                  </span>
+                )}
+              </div>
+              <TimeRow
+                showCheck={showCheck && ownedIndexes.includes(3)}
+                step={PORTERIA_STEPS[3]}
+                checked={setFlags[3]}
+                enabled={stepEnabled(3)}
+                editable={stepEditable(3)}
+                value={row.horaFinCargue}
+                onCheck={() => setConfirmIndex(3)}
+                onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[3].key, hora)}
+              />
               <TimeRow
                 showCheck={showCheck && ownedIndexes.includes(4)}
                 step={PORTERIA_STEPS[4]}
