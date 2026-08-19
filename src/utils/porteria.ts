@@ -1,5 +1,5 @@
 import { EstadoPorteria, UnifiedTransporte } from '../types';
-import { timeSet } from '../lib/dateUtils';
+import { timeSet, addDaysStr } from '../lib/dateUtils';
 
 type PorteriaRow = Pick<
   UnifiedTransporte,
@@ -72,6 +72,16 @@ export function isLlaveCerrada(row: PorteriaRow): boolean {
   return estado === 'SALIO DE PORTERIA' || estado === 'CANCELADO';
 }
 
+/**
+ * Los módulos PLANEACIÓN y TRANSPORTES solo pueden editar/cancelar llaves en
+ * estado PENDIENTE o CONFIRMADO. En cuanto la llave pasa a LLEGO A PORTERIA
+ * (o cualquier estado posterior) ya no se puede editar ni cancelar.
+ */
+export function puedeEditarOperacion(row: PorteriaRow): boolean {
+  const estado = getEstadoPorteria(row);
+  return estado === 'Pendiente' || estado === 'Confirmado';
+}
+
 /** Filtros de estado disponibles en los módulos de operación (mismo estilo INFORMES). */
 export type FiltroEstadoId = 'todas' | 'activas' | 'finalizadas' | 'canceladas';
 
@@ -95,4 +105,21 @@ export function cumpleFiltroEstado(row: PorteriaRow, filtro: FiltroEstadoId): bo
     default:
       return true;
   }
+}
+
+/**
+ * Regla de la vista ACTIVAS: estado NO cerrado (diferente de SALIO DE PORTERIA
+ * y CANCELADO) con fecha programada (cita) hasta HOY + 1 día inclusive.
+ * - Pasado (cualquier día anterior a hoy): incluido automáticamente.
+ * - Hoy y mañana: incluidos.
+ * - Pasado mañana (HOY + 2) en adelante: EXCLUIDO, sin importar el estado.
+ * - Sin fecha programada (cita_cargue vacío): EXCLUIDA.
+ * El rango manual del toolbar de fechas NO limita esta vista: la regla define
+ * su propia ventana.
+ */
+export function cumpleFiltroActivas(row: PorteriaRow & { citaCargue?: string }): boolean {
+  if (!cumpleFiltroEstado(row, 'activas')) return false;
+  const dia = String(row.citaCargue || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return false;
+  return dia <= addDaysStr(1);
 }

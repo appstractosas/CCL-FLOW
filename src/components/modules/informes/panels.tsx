@@ -11,13 +11,12 @@ import {
   PieChart,
   Pie,
   Cell,
-  AreaChart,
+  ComposedChart,
   Area,
-  LabelList,
+  Line,
   ReferenceLine,
   Legend,
-  LineChart,
-  Line,
+  LabelList,
 } from 'recharts';
 import {
   COLOR_FLOTA,
@@ -29,9 +28,10 @@ import {
   type MuelleUso,
   type RentabilidadBucket,
   type FilaTabla,
+  type TiempoEtapaResumen,
+  ETAPAS_PORTERIA,
+  RANGOS_DEMORA,
 } from '../../../utils/informes';
-
-const MESES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 export const COLOR_DEMORA: Record<string, string> = {
   aTiempo: 'text-emerald-400',
@@ -48,18 +48,6 @@ const COLOR_GRUPO: Record<string, string> = {
 /** True si la fecha YYYY-MM-DD cae en domingo. */
 function esDomingo(fecha: string): boolean {
   return new Date(`${fecha}T00:00:00`).getDay() === 0;
-}
-
-/**
- * Formatea la etiqueta del eje X: solo muestra el día 01 y los días que son
- * múltiplos de 5 (01, 05, 10, 15, 20, 25, 30) como "05 ago"; el resto en blanco.
- */
-function tickCada5Dias(fecha: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fecha || '');
-  if (!m) return '';
-  const dia = Number(m[3]);
-  if (dia !== 1 && dia % 5 !== 0) return '';
-  return `${m[3]} ${MESES_CORTO[Number(m[2]) - 1]}`;
 }
 
 /**
@@ -291,7 +279,7 @@ export const VolumenPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> 
     ) : (
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 18, right: 0, bottom: 0, left: -20 }}>
+          <ComposedChart data={data} margin={{ top: 18, right: 0, bottom: 0, left: -20 }}>
             <defs>
               <linearGradient id="fillVolumen" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#10b981" stopOpacity={0.45} />
@@ -308,14 +296,15 @@ export const VolumenPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> 
             />
             <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
-            <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#fillVolumen)" isAnimationActive={false}>
+            <Bar dataKey="value" name="Llaves" fill="#10b981" fillOpacity={0.35} radius={[4, 4, 0, 0]} barSize={16} isAnimationActive={false} />
+            <Area type="monotone" dataKey="value" name="Llaves" stroke="#10b981" strokeWidth={2} fill="url(#fillVolumen)" isAnimationActive={false}>
               <LabelList
                 dataKey="value"
                 position="top"
                 style={{ fill: '#a1a1aa', fontSize: 10, fontFamily: 'monospace' }}
               />
             </Area>
-          </AreaChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     )}
@@ -325,7 +314,7 @@ export const VolumenPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> 
 /** Uso y ocupación de muelles (barras apiladas llaves/cajas). */
 export const MuellesPanel: React.FC<{ data: MuelleUso[]; sinDatos: boolean }> = ({ data, sinDatos }) => (
   <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
-    <ChartHeader title="Uso y Ocupación de Muelles" subtitle="Número de llaves y cajas por muelle (más usado arriba, menos usado abajo)" />
+    <ChartHeader title="Uso y Ocupación de Muelles" subtitle="Número de llaves y cajas por muelle (más cajas arriba, menos cajas abajo)" />
     {sinDatos ? (
       <PanelEmpty />
     ) : (
@@ -350,39 +339,6 @@ export const MuellesPanel: React.FC<{ data: MuelleUso[]; sinDatos: boolean }> = 
   </div>
 );
 
-/** Operaciones por cliente. */
-export const ClientesPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({ data, sinDatos }) => (
-  <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
-    <ChartHeader title="Operaciones por Cliente" subtitle="Número de llaves por cliente según el rango de fechas" />
-    {sinDatos ? (
-      <PanelEmpty />
-    ) : (
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
-            <XAxis
-              dataKey="name"
-              tick={{ fill: '#71717a', fontSize: 9 }}
-              axisLine={false}
-              tickLine={false}
-              interval={0}
-              angle={-32}
-              textAnchor="end"
-              height={64}
-            />
-            <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: '#1c2233' }} />
-            <Bar dataKey="value" name="Operaciones" fill="#10b981" radius={[6, 6, 0, 0]} barSize={18} isAnimationActive={false}>
-              <LabelList dataKey="value" position="top" style={{ fill: '#a1a1aa', fontSize: 10, fontFamily: 'monospace' }} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    )}
-  </div>
-);
-
 /** Rentabilidad por cuadrilla (áreas sombreadas costo CCL vs ingresos SLA, domingos en rojo). */
 export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos: boolean }> = ({ data, sinDatos }) => (
   <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
@@ -395,7 +351,7 @@ export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos:
     ) : (
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 18, right: 10, bottom: 0, left: -20 }}>
+          <ComposedChart data={data} margin={{ top: 18, right: 10, bottom: 0, left: -20 }}>
             <defs>
               <linearGradient id="gradCostoCCL" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.5} />
@@ -409,7 +365,7 @@ export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos:
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
             <XAxis
               dataKey="name"
-              tickFormatter={tickCada5Dias}
+              tickFormatter={(v: string) => v.slice(5)}
               tick={{ fill: '#71717a', fontSize: 10 }}
               axisLine={false}
               tickLine={false}
@@ -424,6 +380,7 @@ export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos:
             />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
             <Legend wrapperStyle={{ fontSize: 10 }} />
+            <Bar dataKey="ingresoSLA" name="Ingresos SLA" fill="#22c55e" fillOpacity={0.4} radius={[4, 4, 0, 0]} barSize={10} isAnimationActive={false} />
             <Area
               type="monotone"
               dataKey="costoCCL"
@@ -455,7 +412,7 @@ export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos:
                 style={{ fill: '#86efac', fontSize: 9, fontFamily: 'monospace' }}
               />
             </Area>
-          </AreaChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     )}
@@ -474,17 +431,23 @@ export const CajasDiariasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolea
     ) : (
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 18, right: 10, bottom: 0, left: -20 }}>
+          <ComposedChart data={data} margin={{ top: 18, right: 10, bottom: 0, left: -20 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
             <XAxis
               dataKey="name"
-              tickFormatter={tickCada5Dias}
+              tickFormatter={(v: string) => v.slice(5)}
               tick={{ fill: '#71717a', fontSize: 10 }}
               axisLine={false}
               tickLine={false}
               interval={0}
             />
-            <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <YAxis
+              domain={[0, (dataMax: number) => Math.max(dataMax * 1.05, CONSTANTES.META_CAJAS_DIARIAS)]}
+              tick={{ fill: '#71717a', fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+            />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
             <ReferenceLine
               y={CONSTANTES.META_CAJAS_DIARIAS}
@@ -493,6 +456,7 @@ export const CajasDiariasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolea
               strokeWidth={2}
               label={{ value: 'Meta', fill: '#ef4444', fontSize: 10, position: 'insideTopRight' }}
             />
+            <Bar dataKey="value" name="Cajas" fill="#f59e0b" fillOpacity={0.4} radius={[4, 4, 0, 0]} barSize={16} isAnimationActive={false} />
             <Line
               type="monotone"
               dataKey="value"
@@ -512,7 +476,7 @@ export const CajasDiariasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolea
                 style={{ fill: '#fcd34d', fontSize: 9, fontFamily: 'monospace' }}
               />
             </Line>
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     )}
@@ -576,12 +540,196 @@ export const CajasGrupoPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean 
                   <div className="space-x-2 font-mono">
                     <span className="text-white font-bold">{item.value.toLocaleString('es-CO')}</span>
                     <span className="text-zinc-500">({pct}%)</span>
-                  </div>
+                </div>
                 </div>
               );
             })}
           </div>
         </>
+      )}
+    </div>
+  );
+};
+
+/** Etapa de portería: descripción, promedio/mín/máx y llaves medidas. */
+const TiempoEtapaTooltip: React.FC<{ active?: boolean; payload?: { payload: TiempoEtapaResumen }[] }> = ({
+  active,
+  payload,
+}) => {
+  if (!active || !payload || payload.length === 0) return null;
+  const e = payload[0].payload;
+  return (
+    <div className="bg-[#121726] border border-zinc-700 rounded-xl px-3 py-2 text-[11px] text-white shadow-xl">
+      <p className="font-bold mb-1">{e.descripcion}</p>
+      <div className="space-y-0.5 font-mono">
+        <p>
+          Promedio: <span className="text-emerald-400 font-bold">{e.promedio} min</span>
+        </p>
+        <p>
+          Mín: {e.minimo} min · Máx: {e.maximo} min
+        </p>
+        <p className="text-zinc-400">{e.conteo} llaves medidas</p>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Barras horizontales: tiempo promedio (minutos) de cada etapa de portería.
+ * Revela el "cuello de botella" del flujo entre dos hitos de hora.
+ */
+export const TiemposEtapaPanel: React.FC<{ data: TiempoEtapaResumen[]; sinDatos: boolean }> = ({ data, sinDatos }) => {
+  const conDatos = data.some((d) => d.conteo > 0);
+  return (
+    <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+      <ChartHeader
+        title="Tiempo promedio por etapa"
+        subtitle="Minutos promedio entre el registro de cada hito de portería (por llave)"
+      />
+      {sinDatos || !conDatos ? (
+        <PanelEmpty />
+      ) : (
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} layout="vertical" margin={{ top: 0, right: 40, bottom: 0, left: 8 }}>
+              <YAxis
+                type="category"
+                dataKey="label"
+                width={140}
+                tick={{ fill: '#71717a', fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <XAxis type="number" hide />
+              <Tooltip content={<TiempoEtapaTooltip />} cursor={{ fill: '#1c2233' }} />
+              <Bar dataKey="promedio" name="Promedio" radius={[0, 6, 6, 0]} barSize={18} isAnimationActive={false}>
+                {data.map((entry) => (
+                  <Cell key={entry.id} fill={entry.color} />
+                ))}
+                <LabelList
+                  dataKey="promedio"
+                  position="right"
+                  formatter={(v) => `${v} min`}
+                  style={{ fill: '#a1a1aa', fontSize: 10, fontFamily: 'monospace' }}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/** Tooltip del diagrama de dispersión: muestra las 5 etapas (con color) y el total del rango. */
+const RangoEtapasTooltip: React.FC<{
+  active?: boolean;
+  label?: string | number;
+  payload?: { name?: string; value?: number; color?: string }[];
+}> = ({ active, label, payload }) => {
+  if (!active || !payload) return null;
+  const total = payload.reduce((acc, p) => acc + (p.value ?? 0), 0);
+  return (
+    <div className="bg-[#121726] border border-zinc-700 rounded-xl px-3 py-2 text-[11px] text-white shadow-xl min-w-[160px]">
+      <p className="font-bold mb-1">{label}</p>
+      <div className="space-y-0.5 font-mono">
+        {payload.map((p) => (
+          <p key={p.name} className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+              <span>{p.name}</span>
+            </span>
+            <span className="text-white font-bold">{p.value ?? 0} llaves</span>
+          </p>
+        ))}
+        {total > 0 && (
+          <p className="pt-1 mt-1 border-t border-zinc-700 text-zinc-400">Total: {total} llaves</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Histograma agrupado por rango de demora: 6 rangos en el eje X (0-30 min, ...,
+ * >8 h) y, dentro de CADA rango, 5 barras — una por etapa de portería — con el
+ * color de su estado. Muestra en cuántas llaves cada etapa duró dentro del rango.
+ */
+export const TiemposDistribucionPanel: React.FC<{
+  data: Record<string, Record<string, number>>;
+  sinDatos: boolean;
+}> = ({ data, sinDatos }) => {
+  const chartData = RANGOS_DEMORA.map((rg) => ({
+    rango: rg.label,
+    ...(data[rg.id] ?? {}),
+  }));
+  const conDatos = ETAPAS_PORTERIA.some((e) => chartData.some((d) => (d[e.id] ?? 0) > 0));
+  const llavesMedidas = RANGOS_DEMORA.reduce((acc, rg) => {
+    const fila = data[rg.id];
+    if (!fila) return acc;
+    let suma = 0;
+    for (const etapa of ETAPAS_PORTERIA) suma += fila[etapa.id] || 0;
+    return acc + suma;
+  }, 0);
+
+  return (
+    <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col space-y-4">
+      <ChartHeader
+        title="Distribución de tiempos por etapa"
+        subtitle="Llaves por rango de demora según la duración de cada etapa (5 estados por rango)"
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {ETAPAS_PORTERIA.map((e) => (
+          <span
+            key={e.id}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-zinc-800/90 text-zinc-300"
+          >
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: e.color }} />
+            {e.label}
+          </span>
+        ))}
+      </div>
+      {sinDatos || !conDatos ? (
+        <PanelEmpty />
+      ) : (
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 4, left: -14 }}>
+              <XAxis
+                dataKey="rango"
+                tick={{ fill: '#71717a', fontSize: 10 }}
+                height={30}
+                interval={0}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: '#71717a', fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                allowDecimals={false}
+              />
+              <CartesianGrid vertical={false} stroke="#1c2233" strokeDasharray="3 3" />
+              <Tooltip content={<RangoEtapasTooltip />} cursor={{ fill: '#1c2233' }} />
+              {ETAPAS_PORTERIA.map((etapa) => (
+                <Bar
+                  key={etapa.id}
+                  dataKey={etapa.id}
+                  name={etapa.label}
+                  fill={etapa.color}
+                  radius={[3, 3, 0, 0]}
+                  barSize={8}
+                  isAnimationActive={false}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      {!sinDatos && conDatos && (
+        <p className="text-[10px] text-zinc-500 font-mono">
+          Totales: {llavesMedidas} llaves medidas
+        </p>
       )}
     </div>
   );

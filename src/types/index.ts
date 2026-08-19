@@ -140,6 +140,8 @@ export interface TransporteData {
   vehiculoTipo?: TipoVehiculo;
   citaCargue?: string;
   transportadora?: string;
+  /** Número de pedido (no es placa ni vehículo). Un transporte no puede pertenecer a dos llaves. */
+  transporte?: string;
   estadoTransporte?: EstadoTransporte;
   muelleAsignado?: string;
   cuadrilla?: string;

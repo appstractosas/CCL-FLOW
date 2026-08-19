@@ -18,10 +18,11 @@ import {
   filasParaTabla,
   tipoGrupo,
   usoPorMuelle,
-  operacionesPorCliente,
   rentabilidadCuadrillas,
   cajasPorDia,
   cajasPorCuadrilla,
+  tiemposPorteria,
+  distribucionRangos,
 } from '../../utils/informes';
 import type { UnifiedTransporte } from '../../types';
 import {
@@ -30,11 +31,12 @@ import {
   TransportadorasPanel,
   VolumenPanel,
   MuellesPanel,
-  ClientesPanel,
   RentabilidadPanel,
   CajasDiariasPanel,
   CajasGrupoPanel,
   DetalleTabla,
+  TiemposEtapaPanel,
+  TiemposDistribucionPanel,
 } from './informes/panels';
 
 export const InformesModule: React.FC = () => {
@@ -139,13 +141,16 @@ export const InformesModule: React.FC = () => {
 
   // Nuevos gráficos (según el rango seleccionado).
   const usoMuelle = useMemo(() => usoPorMuelle(rowsFiltradas), [rowsFiltradas]);
-  const clientes = useMemo(() => operacionesPorCliente(rowsFiltradas, 10), [rowsFiltradas]);
   const rentabilidad = useMemo(
     () => rentabilidadCuadrillas(rowsFiltradas, dateFrom, dateTo),
     [rowsFiltradas, dateFrom, dateTo]
   );
   const cajasDia = useMemo(() => cajasPorDia(rowsFiltradas), [rowsFiltradas]);
   const cajasGrupo = useMemo(() => cajasPorCuadrilla(rowsFiltradas), [rowsFiltradas]);
+
+  // Tiempos de portería: promedio por etapa + distribución por rango de demora.
+  const tiemposEtapas = useMemo(() => tiemposPorteria(rowsFiltradas), [rowsFiltradas]);
+  const distribucionRangosData = useMemo(() => distribucionRangos(rowsFiltradas), [rowsFiltradas]);
 
   // Inversiones del periodo según el rango de fechas.
   const { diasRango, inversionCCL, inversionSLA, cajasPeriodo, inversionTotal } = useMemo(() => {
@@ -361,6 +366,14 @@ export const InformesModule: React.FC = () => {
             ))}
           </div>
 
+          {/* Cajas diarias (75%) + Cajas cargadas por cuadrilla (25%) — PC en fila, móvil apilado */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3">
+              <CajasDiariasPanel data={cajasDia} sinDatos={sinDatos} />
+            </div>
+            <CajasGrupoPanel data={cajasGrupo} sinDatos={sinDatos} />
+          </div>
+
           {/* Embudo de estados + Flota donut + Transportadoras */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <EmbudoPanel data={embudo} sinDatos={sinDatos} />
@@ -371,20 +384,17 @@ export const InformesModule: React.FC = () => {
           {/* Volumen de llaves por día */}
           <VolumenPanel data={volumen} sinDatos={sinDatos} />
 
-          {/* Cajas diarias */}
-          <CajasDiariasPanel data={cajasDia} sinDatos={sinDatos} />
-
-          {/* Uso y Ocupación de Muelles + Cajas cargadas por cuadrilla */}
+          {/* Tiempos de portería: promedio por etapa (5 barras según hito) */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <MuellesPanel data={usoMuelle} sinDatos={sinDatos} />
-            <CajasGrupoPanel data={cajasGrupo} sinDatos={sinDatos} />
+            <TiemposEtapaPanel data={tiemposEtapas} sinDatos={sinDatos} />
+            <TiemposDistribucionPanel data={distribucionRangosData} sinDatos={sinDatos} />
           </div>
 
-          {/* Operaciones por cliente + Rentabilidad cuadrillas */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <ClientesPanel data={clientes} sinDatos={sinDatos} />
-            <RentabilidadPanel data={rentabilidad} sinDatos={sinDatos} />
-          </div>
+          {/* Uso y Ocupación de Muelles */}
+          <MuellesPanel data={usoMuelle} sinDatos={sinDatos} />
+
+          {/* Rentabilidad cuadrillas */}
+          <RentabilidadPanel data={rentabilidad} sinDatos={sinDatos} />
 
           {/* Fase 3+5: Tabla detalle del rango */}
           <DetalleTabla filas={filasTabla} />

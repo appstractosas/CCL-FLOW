@@ -22,10 +22,13 @@ import {
   determinacionHoraria,
   filasExportDeterminacion,
   usoPorMuelle,
-  operacionesPorCliente,
   rentabilidadCuadrillas,
   cajasPorDia,
   cajasPorCuadrilla,
+  tiemposPorteria,
+  ETAPAS_PORTERIA,
+  RANGOS_DEMORA,
+  distribucionRangos,
 } from '../utils/informes';
 
 function row(overrides: Partial<UnifiedTransporte> = {}): UnifiedTransporte {
@@ -308,27 +311,15 @@ describe('utils/informes (nuevos gráficos)', () => {
       ...overrides,
     });
 
-  it('usoPorMuelle agrupa despachos y cajas por muelle, ordenado por despachos', () => {
+  it('usoPorMuelle agrupa despachos y cajas por muelle, ordenado por cajas desc', () => {
     const uso = usoPorMuelle([
       g({ llave: 'LL-1', muelleAsignado: 'M2', cajas: 50 }),
       g({ llave: 'LL-2', muelleAsignado: 'M1', cajas: 10 }),
       g({ llave: 'LL-3', muelleAsignado: 'M1', cajas: 20 }),
       g({ llave: 'LL-4', muelleAsignado: '' }),
     ]);
-    expect(uso[0]).toEqual({ name: 'M1', despachos: 2, cajas: 30 });
-    expect(uso[1]).toEqual({ name: 'M2', despachos: 1, cajas: 50 });
-  });
-
-  it('operacionesPorCliente cuenta llaves por cliente y aplica top N', () => {
-    const ops = operacionesPorCliente([
-      g({ llave: 'LL-1', denominacion: 'A' }),
-      g({ llave: 'LL-2', denominacion: 'B' }),
-      g({ llave: 'LL-3', denominacion: 'A' }),
-      g({ llave: 'LL-4', denominacion: '' }),
-    ]);
-    expect(ops[0]).toEqual({ name: 'A', value: 2 });
-    expect(ops[1]).toEqual({ name: 'B', value: 1 });
-    expect(ops).toHaveLength(2);
+    expect(uso[0]).toEqual({ name: 'M2', despachos: 1, cajas: 50 });
+    expect(uso[1]).toEqual({ name: 'M1', despachos: 2, cajas: 30 });
   });
 
   it('rentabilidadCuadrillas costea CCL por día (1.432.000) e ingresa SLA según cajas del día × 140', () => {
@@ -349,7 +340,7 @@ describe('utils/informes (nuevos gráficos)', () => {
     expect(rent[1].ingresoSLA).toBe(5 * 140);
   });
 
-  it('rentabilidadCuadrillas no cuenta filas sin cuadrilla como ingreso SLA (solo días con cuadrilla real)', () => {
+  it('rentabilidadCuadrillas solo incluye días con movimiento (llaves en el rango)', () => {
     const rent = rentabilidadCuadrillas(
       [
         g({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 711, citaCargue: '2026-08-15 08:00' }),
@@ -357,9 +348,11 @@ describe('utils/informes (nuevos gráficos)', () => {
         g({ llave: 'LL-3', cuadrilla: 'SLA', cajas: 100, citaCargue: '2026-08-14 08:00' }),
       ],
       '2026-08-14',
-      '2026-08-15'
+      '2026-08-16'
     );
+    // El rango tiene 3 días, pero 08-16 no tiene llaves: queda fuera del eje X.
     expect(rent).toHaveLength(2);
+    expect(rent.map((b) => b.name)).toEqual(['2026-08-14', '2026-08-15']);
     // Solo las filas con cuadrilla SLA/LTSA generan ingreso SLA; las sin cuadrilla no.
     expect(rent.find((b) => b.name === '2026-08-14')?.ingresoSLA).toBe(100 * 140);
     expect(rent.find((b) => b.name === '2026-08-15')?.ingresoSLA).toBe(711 * 140);
@@ -384,5 +377,80 @@ describe('utils/informes (nuevos gráficos)', () => {
     expect(cajas[0]).toEqual({ name: 'CCL', value: 10 });
     expect(cajas[1]).toEqual({ name: 'SLA', value: 30 });
     expect(cajas[2]).toEqual({ name: 'LTSA', value: 0 });
+  });
+
+  it('tiemposPorteria mide minutos por etapa entre los hitos registrados', () => {
+    const rows = [
+      row({
+        llave: 'LL-1',
+        horaLlegadaPorteria: '08:00',
+        horaMuelleAsignado: '08:15',
+        horaIngreso: '08:25',
+        horaInicioCargue: '08:30',
+        horaFinCargue: '09:30',
+        horaSalida: '09:45',
+      }),
+      // Solo llegó a portería: sin muelle asignado → no aporta a ninguna etapa.
+      row({ llave: 'LL-2', horaLlegadaPorteria: '09:00' }),
+    ];
+
+    const tiempos = tiemposPorteria(rows);
+    const porEtapa = (id: string) => tiempos.find((t) => t.id === id)!;
+    expect(porEtapa('llegada_muelle')).toMatchObject({ promedio: 15, minimo: 15, maximo: 15, conteo: 1 });
+    expect(porEtapa('muelle_ingreso')).toMatchObject({ promedio: 10, minimo: 10, maximo: 10, conteo: 1 });
+    expect(porEtapa('ingreso_cargando')).toMatchObject({ promedio: 5, conteo: 1 });
+    expect(porEtapa('cargando_fin')).toMatchObject({ promedio: 60, minimo: 60, maximo: 60, conteo: 1 });
+    expect(porEtapa('fin_salida')).toMatchObject({ promedio: 15, conteo: 1 });
+    // LL-2 no tiene muelle asignado: la etapa 1 solo mide LL-1.
+    expect(porEtapa('llegada_muelle').conteo).toBe(1);
+  });
+
+  it('tiemposPorteria ignora horas inconsistentes (fin antes de inicio)', () => {
+    const tiempos = tiemposPorteria([
+      row({ llave: 'LL-1', horaLlegadaPorteria: '08:30', horaMuelleAsignado: '08:00' }),
+    ]);
+    expect(tiempos.find((t) => t.id === 'llegada_muelle')).toMatchObject({ conteo: 0, promedio: 0 });
+  });
+
+  it('ETAPAS_PORTERIA define las 5 transiciones con sus nombres de hito', () => {
+    const labels = ETAPAS_PORTERIA.map((e) => e.label);
+    expect(labels).toEqual([
+      'ASIGNACIÓN MUELLE',
+      'INGRESO A MUELLE',
+      'INICIO DE CARGUE',
+      'FINALIZO DE CARGUE',
+      'SALIDA DE PORTERIA',
+    ]);
+    // Cada etapa declara dos hitos de hora distintos y un color hex propio.
+    for (const e of ETAPAS_PORTERIA) {
+      expect(e.inicio).not.toBe(e.fin);
+      expect(e.color).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(e.descripcion).toContain('→');
+    }
+  });
+
+  it('distribucionRangos clasifica cada etapa en su rango de demora', () => {
+    const rows = [
+      row({ llave: 'LL-1', horaLlegadaPorteria: '08:00', horaMuelleAsignado: '08:20' }), // 20 min → 0-30
+      row({ llave: 'LL-2', horaLlegadaPorteria: '08:00', horaMuelleAsignado: '08:50' }), // 50 min → 30-60
+      row({ llave: 'LL-3', horaLlegadaPorteria: '08:00', horaMuelleAsignado: '10:00' }), // 120 min → 2-4 h
+      row({ llave: 'LL-4', horaLlegadaPorteria: '08:00', horaMuelleAsignado: '13:00' }), // 300 min → 4-8 h
+      row({ llave: 'LL-5', horaLlegadaPorteria: '08:00', horaMuelleAsignado: '17:00' }), // 540 min → >8 h
+      row({ llave: 'LL-6', horaLlegadaPorteria: '08:00' }), // sin muelle asignado: no aporta
+    ];
+
+    const d = distribucionRangos(rows);
+    const et = (rg: string, id: string) => d[rg][id];
+    // La etapa 1 (llegada→muelle) se midió en 5 de las 6 llaves.
+    expect(et('0-30min', 'llegada_muelle')).toBe(1);
+    expect(et('30-60min', 'llegada_muelle')).toBe(1);
+    expect(et('2-4h', 'llegada_muelle')).toBe(1);
+    expect(et('4-8h', 'llegada_muelle')).toBe(1);
+    expect(et('>8h', 'llegada_muelle')).toBe(1);
+    // Todos los rangos devuelven las 5 etapas (inicializadas en 0).
+    expect(Object.keys(d)).toHaveLength(RANGOS_DEMORA.length);
+    for (const rg of Object.values(d)) {
+      expect(Object.keys(rg).sort()).toEqual(ETAPAS_PORTERIA.map((e) => e.id).sort());
+    }
   });
 });

@@ -44,13 +44,72 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
     expect(row.estadoPorteria).toBe('Pendiente');
   });
 
-  it('should reject duplicate LLAVES', async () => {
+  it('should reject the duplicate pair (llave, placa) but allow the same llave with a different placa', async () => {
+    const store = useLogisticsStore.getState();
+    const a = await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-50000' });
+
+    // Misma llave + MISMA placa (aunque se escriba en minúsculas) → rechazado.
+    await expect(
+      store.addTransporte({ placa: 'xyz-999', llave: 'LL-50000' })
+    ).rejects.toThrow(/ya existe/i);
+
+    // Misma llave + OTRA placa → crea su PROPIA fila (una fila por placa).
+    const b = await store.addTransporte({ placa: 'ABC-123', llave: 'LL-50000' });
+    const rows = useLogisticsStore.getState().transportes.filter((t) => t.llave === 'LL-50000');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].id).not.toBe(rows[1].id);
+    expect(b.llave).toBe('LL-50000');
+    expect(b.placa).toBe('ABC-123');
+  });
+
+  it('debería rechazar un TRANSPORTE duplicado al crear (un transporte solo pertenece a una llave)', async () => {
+    useAuthStore.setState({
+      currentUser: {
+        id: 'USER_ADMIN',
+        name: 'ADMIN',
+        cedula: '0000000000',
+        tipoUsuario: 'admin',
+        roleId: 'ROLE_ADMIN',
+        roleName: 'ADMIN',
+      },
+    });
     const store = useLogisticsStore.getState();
     await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-50000' });
+    useLogisticsStore.setState({
+      transportes: useLogisticsStore.getState().transportes.map((t) =>
+        t.llave === 'LL-50000' ? { ...t, transporte: '3000000001' } : t
+      ),
+    });
 
     await expect(
-      store.addTransporte({ placa: 'ABC-123', llave: 'LL-50000' })
-    ).rejects.toThrow(/ya existe/i);
+      store.addTransporte({ placa: 'ABC-123', llave: 'LL-50001', transporte: '3000000001' })
+    ).rejects.toThrow(/ya está asociado a otra llave/i);
+  });
+
+  it('debería bloquear un TRANSPORTE duplicado al editar', async () => {
+    const store = useLogisticsStore.getState();
+    const a = await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-60533' });
+    const b = await store.addTransporte({ placa: 'ABC-123', llave: 'LL-60534' });
+    useLogisticsStore.setState({
+      transportes: useLogisticsStore.getState().transportes.map((t) =>
+        t.id === a.id ? { ...t, transporte: '3000000001' } : t
+      ),
+    });
+
+    await store.updateTransporte(b.id, { transporte: '3000000001' });
+    const bAfter = useLogisticsStore.getState().transportes.find((t) => t.id === b.id);
+    expect(bAfter?.transporte).toBeUndefined();
+  });
+
+  it('debería bloquear guardar un par (llave, placa) duplicado al editar otra fila', async () => {
+    const store = useLogisticsStore.getState();
+    const a = await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-60533' });
+    const b = await store.addTransporte({ placa: 'ABC-123', llave: 'LL-60534' });
+
+    await store.updateTransporte(b.id, { llave: 'LL-60533', placa: 'XYZ-999' });
+    const bAfter = useLogisticsStore.getState().transportes.find((t) => t.id === b.id);
+    expect(bAfter?.llave).toBe('LL-60534'); // bloqueado: la llave no cambió
+    expect(bAfter?.placa).toBe('ABC-123');
   });
 
   it('should advance estadoPorteria when logging a porteria hora', async () => {
@@ -87,10 +146,14 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
     store.updateMuelleAsignado(row.id, 'Muelle 8');
     store.updatePorteriaHora(row.id, 'horaFinCargue', '11:00');
     store.updateTransporte(row.id, { placa: 'ABC-000' });
+    store.updateMuelleHora(row.id, '10:00');
+    store.updateCuadrilla(row.id, 'CCL');
     currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
     expect(currentRow?.muelleAsignado).toBe('Muelle 7');
     expect(currentRow?.horaFinCargue).not.toBe('11:00');
     expect(currentRow?.placa).toBe('XYZ-999');
+    expect(currentRow?.horaMuelleAsignado).not.toBe('10:00');
+    expect(currentRow?.cuadrilla).not.toBe('CCL');
   });
 
   it('should cancel the llave (CANCELADO) instead of deleting and block further edits', async () => {
@@ -218,7 +281,7 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
     expect(currentRow?.estadoPorteria).not.toBe('CANCELADO');
   });
 
-  it('should let ADMIN cancel a llave even in an advanced state', async () => {
+  it('should prevent ADMIN from cancelling once the llave passed CONFIRMADO (P2)', async () => {
     useAuthStore.setState({
       currentUser: {
         id: 'USER_ADMIN',
@@ -238,7 +301,26 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
 
     store.cancelTransporte(row.id);
     currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
-    expect(currentRow?.estadoPorteria).toBe('CANCELADO');
+    expect(currentRow?.estadoPorteria).not.toBe('CANCELADO');
+  });
+
+  it('should block updateTransporte after LLEGO A PORTERIA (PLANEACIÓN solo PENDIENTE/CONFIRMADO)', async () => {
+    const store = useLogisticsStore.getState();
+    const row = await store.addTransporte({ placa: 'XYZ-999' });
+
+    store.updatePorteriaHora(row.id, 'horaLlegadaPorteria', '08:00'); // LLEGO A PORTERIA
+    let currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
+    expect(currentRow?.estadoPorteria).toBe('LLEGO A PORTERIA');
+
+    store.updateTransporte(row.id, { placa: 'ABC-000' });
+    currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
+    expect(currentRow?.placa).toBe('XYZ-999');
+
+    // En CONFIRMADO sí se puede editar.
+    const otra = await store.addTransporte({ placa: 'ABC-123' });
+    store.updateTransporte(otra.id, { placa: 'ABC-456' });
+    const otraActual = useLogisticsStore.getState().transportes.find((t) => t.id === otra.id);
+    expect(otraActual?.placa).toBe('ABC-456');
   });
 
   it('debería enviar mensajes de chat y no incrementar no leídos propios', () => {

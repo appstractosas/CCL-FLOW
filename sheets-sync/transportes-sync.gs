@@ -2,21 +2,25 @@
  * CCL FLOW — Sincronización Google Sheets → Supabase (tabla "transportes")
  * ---------------------------------------------------------------------------
  * Lee la pestaña de operaciones del Sheets y hace UPSERT de cada fila en la
- * tabla TRANSPORTES de Supabase usando la columna "llave" como clave única.
+ * tabla TRANSPORTES de Supabase usando el par (llave, placa) como clave.
  *
- * REGLA DE NEGOCIO (columna Y = Placa):
- *   Una LLAVE no puede repetirse en el Sheets con una PLACA distinta. Si en
- *   onEdit alguien introduce una llave que ya existe con otra placa, el cambio
- *   se REVIERTE al instante, se marca "CONFLICTO" en la columna Estatus, se
- *   pinta la fila y se muestra un toast. Esas llaves tampoco se sincronizan a
- *   la BD para no pisar la placa original.
+ * REGLA DE NEGOCIO (confirmada):
+ *   Una LLAVE puede tener VARIAS PLACAS (cada placa = UNA FILA en la BD y en el
+ *   Sheets). Las CAJAS se registran POR PLACA, no se suman por llave.
+ *   Un TRANSPORTE (nº pedido) no puede pertenecer a DOS llaves distintas
+ *   (dentro de la MISMA llave puede repetirse si el pedido se reparte en
+ *   varias placas).
  *
- * UN REGISTRO POR LLAVE:
- *   La BD guarda UN registro por llave. Si el Sheets tiene varias filas con la
- *   misma llave (captura por partes), se consolidan en un solo registro:
- *   las CAJAS se SUMAN y el resto de campos toma el último valor no vacío.
+ * CLAVE (llave, placa):
+ *   El UPSERT identifica la fila por (llave, placa). Si el Sheets repite el
+ *   MISMO par llave+placa (un camión/placa con varios transportes), esas filas
+ *   se fusionan en UN registro: las CAJAS se SUMAN por placa y el resto de
+ *   campos toma el último valor no vacío. Una placa distinta de la misma llave
+ *   es UNA FILA aparte y se sincroniza sin problema.
+ *   placa '' (PENDIENTE) es válida: una llave no puede tener dos filas sin
+ *   placa (la BD lo rechaza con UNIQUE (llave, placa)).
  *
- * CAMPOS PARA INFORMES (nuevos):
+ * CAMPOS PARA INFORMES:
  *   - Transporte   → numero de pedido (col. "Transporte")
  *   - Denominación → nombre del cliente (col. "Denominación")
  *   - Cajas        → cantidad de cajas, se envía como número (col. "Cajas")
@@ -25,6 +29,10 @@
  *     ADD COLUMN IF NOT EXISTS transporte TEXT,
  *     ADD COLUMN IF NOT EXISTS denominacion TEXT,
  *     ADD COLUMN IF NOT EXISTS cajas NUMERIC DEFAULT 0;
+ *   Y el UNIQUE por (llave, placa) en lugar de llave sola:
+ *     ALTER TABLE transportes DROP CONSTRAINT IF EXISTS transportes_llave_key;
+ *     ALTER TABLE transportes ADD CONSTRAINT transportes_llave_placa_key
+ *       UNIQUE (llave, placa);
  *
  * Configuración previa (Apps Script → Proyecto → Configuración del proyecto):
  *   - Propiedades del script (Script Properties):
@@ -37,15 +45,13 @@
 var SPREADSHEET_ID = '1uVuPEnwLHFjVRTysi9SSXgt1PVeJNWqRQ69oxxaNiY4';
 var SHEET_NAME = 'Hoja 1'; // Ajustar al nombre exacto de la pestaña de operaciones.
 var TABLE = 'transportes';
-var UNIQUE_KEY = 'llave';
+// Clave del UPSERT: el par (llave, placa) identifica la fila.
+var UNIQUE_KEY = 'llave,placa';
 
-// Encabezados relevantes para la regla de negocio:
-// una LLAVE no puede repetirse con una PLACA distinta (columna Y en el Sheets).
+// Encabezados relevantes (llave y placa identifican la fila en el Sheets).
 var HEADER_LLAVE = 'Llave 2';
 var HEADER_PLACA = 'Placa';   // columna Y
 var HEADER_ESTATUS = 'Estatus';
-// Marca escrita en la columna ESTATUS cuando se detecta el conflicto.
-var MARCA_CONFLICTO = 'CONFLICTO';
 
 // Cuenta de Google con permiso total para editar/eliminar en el Sheets.
 // Se puede sobreescribir con la Script Property ADMIN_EMAIL (sin tocar código).
@@ -56,7 +62,7 @@ var ADMIN_EMAIL = 'appstractosas@gmail.com';
  *****************************************************************************/
 var MAPPING = {
   'Fecha': 'fecha_hora',          // dd/mm/aaaa
-  'Llave 2': 'llave',             // clave única (upsert)
+  'Llave 2': 'llave',             // parte de la clave (upsert por (llave,placa))
   'Vehículo': 'vehiculo_tipo',
   'Cita de cargue': 'cita_cargue',// dd/mm/aaaa hh:mm
   'Olt Inicial': 'transportadora',
@@ -90,91 +96,6 @@ function normalizeHeader_(s) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-/* ------------------- regla: llave duplicada con placa distinta -------------- */
-
-/**
- * Detecta llaves repetidas en el Sheets que tengan PLACA distinta (columna Y).
- * Devuelve un objeto: { llave: [placasNormalizadas, ...], ... }.
- * REGLA: el conflicto solo aplica entre DOS placas REALES distintas. Una fila
- * sin placa (vacía) no genera conflicto contra una que sí tiene placa, porque
- * la placa se digita fila por fila y una fila vacía es un "pendiente de
- * captura". Dos filas con la misma llave y el MISMO valor de placa (incluido
- * vacío) tampoco generan conflicto.
- */
-function detectLlaveConflicto_(values, headers) {
-  var normHeaders = headers.map(function (h) { return normalizeHeader_(h); });
-  var iLlave = normHeaders.indexOf(normalizeHeader_(HEADER_LLAVE));
-  var iPlaca = normHeaders.indexOf(normalizeHeader_(HEADER_PLACA));
-  var conflictos = {};
-  if (iLlave < 0 || iPlaca < 0) return conflictos;
-
-  var visto = {};
-  for (var r = 1; r < values.length; r++) {
-    var llave = String(values[r][iLlave] || '').toUpperCase().trim();
-    if (!llave) continue;
-    var placa = String(values[r][iPlaca] || '').toUpperCase().trim();
-    if (!visto[llave]) visto[llave] = {};
-    // Solo las placas REALES cuentan como valor. Una fila sin placa (vacía) es
-    // un "pendiente de captura" y no debe generar conflicto contra una fila que
-    // sí tiene placa: se va digitando fila por fila.
-    if (placa) visto[llave][placa] = true;
-  }
-
-  // Conflicto solo cuando existen DOS o MÁS placas reales distintas.
-  Object.keys(visto).forEach(function (llave) {
-    if (Object.keys(visto[llave]).length > 1) {
-      conflictos[llave] = Object.keys(visto[llave]);
-    }
-  });
-  return conflictos;
-}
-
-/**
- * Devuelve el mensaje de conflicto para la fila editada, o null si no hay.
- * Considera conflicto cuando la llave editada ya existe en OTRAS filas con un
- * valor de placa DISTINTO, y ambas son placas REALES (no vacías). Una fila sin
- * placa se deja pasar: la placa se digita fila por fila y una fila vacía es un
- * "pendiente de captura", no un duplicado real. `fila`/`col` son índices
- * 0-based dentro del arreglo `values` (con headers).
- */
-function conflictoParaFila_(values, headers, fila, col) {
-  var normHeaders = headers.map(function (h) { return normalizeHeader_(h); });
-  var iLlave = normHeaders.indexOf(normalizeHeader_(HEADER_LLAVE));
-  var iPlaca = normHeaders.indexOf(normalizeHeader_(HEADER_PLACA));
-  if (iLlave < 0 || iPlaca < 0) return null;
-  if (col !== iLlave && col !== iPlaca) return null;
-
-  // Valores de la fila afectada por la edición.
-  var llave = String(values[fila][iLlave] || '').toUpperCase().trim();
-  if (!llave) return null;
-  var placa = String(values[fila][iPlaca] || '').toUpperCase().trim();
-
-  var filaOriginal = -1;
-  var placaOriginal = '';
-  for (var r = 1; r < values.length; r++) {
-    if (r === fila) continue;
-    if (String(values[r][iLlave] || '').toUpperCase().trim() !== llave) continue;
-    var p = String(values[r][iPlaca] || '').toUpperCase().trim();
-    if (p === placa) continue; // misma placa (incluidas ambas vacías): no genera conflicto
-    // Si cualquiera de las dos filas está SIN placa, se deja pasar: la placa se
-    // digita fila por fila y una fila vacía es un "pendiente de captura", no un
-    // duplicado real. El conflicto solo aplica entre dos placas reales distintas.
-    if (!p || !placa) continue;
-    filaOriginal = r + 1;       // +1 por la fila de encabezados
-    placaOriginal = p;
-    break;
-  }
-
-  if (filaOriginal < 0) return null;
-  return {
-    llave: llave,
-    placa: placa,
-    placaOriginal: placaOriginal || '(sin placa)',
-    filaOriginal: filaOriginal,
-    fila: fila + 1,
-  };
 }
 
 function dateToISO_(d) {
@@ -221,7 +142,7 @@ function getSheet_() {
   return ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
 }
 
-/** Construye los objetos que se enviarán a la BD (una fila por LLAVE). */
+/** Construye los objetos que se enviarán a la BD (una fila por (llave, placa)). */
 function buildRows_() {
   var sheet = getSheet_();
   var lastRow = sheet.getLastRow();
@@ -237,12 +158,6 @@ function buildRows_() {
   Object.keys(MAPPING).forEach(function (h) {
     mappingNorm[normalizeHeader_(h)] = MAPPING[h];
   });
-
-  // Llaves repetidas con placa distinta: NO se sincronizan para no pisar la BD.
-  var conflictos = detectLlaveConflicto_(values, headers);
-  if (Object.keys(conflictos).length) {
-    Logger.log('buildRows_: llaves en conflicto omitidas (' + Object.keys(conflictos).join(', ') + ')');
-  }
 
   // Todas las filas deben enviar EXACTAMENTE las mismas claves (PostgREST PGRST102).
   // Se inicia cada objeto con las claves mapeadas en null y se rellenan las no vacías.
@@ -278,53 +193,49 @@ function buildRows_() {
 
         obj[dbField] = val;
       } else if (normalizeHeader_(headers[c]) === normalizeHeader_(HEADER_ESTATUS)) {
-        // Estatus ya no alimenta observaciones: solo cancela la llave si dice CANCELADO.
+        // Estatus solo cancela la fila si dice CANCELADO.
         var est = String(values[r][c] || '').trim().toUpperCase();
         if (est === CANCELAR_KEYWORD) obj.estado_porteria = 'CANCELADO';
       }
     }
 
-    // Solo se envían filas con llave (necesaria para el upsert).
-    if (obj[UNIQUE_KEY]) {
-      // La llave está en conflicto por placa distinta: no se envía.
-      if (conflictos[obj[UNIQUE_KEY]]) continue;
+    // Solo se envían filas con llave (necesaria para el upsert por (llave,placa)).
+    if (obj.llave) {
       // Las columnas NOT NULL con default (fecha_hora, placa, vehiculo_tipo,
       // transportadora) no deben llegar en null: se eliminan y la BD aplica su
       // DEFAULT. Como se envía fila a fila, no importa que varíen entre filas.
       Object.keys(obj).forEach(function (k) {
         if (obj[k] === null || obj[k] === '') delete obj[k];
       });
-      // La placa SIEMPRE se envía (valor o ''): si se borra la placa en el
-      // Sheets, la BD la limpia y el trigger devuelve la llave a PENDIENTE.
+      // La placa SIEMPRE se envía (valor o ''): las filas se identifican por
+      // (llave, placa); si se borra la placa en el Sheets, la BD la limpia y el
+      // trigger devuelve la fila a PENDIENTE.
       if (!obj.placa) obj.placa = '';
       rows.push(obj);
     }
   }
 
-  // CONSOLIDACIÓN POR LLAVE: la BD guarda UN registro por llave. Como el
-  // Sheets puede tener VARIAS filas con la misma llave (captura por partes),
-  // se fusionan en un solo registro antes de enviar:
-  //   - cajas  → se SUMAN: cada fila aporta parte de la carga total de la llave
-  //              (ej: 3 filas con 10+15+20 → la BD guarda 45).
-  //   - demás campos → gana el ÚLTIMO valor no vacío (una fila vacía no pisa
-  //              valor previo: ni placa ni resto de datos), lo que coincide con
-  //              el comportamiento del merge-duplicates del upsert.
-  var consolidados = {};
-  var ordenLlaves = [];
+  // DEDUPE POR (llave, placa): la clave de la fila es el par (llave, placa). Si el
+  // Sheets repite el MISMO par (un camión/placa con varios transportes), se
+  // fusionan: la placa guarda la SUMA de cajas de todas sus filas (cajas por
+  // placa) y el resto de campos toma el ÚLTIMO valor no vacío. Placas DISTINTAS
+  // de la misma llave son filas APARTE y se conservan tal cual.
+  var dedup = {};
+  var orden = [];
   for (var i = 0; i < rows.length; i++) {
     var filaActual = rows[i];
-    var llaveActual = filaActual[UNIQUE_KEY];
-    if (!Object.prototype.hasOwnProperty.call(consolidados, llaveActual)) {
+    var clave = filaActual.llave + '|' + (filaActual.placa || '');
+    if (!Object.prototype.hasOwnProperty.call(dedup, clave)) {
       var copia = {};
       for (var k in filaActual) copia[k] = filaActual[k];
-      consolidados[llaveActual] = copia;
-      ordenLlaves.push(llaveActual);
+      dedup[clave] = copia;
+      orden.push(clave);
     } else {
-      var base = consolidados[llaveActual];
+      var base = dedup[clave];
       for (var k2 in filaActual) {
         var v = filaActual[k2];
         if (k2 === 'cajas') {
-          // SUMAR cajas de todas las filas de la misma llave.
+          // SUMAR cajas de TODAS las filas del MISMO (llave, placa).
           base.cajas = (base.cajas || 0) + (v || 0);
         } else if (v !== null && v !== undefined && v !== '') {
           // Último valor no vacío gana (no se pisan datos con filas vacías).
@@ -334,8 +245,8 @@ function buildRows_() {
     }
   }
   rows = [];
-  for (var o = 0; o < ordenLlaves.length; o++) {
-    rows.push(consolidados[ordenLlaves[o]]);
+  for (var o = 0; o < orden.length; o++) {
+    rows.push(dedup[orden[o]]);
   }
   return rows;
 }
@@ -343,7 +254,7 @@ function buildRows_() {
 /* ---------------------------- sincronización ------------------------------ */
 
 /**
- * Lee el Sheets y hace UPSERT a Supabase (inserta o actualiza por LLAVE).
+ * Lee el Sheets y hace UPSERT a Supabase (inserta o actualiza por (llave, placa)).
  * Ejecutable a mano y usado por los disparadores onEdit/temporal.
  * Envía las filas AGRUPADAS: ahorra llamadas HTTP (cuota diaria de urlfetch).
  */
@@ -368,13 +279,13 @@ function syncTransportes() {
   };
 
   // AGRUPACIÓN POR FIRMA DE COLUMNAS. PostgREST exige que todas las filas de un
-  // mismo POST lleven EXACTAMENTE las mismas claves (PGRST102). Como las llaves
-  // vacías ya se eliminaron en buildRows_ (solo se envían los campos con valor,
-  // más placa siempre), cada fila trae su propio conjunto de columnas. Se agrupan
+  // mismo POST lleven EXACTAMENTE las mismas claves (PGRST102). Como las filas
+  // se normalizan en buildRows_ (solo se envían los campos con valor, más placa
+  // siempre), cada fila trae su propio conjunto de columnas. Se agrupan
   // las que comparten la misma firma y se envía UN POST por grupo, en lugar de
-  // uno por llave. Así una sincronización completa usa 1-3 llamadas HTTP en vez
-  // de N (una por llave), evitando agotar la cuota diaria de urlfetch (~20k/día);
-  // el temporal de 1 minuto deja de multiplicarlas por llave.
+  // uno por fila. Así una sincronización completa usa 1-3 llamadas HTTP en vez
+  // de N (una por fila), evitando agotar la cuota diaria de urlfetch (~20k/día);
+  // el temporal de 1 minuto deja de multiplicarlas por fila.
   var grupos = {};
   for (var i = 0; i < rows.length; i++) {
     var firma = Object.keys(rows[i]).sort().join(',');
@@ -400,66 +311,8 @@ function syncTransportes() {
     enviadas += lote.length;
   }
 
-  Logger.log('syncTransportes: ' + enviadas + ' filas sincronizadas en ' + firmas.length + ' lotes (llaves).');
+  Logger.log('syncTransportes: ' + enviadas + ' filas sincronizadas en ' + firmas.length + ' lotes (pares llave+placa).');
   return enviadas;
-}
-
-/**
- * Validación de la regla: si la edición introduce una LLAVE repetida con una
- * PLACA distinta (columna Y), revierte el cambio, marca CONFLICTO en la
- * columna Estatus y notifica al usuario con un toast (sin enviar a la BD).
- * `e` es el evento onEdit; `ss` la SpreadsheetApp (target ya verificado).
- * Devuelve true si hubo conflicto (para no sincronizar esa fila).
- */
-function aplicarReglaDuplicadoPlaca_(e, ss) {
-  if (!e || !e.range) return false;
-  var sheet = e.source.getActiveSheet();
-  if (sheet.getName() !== getSheet_().getName()) return false;
-
-  var fila = e.range.getRow();
-  var col = e.range.getColumn();
-  if (fila < 2 || col < 1) return false;
-
-  var lastRow = sheet.getLastRow();
-  var lastCol = sheet.getLastColumn();
-  if (lastRow < 2) return false;
-
-  var values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
-  var headers = values[0].map(function (h) { return String(h).trim(); });
-
-  // Índice (0-based) de la columna editada y de la columna Estatus.
-  var normHeaders = headers.map(function (h) { return normalizeHeader_(h); });
-  var iEstatus = normHeaders.indexOf(normalizeHeader_(HEADER_ESTATUS));
-
-  var conflicto = conflictoParaFila_(values, headers, fila - 1, col - 1);
-  if (!conflicto) return false;
-
-  // 1) Revertir la celda editada a su valor anterior (o vacío si no existía).
-  var anterior = (e.oldValue !== undefined && e.oldValue !== null) ? e.oldValue : '';
-  e.range.setValue(anterior);
-
-  // 2) Marcar CONFLICTO en la columna Estatus de la fila afectada.
-  if (iEstatus >= 0) {
-    sheet.getRange(fila, iEstatus + 1).setValue(
-      MARCA_CONFLICTO + ': llave ' + conflicto.llave + ' con placa ' + conflicto.placa +
-      ' repetida (ya existe placa ' + conflicto.placaOriginal + ' fila ' + conflicto.filaOriginal + ')'
-    );
-  }
-
-  // 3) Notificación visual para la persona que cometió el error.
-  ss.toast(
-    'La llave ' + conflicto.llave + ' ya está registrada con la placa ' +
-    conflicto.placaOriginal + ' (fila ' + conflicto.filaOriginal + '). ' +
-    'Se revertió el cambio y no se sincronizará.',
-    MARCA_CONFLICTO,
-    40
-  );
-
-  // 4) Se colorean los encabezados/celda afectados para que quede visible.
-  sheet.getRange(fila, 1, 1, lastCol).setBackground('#f4c7c3');
-
-  Logger.log('Duplicado bloqueado: ' + JSON.stringify(conflicto));
-  return true;
 }
 
 /* ---------------------- control de acceso: solo el admin ---------------- */
@@ -500,7 +353,7 @@ function esAdmin_(e) {
 /**
  * Bloquea la edición/eliminación a los no-admin: revierte el cambio y muestra
  * un toast. Devuelve true si se bloqueó (para abortar el flujo de onEdit).
- * No toca las reglas de CONFLICTO ni la sincronización: solo antecede onEdit.
+ * No toca la sincronización: solo antecede onEdit.
  * La barrera real contra editar/eliminar es protegerHoja() (permisos nativos);
  * este check solo es defensa y aviso. Si el email no se puede determinar, NO
  * se bloquea (para no dejar afuera al admin por fallo de detección).
@@ -573,10 +426,6 @@ function onEdit(e) {
       if (e.source.getId() !== target.getId()) return;
       var sheet = e.source.getActiveSheet();
       if (sheet.getName() !== getSheet_().getName()) return;
-
-      // Regla: bloquear llave repetida con placa distinta (columna Y).
-      var bloqueado = aplicarReglaDuplicadoPlaca_(e, e.source);
-      if (bloqueado) return; // no se sincroniza la fila con conflicto
     }
     syncTransportes();
   } catch (err) {

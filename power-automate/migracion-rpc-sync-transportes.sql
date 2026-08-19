@@ -1,33 +1,39 @@
 -- =============================================================================
 -- MIGRACIÓN: RPC sync_transportes para Power Automate (Excel 365 -> Supabase)
 -- -----------------------------------------------------------------------------
--- Reemplaza el POST batch del .gs: recibe el array completo del flujo,
--- normaliza, consolida por llave (SUMA cajas) y hace UPSERT ON CONFLICT(llave).
+-- MODELO: UNA FILA POR PLACA.
+--   * Cada LLAVE puede repetirse con PLACAS diferentes (cada placa = una fila).
+--   * El par (llave, placa) identifica la fila (UNIQUE en la BD).
+--   * Las CAJAS se SUMAN POR PLACA (filas del mismo llave+placa guardan la suma).
 --
--- ADITIVO y REVERSIBLE:
---   - Solo CREA la función; NO toca tablas, columnas ni datos existentes.
---   - Revertir: DROP FUNCTION public.sync_transportes(jsonb);
---   - NO modifica la app (src/) ni transportes-sync.gs (siguen cómo respaldo).
+-- Cambios frente a la versión que "consolidaba por llave (SUMA cajas)":
+--   - Cada fila del Excel es una LLAVE + PLACA. Una llave puede repetirse con
+--     PLACAS diferentes: cada PLACA es un registro propio de la BD.
+--   - Las CAJAS se SUMAN POR PLACA: si la misma (llave, placa) aparece en varias
+--     filas del Excel (p. ej. varios transportes del mismo camión), el registro
+--     de esa placa guarda la SUMA de esas filas (antes: la ÚLTIMA fila).
+--   - El UPSERT usa ON CONFLICT (llave, placa) en lugar de ON CONFLICT (llave).
 --
--- Comportamiento replicado de transportes-sync.gs (buildRows_ + syncTransportes):
+-- Qué hace (normalización conservada de la versión anterior):
 --   1) Normaliza llave/placa a UPPER+TRIM y cajas a número (limpia [.,]).
 --   2) Estatus 'CANCELADO' -> estado_porteria = 'CANCELADO'.
---   3) Llaves en conflicto (misma llave con 2+ placas reales) se omiten.
---   4) Consolidación por llave: cajas se SUMAN; el resto toma el último valor
---      no vacío (una fila vacía no pisa datos previos).
---   5) fecha_hora/cita_cargue: si llegan como serial de Excel (ej. 46248) se
---      convierten a ISO; si ya vienen en ISO se usan tal cual.
---   6) UPSERT ON CONFLICT(llave): solo actualiza campos no vacíos y NUNCA pisa
---      el estado de portería salvo que venga CANCELADO.
---   7) cajas se omite en el UPDATE: el Excel la fija solo al INSERTAR la llave.
---      Si el despachador edita cajas en la app, persiste en la BD y el sync no
---      la sobreescribe (la edición no se escribe en el Excel). Sin columna extra.
+--   3) Agrupa por (llave, placa): ganador = ÚLTIMA fila del par para el resto de
+--      campos y SUMA de cajas de todas las filas del par.
+--   4) fecha_hora/cita_cargue: serial de Excel (ej. 46248) -> ISO, o se usan
+--      tal cual si ya vienen en ISO.
+--   5) UPSERT ON CONFLICT (llave, placa): solo actualiza campos no vacíos y
+--      NUNCA pisa el estado de portería salvo que venga CANCELADO; cajas SÍ se
+--      actualiza (se reconstruye la SUMA por placa en cada corrida).
+--   6) CAJAS POR PLACA: cada registro (llave, placa) guarda la sumatoria de las
+--      cajas de las filas del Excel con ese mismo par. La suma total de una
+--      llave = la suma de sus placas (registros).
+--   7) Si el Excel repite un TRANSPORTE en llaves DISTINTAS, el trigger
+--      fn_transporte_una_llave lo rechaza y la corrida se aborta (regla de
+--      negocio: un pedido no puede pertenecer a dos llaves).
 --
--- NOTA DE FUENTE (corregido): el "Select" de Power Automate envía cada fila con
--- las claves = encabezados del Excel (ej. 'Olt Inicial', 'Cita de cargue') y/o
--- los nombres de campo (ej. 'transportadora'). La función _sync_campo busca el
--- valor probando varias claves alternativas (normalizadas sin espacios) para
--- que 'transportadora' se llene con 'Olt Inicial'.
+-- ADITIVO y REVERSIBLE:
+--   - Solo CREA/REEMPLAZA la función; NO toca tablas ni datos existentes.
+--   - Revertir: DROP FUNCTION public.sync_transportes(jsonb);
 --
 -- Cómo se llama desde Power Automate:
 --   URI:  https://<ref>.supabase.co/rest/v1/rpc/sync_transportes
@@ -79,8 +85,7 @@ BEGIN
   END IF;
 
   -- 1) NORMALIZAR: UPPER/TRIM, estatus CANCELADO, cajas -> número.
-  --    transportadora/transporte/denominacion se leen con _sync_campo para
-  --    tolerar que el flujo envíe el encabezado del Excel o el nombre del campo.
+  --    transportadora/transporte/denominacion se leen con _sync_campo.
   CREATE TEMP TABLE tmp_sync ON COMMIT DROP AS
   SELECT
     row_number() OVER ()::int AS row_id,
@@ -92,38 +97,33 @@ BEGIN
     NULLIF(_sync_campo(f, ARRAY['denominacion','denominación']),'') AS denominacion,
     NULLIF(TRIM(f->>'cita_cargue'),'')                   AS cita_cargue,
     NULLIF(TRIM(f->>'fecha_hora'),'')                    AS fecha_hora,
-    ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'cajas',''),'[.,]','','g'),'')::numeric) AS cajas,
+    COALESCE(ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'cajas',''),'[.,]','','g'),'')::numeric), 0) AS cajas,
     (UPPER(TRIM(COALESCE(f->>'estatus',''))) = 'CANCELADO') AS estado_cancelado
   FROM jsonb_array_elements(_filas) AS f
   WHERE NULLIF(TRIM(f->>'llave'),'') IS NOT NULL;
 
-  -- 2) CONFLICTO (igual que el .gs): misma llave con 2+ placas reales -> se omite.
-  DELETE FROM tmp_sync
-  WHERE llave IN (
-    SELECT llave FROM tmp_sync
-    WHERE placa IS NOT NULL AND placa <> ''
-    GROUP BY llave
-    HAVING count(DISTINCT placa) > 1
-  );
-
-  -- 3) CONSOLIDAR por llave: cajas = SUMA; resto = último valor no vacío.
+-- 2) UNA FILA POR (llave, placa): la placa es el registro. Si el Excel repite la
+--    MISMA (llave, placa) (un camión con varios transportes), gana la ÚLTIMA
+--    fila para el resto de campos y las CAJAS se SUMAN (SUM por (llave, placa)).
+--    Placas DISTINTAS de la misma llave son registros aparte (NO se mezclan).
   CREATE TEMP TABLE tmp_cons ON COMMIT DROP AS
-  SELECT
+  SELECT DISTINCT ON (llave, placa)
+    row_id,
     llave,
-    (array_agg(placa            ORDER BY row_id DESC) FILTER (WHERE placa IS NOT NULL))[1]            AS placa,
-    (array_agg(vehiculo_tipo    ORDER BY row_id DESC) FILTER (WHERE vehiculo_tipo IS NOT NULL))[1]    AS vehiculo_tipo,
-    (array_agg(transportadora   ORDER BY row_id DESC) FILTER (WHERE transportadora IS NOT NULL))[1]   AS transportadora,
-    (array_agg(transporte       ORDER BY row_id DESC) FILTER (WHERE transporte IS NOT NULL))[1]       AS transporte,
-    (array_agg(denominacion     ORDER BY row_id DESC) FILTER (WHERE denominacion IS NOT NULL))[1]     AS denominacion,
-    (array_agg(cita_cargue      ORDER BY row_id DESC) FILTER (WHERE cita_cargue IS NOT NULL))[1]      AS cita_cargue,
-    (array_agg(fecha_hora       ORDER BY row_id DESC) FILTER (WHERE fecha_hora IS NOT NULL))[1]       AS fecha_hora,
-    COALESCE(SUM(cajas), 0)      AS cajas,
-    BOOL_OR(estado_cancelado)    AS estado_cancelado
+    placa,
+    vehiculo_tipo,
+    transportadora,
+    transporte,
+    denominacion,
+    cita_cargue,
+    fecha_hora,
+    estado_cancelado,
+    SUM(cajas) OVER (PARTITION BY llave, placa)::numeric AS cajas
   FROM tmp_sync
-  GROUP BY llave;
+  ORDER BY llave, placa, row_id DESC;
 
-  -- 4) UPSERT por llave.
-  FOR r IN SELECT * FROM tmp_cons LOOP
+  -- 3) UPSERT por (llave, placa).
+  FOR r IN SELECT * FROM tmp_cons ORDER BY llave, placa LOOP
     -- fecha_hora: serial de Excel (ej. 46248) -> ISO | ya ISO -> tal cual.
     IF r.fecha_hora ~ '^[0-9]+(\.[0-9]+)?$' THEN
       v_fecha := (date '1899-12-30' + r.fecha_hora::numeric * interval '1 day')::timestamptz;
@@ -138,7 +138,7 @@ BEGIN
       v_cita := r.cita_cargue;
     END IF;
 
-    -- Valores por defecto para columnas NOT NULL con default (igual que el .gs:
+    -- Valores por defecto para columnas NOT NULL con default (igual que antes:
     -- si el Excel llega vacío, la BD aplica su DEFAULT en vez de violar NOT NULL).
     INSERT INTO transportes (
       llave, fecha_hora, placa, vehiculo_tipo, transportadora,
@@ -146,25 +146,25 @@ BEGIN
     ) VALUES (
       r.llave,
       COALESCE(v_fecha, now()),
-      COALESCE(NULLIF(r.placa,''), ''),
-      COALESCE(NULLIF(r.vehiculo_tipo,''), 'SENCILLO'),
-      COALESCE(NULLIF(r.transportadora,''), ''),
+      COALESCE(r.placa, ''),
+      COALESCE(r.vehiculo_tipo, 'SENCILLO'),
+      COALESCE(r.transportadora, ''),
       r.transporte, r.denominacion, v_cita, r.cajas,
       CASE WHEN r.estado_cancelado THEN 'CANCELADO' ELSE 'Pendiente' END,
       now()
     )
-    ON CONFLICT (llave) DO UPDATE SET
+    ON CONFLICT (llave, placa) DO UPDATE SET
       fecha_hora     = EXCLUDED.fecha_hora,
-      placa          = COALESCE(NULLIF(EXCLUDED.placa,''), transportes.placa),
       vehiculo_tipo  = COALESCE(NULLIF(EXCLUDED.vehiculo_tipo,''), transportes.vehiculo_tipo),
       transportadora = COALESCE(NULLIF(EXCLUDED.transportadora,''), transportes.transportadora),
       transporte     = COALESCE(NULLIF(EXCLUDED.transporte,''), transportes.transporte),
       denominacion   = COALESCE(NULLIF(EXCLUDED.denominacion,''), transportes.denominacion),
       cita_cargue    = COALESCE(NULLIF(EXCLUDED.cita_cargue,''), transportes.cita_cargue),
-      -- cajas: se deja fuera del UPDATE a propósito. El Excel la fija solo al
-      -- INSERTAR la llave; después, si el despachador la edita en la app, el
-      -- sync NO la sobreescribe (la edición vive solo en la BD; el Excel no
-      -- guarda ese cambio y no se necesita columna extra en la BD).
+      -- cajas: se SUMAN POR PLACA en tmp_cons, por lo que el sync ES la fuente
+      -- de cajas de cada (llave, placa). Se incluye en el UPDATE para que una
+      -- corrida posterior corrija el valor (p. ej. filas insertadas antes de
+      -- este cambio, como la llave 81810).
+      cajas = EXCLUDED.cajas,
       -- estado_porteria: SOLO se pisa si llega CANCELADO; el resto del flujo de
       -- portería (Confirmado, INGRESO A MUELLE, etc.) NUNCA se sobreescribe.
       estado_porteria = CASE WHEN EXCLUDED.estado_porteria = 'CANCELADO'

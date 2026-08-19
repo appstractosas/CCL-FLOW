@@ -18,14 +18,14 @@ El repo queda así en la rama `dev`:
 1. Leer la pestaña de operaciones del libro (antes Sheets, ahora Excel 365).
 2. Mapear columnas → campos de la tabla `transportes` de Supabase.
 3. Convertir fechas → ISO; `llave`/`placa` en mayúsculas; `cajas` a número.
-4. Regla de conflicto: una llave no puede repetirse con placas reales distintas
-   (esas filas NO se envían).
-5. Estatus `CANCELADO` → la llave pasa a `estado_porteria = 'CANCELADO'`.
-6. Consolidar: UN registro por llave; las `cajas` de todas las filas de la misma
-   llave se suman; el resto de campos toma el último valor no vacío.
-7. UPSERT a Supabase (PostgREST) usando `llave` como clave única con
-   `on_conflict=llave` y `Prefer: resolution=merge-duplicates`.
-8. Frecuencia: el script corría con un trigger temporal cada 1 minuto.
+4. Estatus `CANCELADO` → la fila pasa a `estado_porteria = 'CANCELADO'`.
+5. Actualizar la tabla por líneas donde **cada registro es el par `(llave,
+   placa)`**: una llave puede repetirse con varias placas (cada placa = UNA
+   FILA). Las `cajas` se SUMAN POR PLACA (filas del mismo par), nunca por llave.
+6. UPSERT a Supabase (PostgREST) usando `on_conflict=llave,placa` con
+   `Prefer: resolution=merge-duplicates` (o el RPC `sync_transportes`, que ya
+   codifica el mismo upsert).
+7. Frecuencia: el script corría con un trigger temporal cada 1 minuto.
 
 ## Estado actual del flujo de Power Automate
 
@@ -53,12 +53,16 @@ El repo queda así en la rama `dev`:
 > `sync_transportes` ya tolera ambas (normaliza claves sin espacios/guiones), de modo
 > que `transportadora` se llena con `Olt Inicial` aunque el `Select` mande el encabezado.
 
-> 📌 `cajas` (y sus sumatorias): el Excel la fija solo cuando la llave es NUEVA
-> (INSERT). Para llaves que ya existen, el sync NO sobreescribe `cajas`: si el
-> despachador la edita en la app, ese valor persiste en la BD (no se escribe en el
-> Excel). Así se evita que la corrida de cada minuto revierta la edición manual.
+> 📌 `cajas`: se SUMAN POR PLACA — si una misma placa aparece en varias filas
+> del Excel (varios transportes del mismo camión), el registro de esa placa
+> guarda la sumatoria. En cada corrida la función recalcula y actualiza ese valor
+> (ON CONFLICT (llave, placa) → `cajas` entra en el UPDATE). La suma total de una
+> llave = la suma de sus placas.
 
-> 1 solo POST por corrida, igual que el `.gs`. La **suma de cajas y la conversión de fechas las hace la función** en Supabase (ver script `migracion-rpc-sync-transportes.sql`). El antiguo POST row-by-row con `Apply to each` se descartó: no puede sumar `cajas` entre llaves repetidas.
+> 1 solo POST por corrida, igual que el `.gs`. La **conversión de fechas, el
+> SUM por placa y el UPSERT los hace la función** en Supabase (ver script
+> `migracion-rpc-sync-transportes.sql`). El antiguo POST row-by-row con
+> `Apply to each` se descartó: no podía normalizar cada corrida completa.
 
 > Nota de permisos: SharePoint requiere ser MIEMBRO del sitio (no basta con
 > compartir la carpeta). Una vez aprobado el acceso al sitio `AVERIASMONDELEZ`,
@@ -79,7 +83,7 @@ El repo queda así en la rama `dev`:
 
 | Dato | Valor |
 | --- | --- |
-| Endpoint (POST) | `https://gklcxnlseghdqylvnkdb.supabase.co/rest/v1/rpc/sync_transportes` (RPC; ya no se usa `/rest/v1/transportes?on_conflict=llave` directo — ahora la consolidación/suma de cajas vive en la función) |
+| Endpoint (POST) | `https://gklcxnlseghdqylvnkdb.supabase.co/rest/v1/rpc/sync_transportes` (RPC; ya no se usa `/rest/v1/transportes?on_conflict=llave,placa` directo — la normalización/upsert vive en la función) |
 | Cabecera `apikey` | Service Role key (propiedad `SUPABASE_SERVICE_KEY` del script) |
 | Cabecera `Authorization` | `Bearer <Service Role key>` |
 | Cabecera `Prefer` | `resolution=merge-duplicates,return=minimal` |
@@ -118,7 +122,7 @@ El repo queda así en la rama `dev`:
 | Encabezado del Excel | Campo de la BD | Nota |
 | --- | --- | --- |
 | `Fecha` | `fecha_hora` | dd/mm/aaaa → ISO `YYYY-MM-DDT00:00:00` |
-| `Llave 2` | `llave` | clave única, mayúsculas |
+| `Llave 2` | `llave` | mayúsculas; parte de la clave `(llave, placa)` — una llave puede repetirse con varias placas |
 | `Vehículo` | `vehiculo_tipo` | |
 | `Cita de cargue` | `cita_cargue` | dd/mm/aaaa hh:mm → ISO |
 | `Olt Inicial` | `transportadora` | |
@@ -132,7 +136,7 @@ El repo queda así en la rama `dev`:
 
 - **HTTP → "HTTP"**: el POST batch a Supabase (única escritura).
 - **Compose / Initialize variable**: para construir el array de filas mapeadas y
-  hacer la consolidación por llave.
+  normalizar valores (fechas, mayúsculas, cajas).
 - **Data Operations → Select / Filter array**: para normalizar fechas y valores.
 - **Control → Apply to each**: solo para armar/agrupar filas (NO uno por POST).
 - **Control → Do until** (si hiciera falta paginar el Excel).
@@ -165,8 +169,11 @@ El repo queda así en la rama `dev`:
 4. **Ejecutar `power-automate/migracion-rpc-sync-transportes.sql` en Supabase** y
    convertir el flujo a los 3 pasos: Select (con `estatus`) → Compose (envuelve
    `{"_filas":[...]}`) → HTTP a `/rest/v1/rpc/sync_transportes`. **1 solo POST**.
-5. **Probar con 1 fila de ejemplo** (llave `LL-TEST-001`) verificando suma de cajas,
-   fechas ISO y `estado_porteria='CANCELADO'` cuando `estatus` diga CANCELADO.
+5. **Probar con 1 fila de ejemplo** (llave `LL-TEST-001`) verificando el UPSERT
+   por `(llave, placa)`: si el Excel repite la misma llave con otra placa, deben
+   crearse DOS filas en la BD; y si repite la MISMA (llave, placa), la BD guarda
+   la SUMA de cajas de esas filas. Además fechas ISO y
+   `estado_porteria='CANCELADO'` cuando `estatus` diga CANCELADO.
 6. Desactivar/limpiar: quitar el temporal de Apps Script cuando Power Automate
    esté estable y documentar.
 7. Cambiar origen de OneDrive → SharePoint cuando se apruebe el acceso al sitio.
@@ -178,6 +185,7 @@ El repo queda así en la rama `dev`:
 - `transportes` aún NO está en el publication de Realtime de la BD (solo
   `notificaciones`). Si se desea actualización en vivo junto con Excel, ejecutar
   en Supabase: `ALTER PUBLICATION supabase_realtime ADD TABLE public.transportes;`.
-- Las filas con llaves en conflicto (misma llave, 2+ placas reales) deben
-  omitirse igual que en el .gs.
+- Las filas se identifican por el par `(llave, placa)`: una llave con 2+ placas
+  genera 2+ filas en la BD; el par duplicado exacto se fusiona y gana la última
+  fila de la corrida (igual que en el .gs).
 - Mantener `main` con `sheets-sync` intacto: toda esta migración vive en `dev`.

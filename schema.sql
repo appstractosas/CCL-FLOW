@@ -1106,7 +1106,7 @@ CREATE TABLE chat_messages (
   sender_name       VARCHAR(200) NOT NULL,
   sender_module     VARCHAR(20) NOT NULL
                     CHECK (sender_module IN ('Portería', 'Despachos', 'Planeación', 'General')),
-  llave_relacionada VARCHAR(20) REFERENCES transportes(llave),
+  llave_relacionada VARCHAR(20), -- sin FK: llave ya no es única (una llave = varias placas)
   muelle_sugerido   VARCHAR(50),
   content           TEXT NOT NULL,
   "timestamp"       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1126,7 +1126,7 @@ CREATE TABLE notificaciones (
                     CHECK (tipo IN ('LLEGO_PORTERIA', 'MUELLE_ASIGNADO')),
   titulo            VARCHAR(200) NOT NULL,
   mensaje           TEXT NOT NULL,
-  llave_relacionada VARCHAR(20) REFERENCES transportes(llave),
+  llave_relacionada VARCHAR(20), -- sin FK: llave ya no es única (una llave = varias placas)
   leida             BOOLEAN NOT NULL DEFAULT FALSE,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

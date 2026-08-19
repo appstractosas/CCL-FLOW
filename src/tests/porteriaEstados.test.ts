@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getEstadoPorteria, isLlaveCerrada } from '../utils/porteria';
+import { getEstadoPorteria, isLlaveCerrada, cumpleFiltroActivas } from '../utils/porteria';
+import { addDaysStr } from '../lib/dateUtils';
 import { UnifiedTransporte } from '../types';
 
 function row(overrides: Partial<UnifiedTransporte> = {}): UnifiedTransporte {
@@ -63,5 +64,31 @@ describe('getEstadoPorteria (secuencia de estados de la app)', () => {
     expect(isLlaveCerrada(row({ horaLlegadaPorteria: '08:00' }))).toBe(false);
     expect(isLlaveCerrada(row({ horaSalida: '09:15' }))).toBe(true);
     expect(isLlaveCerrada(row({ estadoPorteria: 'CANCELADO' }))).toBe(true);
+  });
+});
+
+describe('cumpleFiltroActivas (regla de fechas de la vista ACTIVAS)', () => {
+  it('incluye pasado, hoy y mañana; excluye pasado mañana en adelante', () => {
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(-30)} 07:00` }))).toBe(true);
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00` }))).toBe(true);
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(1)} 07:00` }))).toBe(true);
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(2)} 07:00` }))).toBe(false);
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(10)} 07:00` }))).toBe(false);
+  });
+
+  it('excluye SALIO DE PORTERIA y CANCELADO aunque la fecha esté en la ventana', () => {
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00`, horaSalida: '09:15' }))).toBe(false);
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00`, estadoPorteria: 'CANCELADO' }))).toBe(false);
+  });
+
+  it('excluye llaves activas sin fecha programada', () => {
+    expect(cumpleFiltroActivas(row({ citaCargue: '' }))).toBe(false);
+  });
+
+  it('incluye llaves activas en cualquier etapa dentro de la ventana', () => {
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00`, horaLlegadaPorteria: '08:00' }))).toBe(true);
+    expect(
+      cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00`, horaIngreso: '08:05', horaInicioCargue: '08:10' }))
+    ).toBe(true);
   });
 });

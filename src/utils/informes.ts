@@ -419,21 +419,7 @@ export function usoPorMuelle(rows: UnifiedTransporte[]): MuelleUso[] {
     cur.cajas += r.cajas ?? 0;
     mapa.set(muelle, cur);
   }
-  return [...mapa.values()].sort((a, b) => b.despachos - a.despachos);
-}
-
-/** Operaciones (llaves) por cliente/denominación, descendente, top N. */
-export function operacionesPorCliente(rows: UnifiedTransporte[], topN = 10): ValorConteo[] {
-  const mapa = new Map<string, number>();
-  for (const r of rows) {
-    const cliente = r.denominacion?.trim();
-    if (!cliente) continue;
-    mapa.set(cliente, (mapa.get(cliente) || 0) + 1);
-  }
-  return [...mapa.entries()]
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, topN);
+  return [...mapa.values()].sort((a, b) => b.cajas - a.cajas);
 }
 
 /** Bucket mensual/quincenal de rentabilidad: costo CCL vs ingreso SLA. */
@@ -445,13 +431,20 @@ export interface RentabilidadBucket {
 
 /**
  * Rentabilidad por cuadrilla con granularidad diaria según el rango [desde, hasta].
- * Cada día: Costo CCL = COSTO_DIARIO_CCL (tarifa fija diaria de la cuadrilla interna)
+ * Solo se incluyen los días con movimiento (al menos una llave en el rango):
+ * cada día Costo CCL = COSTO_DIARIO_CCL (tarifa fija diaria de la cuadrilla interna)
  * e ingreso SLA/LTSA = cajas de terceros de ese día × INGRESO_CAJA_SLA.
  */
 export function rentabilidadCuadrillas(rows: UnifiedTransporte[], desde: string, hasta: string): RentabilidadBucket[] {
+  const movimiento = new Set<string>();
+  for (const r of rows) {
+    const dia = String(r.citaCargue || '').slice(0, 10);
+    if (dia) movimiento.add(dia);
+  }
+
   const buckets = new Map<string, RentabilidadBucket>();
   for (const dia of generarDias(desde, hasta)) {
-    buckets.set(dia, { name: dia, costoCCL: CONSTANTES.COSTO_DIARIO_CCL, ingresoSLA: 0 });
+    if (movimiento.has(dia)) buckets.set(dia, { name: dia, costoCCL: CONSTANTES.COSTO_DIARIO_CCL, ingresoSLA: 0 });
   }
 
   // Ingreso de cuadrillas terceras (SLA/LTSA) según las cajas de cada día.
@@ -492,4 +485,151 @@ export function cajasPorCuadrilla(rows: UnifiedTransporte[]): ValorConteo[] {
     mapa.set(grupo, (mapa.get(grupo) || 0) + (r.cajas ?? 0));
   }
   return (['CCL', 'SLA', 'LTSA'] as GrupoCuadrilla[]).map((g) => ({ name: g, value: mapa.get(g) || 0 }));
+}
+
+// ===========================================================================
+// TIEMPOS DE PORTERÍA POR ETAPA
+// ---------------------------------------------------------------------------
+// Segmentos de la secuencia operativa de una llave, desde que llega a portería
+// hasta que sale. Cada etapa mide el tiempo entre DOS hitos de hora ya
+// registrados (formato 'HH:MM'); se cuentan solo las llaves con AMBAS horas.
+// ===========================================================================
+
+/** Campo de hora de inicio/fin de una etapa (existe en UnifiedTransporte). */
+type CampoHoraPorteria = 'horaLlegadaPorteria' | 'horaMuelleAsignado' | 'horaIngreso' | 'horaInicioCargue' | 'horaFinCargue' | 'horaSalida';
+
+/** Definición de una etapa: transición entre dos hitos de portería. */
+export interface TiempoEtapa {
+  id: string;
+  label: string;
+  descripcion: string;
+  color: string;
+  inicio: CampoHoraPorteria;
+  fin: CampoHoraPorteria;
+}
+
+/** Resumen agregado de una etapa: promedio/mín/máx (min) y nº de llaves medidas. */
+export interface TiempoEtapaResumen extends TiempoEtapa {
+  promedio: number;
+  minimo: number;
+  maximo: number;
+  conteo: number;
+}
+
+/** Seguimiento de la llave: 5 transiciones entre hitos de portería. */
+export const ETAPAS_PORTERIA: TiempoEtapa[] = [
+  {
+    id: 'llegada_muelle',
+    label: 'ASIGNACIÓN MUELLE',
+    descripcion: 'Llegada a portería → Asignación de muelle',
+    color: '#3b82f6',
+    inicio: 'horaLlegadaPorteria',
+    fin: 'horaMuelleAsignado',
+  },
+  {
+    id: 'muelle_ingreso',
+    label: 'INGRESO A MUELLE',
+    descripcion: 'Asignación de muelle → Ingreso a muelle',
+    color: '#10b981',
+    inicio: 'horaMuelleAsignado',
+    fin: 'horaIngreso',
+  },
+  {
+    id: 'ingreso_cargando',
+    label: 'INICIO DE CARGUE',
+    descripcion: 'Ingreso a muelle → Inicio de cargue',
+    color: '#f59e0b',
+    inicio: 'horaIngreso',
+    fin: 'horaInicioCargue',
+  },
+  {
+    id: 'cargando_fin',
+    label: 'FINALIZO DE CARGUE',
+    descripcion: 'Inicio de cargue → Fin de cargue',
+    color: '#8b5cf6',
+    inicio: 'horaInicioCargue',
+    fin: 'horaFinCargue',
+  },
+  {
+    id: 'fin_salida',
+    label: 'SALIDA DE PORTERIA',
+    descripcion: 'Fin de cargue → Salida de portería',
+    color: '#ec4899',
+    inicio: 'horaFinCargue',
+    fin: 'horaSalida',
+  },
+];
+
+/** Duración de una etapa para una llave, o null si falta alguna de las dos horas. */
+function duracionEtapa(etapa: TiempoEtapa, r: UnifiedTransporte): number | null {
+  const d = diffMinutos(String(r[etapa.inicio] || ''), String(r[etapa.fin] || ''));
+  if (d == null || d < 0) return null; // sin ambas horas, o inconsistente (fin < inicio)
+  return d;
+}
+
+/**
+ * Promedio/mín/máx (minutos) por cada etapa de portería para el conjunto de filas.
+ * Solo se miden las llaves que tienen registradas las DOS horas de la etapa.
+ */
+export function tiemposPorteria(rows: UnifiedTransporte[]): TiempoEtapaResumen[] {
+  return ETAPAS_PORTERIA.map((etapa) => {
+    const dur: number[] = [];
+    for (const r of rows) {
+      const d = duracionEtapa(etapa, r);
+      if (d != null) dur.push(d);
+    }
+    if (dur.length === 0) {
+      return { ...etapa, promedio: 0, minimo: 0, maximo: 0, conteo: 0 };
+    }
+    const suma = dur.reduce((a, b) => a + b, 0);
+    return {
+      ...etapa,
+      promedio: Math.round(suma / dur.length),
+      minimo: Math.min(...dur),
+      maximo: Math.max(...dur),
+      conteo: dur.length,
+    };
+  });
+}
+
+/** Rango de demora de una etapa: [min, max) en minutos; el último rango es abierto [480, ∞). */
+export interface RangoDemora {
+  id: string;
+  label: string;
+  min: number;
+  max: number;
+}
+
+/** Los 6 rangos de demora que agrupan la duración de cada etapa en el gráfico de distribución. */
+export const RANGOS_DEMORA: RangoDemora[] = [
+  { id: '0-30min', label: '0-30 min', min: 0, max: 30 },
+  { id: '30-60min', label: '30-60 min', min: 30, max: 60 },
+  { id: '1-2h', label: '1-2 h', min: 60, max: 120 },
+  { id: '2-4h', label: '2-4 h', min: 120, max: 240 },
+  { id: '4-8h', label: '4-8 h', min: 240, max: 480 },
+  { id: '>8h', label: '>8 h', min: 480, max: Number.POSITIVE_INFINITY },
+];
+
+/**
+ * Conteo de llaves por rango de demora y por etapa: para cada llave y cada
+ * etapa, su duración (min) cae en uno de los RANGOS_DEMORA y suma +1 a la
+ * barra de ese estado. Devuelve { rangoId: { etapaId: conteo } } con las 5
+ * etapas de cada rango inicializadas en 0.
+ */
+export function distribucionRangos(
+  rows: UnifiedTransporte[]
+): Record<string, Record<string, number>> {
+  const base = Object.fromEntries(ETAPAS_PORTERIA.map((e) => [e.id, 0]));
+  const res: Record<string, Record<string, number>> = {};
+  for (const rg of RANGOS_DEMORA) res[rg.id] = { ...base };
+
+  for (const r of rows) {
+    for (const etapa of ETAPAS_PORTERIA) {
+      const d = duracionEtapa(etapa, r);
+      if (d == null) continue; // sin ambas horas o inconsistente: no aporta
+      const rg = RANGOS_DEMORA.find((b) => d >= b.min && d < b.max);
+      if (rg) res[rg.id][etapa.id] += 1;
+    }
+  }
+  return res;
 }

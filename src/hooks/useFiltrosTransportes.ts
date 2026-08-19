@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useRowFilters } from './useRowFilters';
-import { cumpleFiltroEstado, FiltroEstadoId } from '../utils/porteria';
+import { useRowFilters, matchesSearch } from './useRowFilters';
+import { cumpleFiltroActivas, cumpleFiltroEstado, FiltroEstadoId } from '../utils/porteria';
 import { UnifiedTransporte } from '../types';
 
 /**
@@ -25,10 +25,17 @@ export function useFiltrosTransportes(rows: UnifiedTransporte[], options?: UseFi
     // de otros días. Solo se muestran las llaves cuya cita cae en el rango.
   });
 
-  const rowsFiltradas = useMemo(
-    () => filtered.filter((row) => cumpleFiltroEstado(row, estadoFiltro)),
-    [filtered, estadoFiltro]
-  );
+  const rowsFiltradas = useMemo(() => {
+    // VISTA ACTIVAS: regla propia de la app (estado no cerrado + fecha programada
+    // <= HOY + 1 día, todo el pasado incluido y pasado mañana en adelante
+    // excluido). Ignora el rango manual del toolbar; el buscador sí aplica.
+    if (estadoFiltro === 'activas') {
+      const s = searchTerm.trim().toLowerCase();
+      return rows.filter((row) => matchesSearch(row, s) && cumpleFiltroActivas(row));
+    }
+    // Resto de vistas: rango de fechas del toolbar + estado.
+    return filtered.filter((row) => cumpleFiltroEstado(row, estadoFiltro));
+  }, [rows, filtered, searchTerm, estadoFiltro]);
 
   const pageResetKey = `${searchTerm}|${dateFrom}|${dateTo}|${estadoFiltro}`;
 

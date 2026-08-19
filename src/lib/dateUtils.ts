@@ -1,10 +1,16 @@
-/** Fecha de hoy en formato YYYY-MM-DD (hora local, no UTC). */
-export function todayStr(): string {
+/** Fecha desplazada N días desde hoy en formato YYYY-MM-DD (hora local, no UTC). */
+export function addDaysStr(days: number): string {
   const d = new Date();
+  d.setDate(d.getDate() + days);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+/** Fecha de hoy en formato YYYY-MM-DD (hora local, no UTC). */
+export function todayStr(): string {
+  return addDaysStr(0);
 }
 
 /** True si el valor es una hora registrada (no vacío ni '--:--'). */

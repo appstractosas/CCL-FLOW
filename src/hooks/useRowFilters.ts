@@ -29,6 +29,19 @@ function extractDatePart(value: unknown): string {
   return m ? m[1] : '';
 }
 
+/**
+ * Búsqueda textual sobre una fila: si `searchKeys` se especifica, busca solo en
+ * esas columnas; si no, en TODAS las columnas. Compartida para no duplicar la
+ * lógica del buscador entre el rango de fechas y el filtro ACTIVAS.
+ */
+export function matchesSearch(row: object, term: string, searchKeys?: string[]): boolean {
+  if (!term) return true;
+  const record = row as Record<string, unknown>;
+  return searchKeys
+    ? searchKeys.some((k) => record[k] != null && String(record[k]).toLowerCase().includes(term))
+    : Object.values(record).some((v) => v != null && String(v).toLowerCase().includes(term));
+}
+
 /** Filtro compartido: buscador (todas las columnas) + rango de fechas, en la misma fila. */
 export function useRowFilters<T extends object>(rows: T[], options: RowFiltersOptions<T> = {}) {
   const { dateKey = 'citaCargue', searchKeys, enableDate = true, keepActiveLlaves = false, keepIf } = options;
@@ -41,16 +54,10 @@ export function useRowFilters<T extends object>(rows: T[], options: RowFiltersOp
     const s = searchTerm.trim().toLowerCase();
 
     return rows.filter((row) => {
-      const record = row as Record<string, unknown>;
-
-      if (s) {
-        const match = searchKeys
-          ? searchKeys.some((k) => record[k] != null && String(record[k]).toLowerCase().includes(s))
-          : Object.values(record).some((v) => v != null && String(v).toLowerCase().includes(s));
-        if (!match) return false;
-      }
+      if (!matchesSearch(row, s, searchKeys)) return false;
 
       if (enableDate) {
+        const record = row as Record<string, unknown>;
         const rawDate = record[dateKey];
         const d = rawDate != null ? extractDatePart(rawDate) : '';
         if (d) {

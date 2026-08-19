@@ -5,11 +5,11 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { CrudModule } from '../common/CrudModule';
 import { TransporteFormModal } from './TransporteFormModal';
 import { UnifiedTransporte, TransporteData } from '../../types';
-import { getEstadoPorteria } from '../../utils/porteria';
+import { puedeEditarOperacion } from '../../utils/porteria';
 
 export const PlaneacionModule: React.FC = () => {
   const { addTransporte, updateTransporte, cancelTransporte } = useLogisticsStore();
-  const { hasModuleEdit, isAdmin } = useAuthStore();
+  const { hasModuleEdit } = useAuthStore();
   const canEdit = hasModuleEdit('planeacion');
 
   const [editingRow, setEditingRow] = useState<UnifiedTransporte | null>(null);
@@ -44,13 +44,10 @@ export const PlaneacionModule: React.FC = () => {
     }
   };
 
-  // El PLANEADOR solo puede cancelar llaves que aún estén en PENDIENTE o CONFIRMADO;
-  // en estados posteriores únicamente puede editarlas. El ADMIN cancela en cualquier estado.
-  const canCancelLlave = (row: UnifiedTransporte) => {
-    const estado = getEstadoPorteria(row);
-    if (isAdmin()) return true;
-    return estado === 'Pendiente' || estado === 'Confirmado';
-  };
+  // Los módulos PLANEACIÓN y TRANSPORTES solo pueden cancelar llaves en estado
+  // PENDIENTE o CONFIRMADO. En cuanto la llave pasa a LLEGO A PORTERIA (o un
+  // estado posterior) ya no se puede cancelar, para ningún rol (incluido ADMIN).
+  const canCancelLlave = (row: UnifiedTransporte) => puedeEditarOperacion(row);
 
   return (
     <CrudModule

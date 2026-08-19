@@ -23,7 +23,7 @@ import {
 import { useAuthStore } from './useAuthStore';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { initialTransportes, initialMessages } from './initialData';
-import { getEstadoPorteria, isLlaveCerrada, sortTransportesPorEstado } from '../utils/porteria';
+import { getEstadoPorteria, isLlaveCerrada, puedeEditarOperacion, sortTransportesPorEstado } from '../utils/porteria';
 import { playNotificationSound, playAlertSound } from '../utils/sound';
 import { MUELLE_CERO } from '../lib/muelles';
 import { nowHHMM, nowDateTime } from '../lib/dateUtils';
@@ -183,14 +183,21 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
       addTransporte: async (data) => {
         const state = get();
         const llave = data.llave?.trim() || `LL-${state.nextLlaveSeq}`;
+        const placa = (data.placa || '').toUpperCase().trim();
 
-        // No permitir llaves duplicadas.
-        if (state.transportes.some((t) => t.llave === llave)) {
-          throw new Error(`La llave ${llave} ya existe. Usa otra o guárdala con otro número.`);
+        // Regla de negocio: una llave puede tener VARIAS placas (cada placa =
+        // una fila). Solo se rechaza el par (llave, placa) duplicado.
+        if (state.transportes.some((t) => t.llave === llave && (t.placa || '').toUpperCase().trim() === placa)) {
+          throw new Error(`La llave ${llave} con placa ${placa || 'SIN PLACA'} ya existe.`);
+        }
+
+        // Regla de negocio: un TRANSPORTE (nº pedido) no puede pertenecer a dos llaves.
+        const transporte = data.transporte?.trim();
+        if (transporte && state.transportes.some((t) => t.transporte === transporte && t.llave !== llave)) {
+          throw new Error(`El transporte ${transporte} ya está asociado a otra llave.`);
         }
 
         const fechaHora = data.fechaHora || data.citaCargue || new Date().toISOString().replace('T', ' ').substring(0, 16);
-        const placa = (data.placa || '').toUpperCase().trim();
 
         const newTransporte: UnifiedTransporte = {
           id: `TR-${Date.now()}-${state.nextLlaveSeq}`,
@@ -199,6 +206,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
           placa,
           vehiculoTipo: data.vehiculoTipo || 'SENCILLO',
           citaCargue: data.citaCargue || fechaHora,
+          transporte: data.transporte || undefined,
           transportadora: data.transportadora || '',
           estadoTransporte: data.estadoTransporte || 'ALISTADO',
           // Placa opcional: sin placa → PENDIENTE; con placa → CONFIRMADO.
@@ -245,7 +253,37 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
       updateTransporte: async (id, updated) => {
         const current = get().transportes.find((t) => t.id === id);
-        if (!current || isLlaveCerrada(current)) return;
+        if (!current) return;
+        if (isLlaveCerrada(current)) {
+          window.alert(
+            `No se puede modificar la llave ${current.llave}: tiene estado ${getEstadoPorteria(current)} y está cerrada.`
+          );
+          return;
+        }
+        // PLANEACIÓN/TRANSPORTES solo editan llaves PENDIENTE o CONFIRMADO.
+        if (!puedeEditarOperacion(current)) {
+          window.alert(
+            `La llave ${current.llave} está en estado ${getEstadoPorteria(current)}; solo se puede editar en PENDIENTE o CONFIRMADO.`
+          );
+          return;
+        }
+
+        // Un TRANSPORTE (nº pedido) no puede pertenecer a dos llaves (dentro de
+        // la misma llave sí puede repetirse si el pedido se reparte en placas).
+        const transporte = updated.transporte?.trim();
+        if (transporte && get().transportes.some((t) => t.id !== id && t.transporte === transporte && t.llave !== (updated.llave ?? current.llave))) {
+          window.alert(`El transporte ${transporte} ya está asociado a otra llave.`);
+          return;
+        }
+
+        // Una llave puede tener varias placas; solo se rechaza el par (llave,
+        // placa) duplicado en OTRA fila (si se cambia llave o placa).
+        const nLlave = (updated.llave ?? current.llave).trim();
+        const nPlaca = (updated.placa ?? current.placa ?? '').toUpperCase().trim();
+        if (get().transportes.some((t) => t.id !== id && t.llave === nLlave && (t.placa || '').toUpperCase().trim() === nPlaca)) {
+          window.alert(`La llave ${nLlave} con placa ${nPlaca || 'SIN PLACA'} ya existe en otra fila.`);
+          return;
+        }
 
         // Si se quita la placa (o se edita vacía), la llave vuelve a PENDIENTE.
         if (updated.placa !== undefined && !String(updated.placa).trim()) {
@@ -275,7 +313,13 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
       updatePorteriaHora: (id, campo, hora) => {
         const row = get().transportes.find((t) => t.id === id);
-        if (!row || isLlaveCerrada(row)) return;
+        if (!row) return;
+        if (isLlaveCerrada(row)) {
+          window.alert(
+            `No se puede modificar la llave ${row.llave}: tiene estado ${getEstadoPorteria(row)} y está cerrada.`
+          );
+          return;
+        }
 
         const estadoByCampo: Record<PorteriaTimeField, EstadoPorteria> = {
           horaLlegadaPorteria: 'LLEGO A PORTERIA',
@@ -316,7 +360,13 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
       updateMuelleAsignado: (id, muelle) => {
         const row = get().transportes.find((t) => t.id === id);
-        if (!row || isLlaveCerrada(row)) return;
+        if (!row) return;
+        if (isLlaveCerrada(row)) {
+          window.alert(
+            `No se puede modificar la llave ${row.llave}: tiene estado ${getEstadoPorteria(row)} y está cerrada.`
+          );
+          return;
+        }
 
         const patch: Partial<UnifiedTransporte> = { muelleAsignado: muelle };
         // Al asignar un muelle distinto de MUELLE CERO se carga automáticamente
@@ -352,7 +402,13 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
       updateMuelleHora: (id, hora) => {
         const row = get().transportes.find((t) => t.id === id);
-        if (!row || isLlaveCerrada(row)) return;
+        if (!row) return;
+        if (isLlaveCerrada(row)) {
+          window.alert(
+            `No se puede modificar la llave ${row.llave}: tiene estado ${getEstadoPorteria(row)} y está cerrada.`
+          );
+          return;
+        }
 
         if (isSupabaseConfigured) updateTransporteRemote(id, { horaMuelleAsignado: hora }).catch(console.error);
         set((s) => ({
@@ -364,7 +420,13 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
       updateCuadrilla: (id, cuadrilla) => {
         const row = get().transportes.find((t) => t.id === id);
-        if (!row || isLlaveCerrada(row)) return;
+        if (!row) return;
+        if (isLlaveCerrada(row)) {
+          window.alert(
+            `No se puede modificar la llave ${row.llave}: tiene estado ${getEstadoPorteria(row)} y está cerrada.`
+          );
+          return;
+        }
 
         if (isSupabaseConfigured) updateTransporteRemote(id, { cuadrilla }).catch(console.error);
         set((s) => ({
@@ -388,7 +450,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         // DE PORTERIA): se muestra alerta y NO se aplica el cambio.
         if (isLlaveCerrada(row)) {
           window.alert(
-            'No se puede editar cajas en una llave con estado CANCELADO o SALIO DE PORTERIA.'
+            `No se puede editar cajas en una llave con estado ${getEstadoPorteria(row)} (cerrada).`
           );
           return;
         }
@@ -410,14 +472,21 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
 
       cancelTransporte: (id) => {
         const row = get().transportes.find((t) => t.id === id);
-        if (!row || isLlaveCerrada(row)) return;
+        if (!row) return;
+        if (isLlaveCerrada(row)) {
+          window.alert(
+            `No se puede cancelar la llave ${row.llave}: tiene estado ${getEstadoPorteria(row)} y está cerrada.`
+          );
+          return;
+        }
 
-        // El PLANEADOR solo puede cancelar llaves en PENDIENTE o CONFIRMADO;
-        // en estados posteriores únicamente las edita. El ADMIN cancela en cualquier estado.
-        const currentUser = useAuthStore.getState().currentUser;
-        const estado = getEstadoPorteria(row);
-        const esAdmin = useAuthStore.getState().isAdmin();
-        if (!esAdmin && currentUser?.roleName === 'PLANEADOR' && estado !== 'Pendiente' && estado !== 'Confirmado') {
+        // PLANEACIÓN solo cancela llaves PENDIENTE o CONFIRMADO (aplica a todos
+        // los roles, incluido ADMIN: en cuanto la llave pasa a LLEGO A PORTERIA
+        // ya no se puede cancelar).
+        if (!puedeEditarOperacion(row)) {
+          window.alert(
+            `La llave ${row.llave} está en estado ${getEstadoPorteria(row)}; solo se puede cancelar en PENDIENTE o CONFIRMADO.`
+          );
           return;
         }
 

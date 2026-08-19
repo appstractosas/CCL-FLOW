@@ -4,7 +4,7 @@ import { UnifiedTransporte, PorteriaTimeField } from '../../types';
 import { TipoBadge, EstadoBadge } from '../common/EstadoBadge';
 import { TransporteDetailPanel } from './TransporteDetailPanel';
 import { Pagination } from '../common/Pagination';
-import { getEstadoPorteria, isLlaveCerrada } from '../../utils/porteria';
+import { getEstadoPorteria, isLlaveCerrada, puedeEditarOperacion } from '../../utils/porteria';
 import { formatFechaHora } from '../../lib/dateUtils';
 
 export interface TransportesTableProps {
@@ -132,7 +132,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                   {showActions && (
                     <td className="py-3.5 px-3 whitespace-nowrap">
                       <div className="flex items-center justify-end space-x-1.5">
-                        {showEdit && onEdit && !isLlaveCerrada(row) && (
+                        {showEdit && onEdit && !isLlaveCerrada(row) && puedeEditarOperacion(row) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -144,7 +144,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        {showDelete && onDelete && !isLlaveCerrada(row) && (!canCancel || canCancel(row)) && (
+                        {showDelete && onDelete && !isLlaveCerrada(row) && puedeEditarOperacion(row) && (!canCancel || canCancel(row)) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
