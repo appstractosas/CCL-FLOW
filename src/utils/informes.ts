@@ -67,6 +67,8 @@ export const CONSTANTES = {
   COSTO_CAJA_CCL: 200,
   /** Ingreso por caja para SLA/LTSA (rentabilidad de cuadrillas). */
   INGRESO_CAJA_SLA: 140,
+  /** Hombres que componen una cuadrilla (cálculo del indicador HORA/HOMBRE). */
+  HOMBRES_POR_CUADRILLA: 3,
 } as const;
 
 export type DemoraNivel = 'aTiempo' | 'leve' | 'critico';
@@ -150,6 +152,18 @@ export function generarDias(desde: string, hasta: string): string[] {
     fechas.push(formatearFechaClave(cur.toISOString()));
   }
   return fechas;
+}
+
+/** Primer día ("YYYY-MM-DD") con datos según la fecha de cita; null si no hay ninguno.
+ *  Base del preset "Año": el día más antiguo del año en el que hay datos para mostrar. */
+export function primeraFechaDatos(rows: UnifiedTransporte[]): string | null {
+  let min: string | null = null;
+  for (const r of rows) {
+    const dia = String(r.citaCargue || '').slice(0, 10);
+    if (!dia) continue;
+    if (!min || dia < min) min = dia;
+  }
+  return min;
 }
 
 /** Turno de una hora "HH:MM": T1 (00:00-07:59), T2 (08:00-15:59), T3 (16:00-23:59). */
@@ -447,7 +461,7 @@ export function rentabilidadCuadrillas(rows: UnifiedTransporte[], desde: string,
     if (movimiento.has(dia)) buckets.set(dia, { name: dia, costoCCL: CONSTANTES.COSTO_DIARIO_CCL, ingresoSLA: 0 });
   }
 
-  // Ingreso de cuadrillas terceras (SLA/LTSA) según las cajas de cada día.
+  // Ingreso de cuadrillas SLA según las cajas de cada día (LTSA no se incluye en este gráfico).
   // Las llaves sin cuadrilla asignada no se consideran operación de terceros.
   for (const r of rows) {
     const dia = String(r.citaCargue || '').slice(0, 10);
@@ -455,7 +469,7 @@ export function rentabilidadCuadrillas(rows: UnifiedTransporte[], desde: string,
     if (!bucket) continue;
     if (!String(r.cuadrilla || '').trim()) continue;
     const grupo = tipoGrupo(r.cuadrilla);
-    if (grupo === 'SLA' || grupo === 'LTSA') {
+    if (grupo === 'SLA') {
       bucket.ingresoSLA += (r.cajas ?? 0) * CONSTANTES.INGRESO_CAJA_SLA;
     }
   }
@@ -485,6 +499,31 @@ export function cajasPorCuadrilla(rows: UnifiedTransporte[]): ValorConteo[] {
     mapa.set(grupo, (mapa.get(grupo) || 0) + (r.cajas ?? 0));
   }
   return (['CCL', 'SLA', 'LTSA'] as GrupoCuadrilla[]).map((g) => ({ name: g, value: mapa.get(g) || 0 }));
+}
+
+/** Cajas cargadas por hora-hombre de las cuadrillas CCL y SLA (LTSA no cuenta).
+ *  Solo participan las llaves con hora de inicio y fin de cargue válidas;
+ *  el tiempo de cargue (minutos) de cada llave se multiplica por la tripulación
+ *  de la cuadrilla (HOMBRES_POR_CUADRILLA) para obtener las horas-hombre. */
+export interface ResultadoHoraHombre {
+  cajas: number;
+  horasHombre: number;
+  indice: number;
+}
+
+export function horaHombre(rows: UnifiedTransporte[]): ResultadoHoraHombre {
+  let cajas = 0;
+  let horasHombre = 0;
+  for (const r of rows) {
+    const grupo = tipoGrupo(r.cuadrilla);
+    if (grupo !== 'CCL' && grupo !== 'SLA') continue;
+    const mins = diffMinutos(r.horaInicioCargue, r.horaFinCargue);
+    if (mins == null || mins <= 0) continue;
+    cajas += r.cajas ?? 0;
+    horasHombre += (mins / 60) * CONSTANTES.HOMBRES_POR_CUADRILLA;
+  }
+  const indice = horasHombre > 0 ? cajas / horasHombre : 0;
+  return { cajas, horasHombre, indice };
 }
 
 // ===========================================================================
@@ -632,4 +671,102 @@ export function distribucionRangos(
     }
   }
   return res;
+}
+
+// ===========================================================================
+// FASE 7 — Mapa de calor de posicionamiento (matriz Fecha × Hora)
+// ===========================================================================
+
+/** Meses abreviados en español para las etiquetas de fecha del heatmap. */
+export const MESES_ABREV = [
+  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+];
+
+/** Clasificación de un vehículo frente a la cita de cargue. */
+export type ClasificacionCita = 'aTiempo' | 'leve' | 'critico';
+
+/** Clasifica la demora de inicio frente a la cita (min): <60 a tiempo, 60-179 leve, >=180 crítico. */
+export function clasificarCita(demoraMins: number): ClasificacionCita {
+  if (demoraMins < 60) return 'aTiempo';
+  if (demoraMins >= 180) return 'critico';
+  return 'leve';
+}
+
+/** Contenido agregado de una celda (fecha × hora) del heatmap. */
+export interface CeldaPosicion {
+  count: number;
+  aTiempo: number;
+  entre1y3h: number;
+  masDe3h: number;
+}
+
+/** Fila del eje Fecha del heatmap, en orden cronológico ascendente. */
+export interface FechaPosicion {
+  label: string; // "DD-mmm" (ej: "16-jun")
+  fecha: Date;
+}
+
+/** Resultado de agrupar las operaciones por fecha y hora del inicio de cargue. */
+export interface MapaPosicionamiento {
+  celdas: Map<string, CeldaPosicion>; // clave "DD-mmm___HH:00"
+  fechas: FechaPosicion[];            // ascendente (la más antigua arriba)
+  horas: string[];                    // eje "HH:00" desde el inicio de jornada hasta las 23:00
+  totalFilas: number;
+}
+
+/**
+ * Agrupa las operaciones en una matriz Fecha × Hora para el mapa de calor de
+ * posicionamiento. Cada fila se ubica por la hora real de inicio de cargue
+ * (hora_inicio_cargue; si falta, se usa la hora de la cita) y se clasifica
+ * contra la cita: <60 min a tiempo, 60-179 min leve, ≥180 min crítico.
+ */
+export function mapaPosicionamiento(rows: UnifiedTransporte[]): MapaPosicionamiento {
+  const celdas = new Map<string, CeldaPosicion>();
+  const fechasMap = new Map<string, Date>();
+  const horasSet = new Set<number>();
+
+  const agregar = (fechaLabel: string, fecha: Date, horaMins: number, clasif: ClasificacionCita) => {
+    const horaKey = `${String(Math.floor(horaMins / 60)).padStart(2, '0')}:00`;
+    const key = `${fechaLabel}___${horaKey}`;
+    const celda = celdas.get(key) ?? { count: 0, aTiempo: 0, entre1y3h: 0, masDe3h: 0 };
+    celda.count += 1;
+    if (clasif === 'aTiempo') celda.aTiempo += 1;
+    else if (clasif === 'leve') celda.entre1y3h += 1;
+    else celda.masDe3h += 1;
+    celdas.set(key, celda);
+    if (!fechasMap.has(fechaLabel)) fechasMap.set(fechaLabel, fecha);
+    horasSet.add(Math.floor(horaMins / 60));
+  };
+
+  for (const r of rows) {
+    const fechaSrc = (r.citaCargue || '').trim() ? r.citaCargue : r.createdAt;
+    const citaD = parsearFecha(fechaSrc);
+    if (!citaD) continue;
+    const fechaLabel = `${String(citaD.getDate()).padStart(2, '0')}-${MESES_ABREV[citaD.getMonth()]}`;
+    const horaRaw = (r.horaInicioCargue || '').trim() ? r.horaInicioCargue : r.citaCargue;
+    const mins = minutosHora(horaRaw);
+    if (mins == null) continue; // sin hora de inicio ni de cita: no ubica en el mapa
+
+    const citaMins = minutosHora(r.citaCargue);
+    const inicioMins = minutosHora(r.horaInicioCargue);
+    const demoraMins =
+      citaMins != null && inicioMins != null && inicioMins > citaMins ? inicioMins - citaMins : 0;
+    const clasif =
+      citaMins == null || inicioMins == null || demoraMins < 60 ? 'aTiempo' : clasificarCita(demoraMins);
+    agregar(fechaLabel, citaD, mins, clasif);
+  }
+
+  const fechas = [...fechasMap.entries()]
+    .map(([label, fecha]) => ({ label, fecha }))
+    .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+
+  // La jornada inicia como mínimo a las 06:00 am; si hay cargues antes, el eje baja.
+  const horasPresentes = [...horasSet];
+  const minHora = horasPresentes.length ? Math.min(6, ...horasPresentes) : 6;
+  const horas = Array.from({ length: 24 - minHora }, (_, i) =>
+    `${String(minHora + i).padStart(2, '0')}:00`
+  );
+
+  return { celdas, fechas, horas, totalFilas: rows.length };
 }

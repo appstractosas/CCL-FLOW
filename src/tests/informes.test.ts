@@ -29,6 +29,10 @@ import {
   ETAPAS_PORTERIA,
   RANGOS_DEMORA,
   distribucionRangos,
+  mapaPosicionamiento,
+  clasificarCita,
+  primeraFechaDatos,
+  horaHombre,
 } from '../utils/informes';
 
 function row(overrides: Partial<UnifiedTransporte> = {}): UnifiedTransporte {
@@ -192,6 +196,35 @@ describe('utils/informes (utilidades Fase 2)', () => {
     expect(generarDias('2026-08-12', '2026-08-10')).toEqual([]);
   });
 
+  it('primeraFechaDatos devuelve el día más antiguo con cita; null sin datos', () => {
+    expect(
+      primeraFechaDatos([
+        row({ llave: 'LL-1', citaCargue: '2026-07-25 08:00' }),
+        row({ llave: 'LL-2', citaCargue: '2026-01-05 09:00' }),
+        row({ llave: 'LL-3', citaCargue: '' }),
+      ])
+    ).toBe('2026-01-05');
+    expect(primeraFechaDatos([row({ llave: 'LL-1', citaCargue: '' }), row({ llave: 'LL-2', citaCargue: '' })])).toBeNull();
+  });
+
+  it('horaHombre calcula cajas por hora-hombre de CCL y SLA; excluye LTSA y filas sin horas', () => {
+    const res = horaHombre([
+      row({ llave: 'LL-1', cuadrilla: 'CCL', cajas: 120, horaInicioCargue: '08:00', horaFinCargue: '10:00' }),
+      row({ llave: 'LL-2', cuadrilla: 'SLA', cajas: 60, horaInicioCargue: '08:00', horaFinCargue: '09:00' }),
+      row({ llave: 'LL-3', cuadrilla: 'LTSA 1', cajas: 999, horaInicioCargue: '08:00', horaFinCargue: '09:00' }),
+      row({ llave: 'LL-4', cuadrilla: 'CCL', cajas: 50, horaInicioCargue: '--:--', horaFinCargue: '--:--' }),
+    ]);
+    // CCL: 2 h × 3 hombres = 6 h-h · SLA: 1 h × 3 = 3 h-h → 9 h-h en total; LTSA y la fila sin horas no cuentan.
+    expect(res.cajas).toBe(180);
+    expect(res.horasHombre).toBe(9);
+    expect(res.indice).toBe(20);
+  });
+
+  it('horaHombre devuelve índice 0 cuando no hay horas de cargue válidas', () => {
+    const res = horaHombre([row({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 40 })]);
+    expect(res).toEqual({ cajas: 0, horasHombre: 0, indice: 0 });
+  });
+
   it('turnoDeHora separa por franjas horarias', () => {
     expect(turnoDeHora('06:00')).toBe('T1');
     expect(turnoDeHora('12:00')).toBe('T2');
@@ -335,9 +368,9 @@ describe('utils/informes (nuevos gráficos)', () => {
     // Cada día cuesta la tarifa diaria fija de CCL (no depende de cajas).
     expect(rent[0].costoCCL).toBe(1_432_000);
     expect(rent[1].costoCCL).toBe(1_432_000);
-    // Ingreso SLA: cajas de terceros de ese día × 140 (SLV cae en LTSA → tercero).
+    // Ingreso SLA: cajas de cuadrillas SLA de ese día × 140 (SLV cae en LTSA → no cuenta).
     expect(rent[0].ingresoSLA).toBe(100 * 140);
-    expect(rent[1].ingresoSLA).toBe(5 * 140);
+    expect(rent[1].ingresoSLA).toBe(0);
   });
 
   it('rentabilidadCuadrillas solo incluye días con movimiento (llaves en el rango)', () => {
@@ -353,7 +386,7 @@ describe('utils/informes (nuevos gráficos)', () => {
     // El rango tiene 3 días, pero 08-16 no tiene llaves: queda fuera del eje X.
     expect(rent).toHaveLength(2);
     expect(rent.map((b) => b.name)).toEqual(['2026-08-14', '2026-08-15']);
-    // Solo las filas con cuadrilla SLA/LTSA generan ingreso SLA; las sin cuadrilla no.
+    // Solo las filas con cuadrilla SLA generan ingreso SLA; las sin cuadrilla no.
     expect(rent.find((b) => b.name === '2026-08-14')?.ingresoSLA).toBe(100 * 140);
     expect(rent.find((b) => b.name === '2026-08-15')?.ingresoSLA).toBe(711 * 140);
   });
@@ -452,5 +485,56 @@ describe('utils/informes (nuevos gráficos)', () => {
     for (const rg of Object.values(d)) {
       expect(Object.keys(rg).sort()).toEqual(ETAPAS_PORTERIA.map((e) => e.id).sort());
     }
+  });
+});
+
+describe('utils/informes (mapa de calor de posicionamiento)', () => {
+  it('clasificarCita usa umbrales de 60 y 180 min', () => {
+    expect(clasificarCita(0)).toBe('aTiempo');
+    expect(clasificarCita(59)).toBe('aTiempo');
+    expect(clasificarCita(60)).toBe('leve');
+    expect(clasificarCita(179)).toBe('leve');
+    expect(clasificarCita(180)).toBe('critico');
+    expect(clasificarCita(300)).toBe('critico');
+  });
+
+  it('agrupa por fecha y hora de inicio, y guarda el conteo por clasificación', () => {
+    const rows = [
+      row({ llave: 'LL-1', citaCargue: '2026-06-16 14:00', horaInicioCargue: '2026-06-16 14:10' }), // a tiempo (<1h)
+      row({ llave: 'LL-2', citaCargue: '2026-06-16 10:00', horaInicioCargue: '2026-06-16 12:30' }), // 150 min → leve
+      row({ llave: 'LL-3', citaCargue: '2026-06-16 08:00', horaInicioCargue: '2026-06-16 13:00' }), // 300 min → critico
+      row({ llave: 'LL-4', citaCargue: '2026-06-17 09:00', horaInicioCargue: '2026-06-17 09:05' }), // a tiempo, otro día
+    ];
+
+    const m = mapaPosicionamiento(rows);
+    const c1 = m.celdas.get('16-jun___14:00');
+    const c2 = m.celdas.get('16-jun___12:00');
+    const c3 = m.celdas.get('16-jun___13:00');
+    const c4 = m.celdas.get('17-jun___09:00');
+    expect(c1).toMatchObject({ count: 1, aTiempo: 1 });
+    expect(c2).toMatchObject({ count: 1, entre1y3h: 1 });
+    expect(c3).toMatchObject({ count: 1, masDe3h: 1 });
+    expect(c4).toMatchObject({ count: 1, aTiempo: 1 });
+    expect(m.fechas.map((f) => f.label)).toEqual(['16-jun', '17-jun']); // orden ascendente
+  });
+
+  it('sin hora de inicio usa la cita; hora inválida salta la fila', () => {
+    const rows = [
+      row({ llave: 'LL-1', citaCargue: '2026-06-16 20:30' }), // sin inicio: se ubica por cita
+      row({ llave: 'LL-2', citaCargue: '2026-06-16 09:00', horaInicioCargue: 'xx:yy' }), // hora inválida
+      row({ llave: 'LL-3', citaCargue: '2026-06-16 09:00' }), // sin hora de cita válida y sin inicio?
+    ];
+    rows[2].citaCargue = '2026-06-16'; // fecha sin hora
+
+    const m = mapaPosicionamiento(rows);
+    expect(m.celdas.get('16-jun___20:00')).toMatchObject({ count: 1, aTiempo: 1 });
+    expect(m.celdas.size).toBe(1); // LL-2 (hora inválida) y LL-3 (sin hora) no ubican
+  });
+
+  it('el eje de horas arranca como mínimo a las 06:00 y llega hasta las 23:00', () => {
+    const m = mapaPosicionamiento([row({ llave: 'LL-1', citaCargue: '2026-06-16 12:00', horaInicioCargue: '2026-06-16 12:00' })]);
+    expect(m.horas[0]).toBe('06:00');
+    expect(m.horas[m.horas.length - 1]).toBe('23:00');
+    expect(m.horas).toHaveLength(18); // 06:00..23:00
   });
 });

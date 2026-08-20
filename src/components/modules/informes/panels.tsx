@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Inbox } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -8,8 +8,6 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  PieChart,
-  Pie,
   Cell,
   ComposedChart,
   Area,
@@ -22,22 +20,16 @@ import {
   COLOR_FLOTA,
   COLOR_EMBUDO,
   CONSTANTES,
-  tipoGrupo,
   type EstadoConteo,
   type ValorConteo,
   type MuelleUso,
   type RentabilidadBucket,
-  type FilaTabla,
   type TiempoEtapaResumen,
+  type MapaPosicionamiento,
+  type CeldaPosicion,
   ETAPAS_PORTERIA,
   RANGOS_DEMORA,
 } from '../../../utils/informes';
-
-export const COLOR_DEMORA: Record<string, string> = {
-  aTiempo: 'text-emerald-400',
-  leve: 'text-amber-400',
-  critico: 'text-rose-400',
-};
 
 const COLOR_GRUPO: Record<string, string> = {
   CCL: '#3b82f6',
@@ -56,6 +48,34 @@ function esDomingo(fecha: string): boolean {
 function fmtEje(v: number): string {
   if (!Number.isFinite(v)) return '';
   return `${Math.round(v / 1000).toLocaleString('es-CO')} k`;
+}
+
+/** Ticks del eje Y (0, ¼, ½, ¾, top, redondeados a miles) más el valor destacado (costo/meta fijo). */
+function ticksEjeY(top: number, destacado: number): number[] {
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round((top * f) / 1000) * 1000);
+  ticks.push(destacado);
+  return [...new Set(ticks)].sort((a, b) => a - b);
+}
+
+/** Render del tick del eje Y: el valor destacado se pinta en color y negrita, el resto igual a los demás. */
+function tickYDestacado(destacado: number, color: string) {
+  return (props: { x?: number; y?: number; payload?: { value?: number | string } }) => {
+    const valor = Number(props.payload?.value ?? 0);
+    const es = valor === destacado;
+    return (
+      <text
+        x={props.x ?? 0}
+        y={props.y ?? 0}
+        dy={7}
+        textAnchor="end"
+        fill={es ? color : '#71717a'}
+        fontSize={10}
+        fontWeight={es ? 700 : 400}
+      >
+        {fmtEje(valor)}
+      </text>
+    );
+  };
 }
 
 /**
@@ -169,65 +189,187 @@ export const EmbudoPanel: React.FC<{ data: EstadoConteo[]; sinDatos: boolean }> 
   </div>
 );
 
-/** Flota por tipo (donut) con leyenda y total al centro. */
+/** Segmento del donut: etiqueta, valor numérico y color (paleta del panel, no se redefine aquí). */
+export interface SegmentoDonut {
+  label: string;
+  value: number;
+  color: string;
+}
+
+/** Formato de miles usado por las etiquetas del donut (es-CO). */
+const fmtMiles = (n: number): string => n.toLocaleString('es-CO');
+
+/** Mide el contenedor del donut para ajustar su geometría al espacio real disponible. */
+function useContainerSize() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      setSize({ width, height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return { ref, size };
+}
+
+/**
+ * Donut SVG (anillo) con gradientes por segmento, anillo de sombra gris y
+ * etiquetas de datos con línea guía, punto y porcentaje; el total va al centro.
+ * La geometría se calcula del tamaño real del contenedor (ResizeObserver) para
+ * que el anillo llene el espacio asignado. Los colores llegan desde el panel
+ * (se conserva la paleta del tablero).
+ */
+export const DonutSvg: React.FC<{
+  segments: SegmentoDonut[];
+  centroLabel: string;
+}> = ({ segments, centroLabel }) => {
+  const { ref, size } = useContainerSize();
+  const total = segments.reduce((acc, s) => acc + s.value, 0);
+  if (total <= 0) {
+    return (
+      <div className="h-full w-full min-h-[200px] flex items-center justify-center text-xs text-zinc-500">
+        No hay datos en el periodo seleccionado.
+      </div>
+    );
+  }
+
+  // Vista previa 500×250 mientras el ResizeObserver no ha reportado el tamaño real.
+  const W = size?.width ?? 500;
+  const H = size?.height ?? 250;
+  const CX = W / 2;
+  const CY = H / 2;
+  const radio = Math.min(W, H) / 2;
+  const OUTER = radio * 0.82; // el anillo no toca los bordes (deja espacio a etiquetas)
+  const INNER = OUTER * 0.58; // grosor del anillo ≈ 42% del radio exterior
+  const grosor = OUTER - INNER;
+  // Las etiquetas quedan fuera del anillo pero DOS celdas no exceden el contenedor.
+  const labelDist = Math.min(OUTER + Math.max(30, OUTER * 0.35), radio - 12);
+  const escala = OUTER / 95; // escala de fuentes y puntos respecto a la geometría base
+
+  let start = -Math.PI / 2;
+  const partes = segments
+    .filter((s) => s.value > 0)
+    .map((s) => {
+      const portion = s.value / total;
+      const angle = portion * 2 * Math.PI;
+      const end = start + angle;
+      const p = { ...s, portion, angle, start, end };
+      start = end;
+      return p;
+    });
+
+  const pt = (r: number, a: number) => [CX + r * Math.cos(a), CY + r * Math.sin(a)];
+
+  return (
+    <div ref={ref} className="w-full h-full">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" style={{ overflow: 'visible' }}>
+        <defs>
+          {partes.map((p, i) => (
+            <linearGradient key={i} id={`donutGrad-${i}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={p.color} stopOpacity={1} />
+              <stop offset="100%" stopColor={p.color} stopOpacity={0.8} />
+            </linearGradient>
+          ))}
+        </defs>
+
+        {/* Anillo de sombra gris (debajo de todos los segmentos) */}
+        <circle cx={CX} cy={CY} r={OUTER} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth={grosor} />
+
+        {partes.map((p, i) => {
+          const [x1o, y1o] = pt(OUTER, p.start);
+          const [x2o, y2o] = pt(OUTER, p.end);
+          const [x2i, y2i] = pt(INNER, p.end);
+          const [x1i, y1i] = pt(INNER, p.start);
+          const large = p.angle > Math.PI ? 1 : 0;
+          const d = `M ${x1o} ${y1o} A ${OUTER} ${OUTER} 0 ${large} 1 ${x2o} ${y2o} L ${x2i} ${y2i} A ${INNER} ${INNER} 0 ${large} 0 ${x1i} ${y1i} Z`;
+
+          const mid = p.start + p.angle / 2;
+          const labelX = CX + labelDist * Math.cos(mid);
+          const labelY = CY + labelDist * Math.sin(mid);
+          const izquierda = mid > Math.PI * 0.5 && mid < Math.PI * 1.5;
+          const anchor = izquierda ? 'end' : 'start';
+          const offX = izquierda ? -8 : 8;
+          const pct = Math.round(p.portion * 100 * 10) / 10;
+          const radioPunto = 3 * escala;
+          const fontSizeLabel = 13 * escala;
+          const fontSizeValor = 11 * escala;
+
+          return (
+            <g key={i}>
+              <title>{`${p.label}: ${fmtMiles(p.value)} (${pct}%)`}</title>
+              <path
+                d={d}
+                fill={`url(#donutGrad-${i})`}
+                stroke="#172033"
+                strokeWidth={2}
+                style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
+              />
+              <line
+                x1={CX + (OUTER + 4) * Math.cos(mid)}
+                y1={CY + (OUTER + 4) * Math.sin(mid)}
+                x2={labelX}
+                y2={labelY}
+                stroke={p.color}
+                strokeWidth={1.5}
+                opacity={0.6}
+              />
+              <circle cx={labelX} cy={labelY} r={radioPunto} fill={p.color} />
+              <text
+                x={labelX + offX}
+                y={labelY - fontSizeValor * 0.4}
+                fontSize={fontSizeLabel}
+                fontWeight={700}
+                fill="#ffffff"
+                textAnchor={anchor}
+              >
+                {p.label}
+              </text>
+              <text x={labelX + offX} y={labelY + fontSizeValor * 1.1} fontSize={fontSizeValor} fill="#ffffff" textAnchor={anchor}>
+                {`${fmtMiles(p.value)} (${pct}%)`}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Centro del donut: total + etiqueta */}
+        <circle
+          cx={CX}
+          cy={CY}
+          r={INNER - 2}
+          fill="#172033"
+          style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.05))' }}
+        />
+        <text x={CX} y={CY - 3 * escala} textAnchor="middle" fontSize={17 * escala} fontWeight={800} fill="#ffffff">
+          {fmtMiles(total)}
+        </text>
+        <text x={CX} y={CY + 15 * escala} textAnchor="middle" fontSize={10 * escala} fontWeight={600} fill="#a1a1aa">
+          {centroLabel}
+        </text>
+      </svg>
+    </div>
+  );
+};
+
+/** Flota por tipo (donut) con etiquetas, sombra y total al centro. */
 export const FlotaPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({ data, sinDatos }) => {
-  const total = data.reduce((acc, f) => acc + f.value, 0);
+  const segments: SegmentoDonut[] = data.map((d) => ({
+    label: d.name,
+    value: d.value,
+    color: COLOR_FLOTA[d.name] ?? '#3b82f6',
+  }));
   return (
     <div className="lg:col-span-3 bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
       <ChartHeader title="Flota por Tipo de Vehículo" subtitle="Composición del rango" />
       {sinDatos ? (
         <PanelEmpty />
       ) : (
-        <>
-          <div className="h-48 relative my-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={80}
-                  paddingAngle={3}
-                  dataKey="value"
-                  nameKey="name"
-                  strokeWidth={0}
-                  isAnimationActive={false}
-                >
-                  {data.map((entry) => (
-                    <Cell key={entry.name} fill={COLOR_FLOTA[entry.name] ?? '#3b82f6'} />
-                  ))}
-                  <LabelList
-                    dataKey="value"
-                    position="outside"
-                    style={{ fill: '#a1a1aa', fontSize: 10, fontFamily: 'monospace' }}
-                  />
-                </Pie>
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-black text-white">{total}</span>
-              <span className="text-[10px] text-zinc-400 font-medium uppercase">vehículos</span>
-            </div>
-          </div>
-          <div className="space-y-2 pt-2 border-t border-zinc-800/80 max-h-48 overflow-y-auto">
-            {data.map((item) => (
-              <div key={item.name} className="flex items-center justify-between text-xs font-medium">
-                <div className="flex items-center space-x-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLOR_FLOTA[item.name] }} />
-                  <span className="text-zinc-300">{item.name}</span>
-                </div>
-                <div className="space-x-2 font-mono">
-                  <span className="text-white font-bold">{item.value}</span>
-                  <span className="text-zinc-500">
-                    ({total > 0 ? Math.round((item.value / total) * 100) : 0}%)
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
+        <div className="flex-1 min-h-[260px]">
+          <DonutSvg segments={segments} centroLabel="Vehículos Totales" />
+        </div>
       )}
     </div>
   );
@@ -320,17 +462,17 @@ export const MuellesPanel: React.FC<{ data: MuelleUso[]; sinDatos: boolean }> = 
     ) : (
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ top: 0, right: 34, bottom: 0, left: 12 }}>
+          <BarChart data={data} layout="vertical" margin={{ top: 0, right: 34, bottom: 0, left: 4 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#27272a" />
             <XAxis type="number" tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-            <YAxis type="category" dataKey="name" width={110} tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: '#1c2233' }} />
             <Legend wrapperStyle={{ fontSize: 10 }} />
             <Bar dataKey="despachos" name="Llaves" fill="#0284c7" radius={[0, 6, 6, 0]} barSize={12} isAnimationActive={false}>
-              <LabelList dataKey="despachos" position="right" style={{ fill: '#93c5fd', fontSize: 10, fontFamily: 'monospace' }} />
+              <LabelList dataKey="despachos" position="insideEnd" fill="#ffffff" fontSize={10} fontFamily="monospace" formatter={(v) => (v === 0 ? '' : v)} />
             </Bar>
             <Bar dataKey="cajas" name="Cajas" fill="#f59e0b" radius={[0, 6, 6, 0]} barSize={12} isAnimationActive={false}>
-              <LabelList dataKey="cajas" position="right" style={{ fill: '#fcd34d', fontSize: 10, fontFamily: 'monospace' }} />
+              <LabelList dataKey="cajas" position="insideEnd" fill="#ffffff" fontSize={10} fontFamily="monospace" formatter={(v) => (v === 0 ? '' : v)} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -340,11 +482,14 @@ export const MuellesPanel: React.FC<{ data: MuelleUso[]; sinDatos: boolean }> = 
 );
 
 /** Rentabilidad por cuadrilla (áreas sombreadas costo CCL vs ingresos SLA, domingos en rojo). */
-export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos: boolean }> = ({ data, sinDatos }) => (
+export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos: boolean }> = ({ data, sinDatos }) => {
+  const ccl = CONSTANTES.COSTO_DIARIO_CCL;
+  const top = Math.max(1.05 * data.reduce((m, b) => Math.max(m, b.ingresoSLA, b.costoCCL), 0), ccl);
+  return (
   <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
     <ChartHeader
       title="Rentabilidad por Cuadrilla"
-      subtitle={`Costo CCL: ${CONSTANTES.COSTO_DIARIO_CCL.toLocaleString('es-CO')} por día · Ingresos SLA: cajas del día × ${CONSTANTES.INGRESO_CAJA_SLA.toLocaleString('es-CO')}`}
+      subtitle={`Costo CCL: ${CONSTANTES.COSTO_DIARIO_CCL.toLocaleString('es-CO')} por día · Costo SLA: cajas del día × ${CONSTANTES.INGRESO_CAJA_SLA.toLocaleString('es-CO')}`}
     />
     {sinDatos ? (
       <PanelEmpty />
@@ -372,15 +517,17 @@ export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos:
               interval={0}
             />
             <YAxis
-              tick={{ fill: '#71717a', fontSize: 10 }}
+              domain={[0, top]}
+              ticks={ticksEjeY(top, ccl)}
+              tick={tickYDestacado(ccl, '#3b82f6')}
               axisLine={false}
               tickLine={false}
               allowDecimals={false}
-              tickFormatter={(v: number) => fmtEje(v)}
+              interval={0}
             />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
             <Legend wrapperStyle={{ fontSize: 10 }} />
-            <Bar dataKey="ingresoSLA" name="Ingresos SLA" fill="#22c55e" fillOpacity={0.4} radius={[4, 4, 0, 0]} barSize={10} isAnimationActive={false} />
+            <Bar dataKey="ingresoSLA" name="Costo SLA" fill="#22c55e" fillOpacity={0.4} radius={[4, 4, 0, 0]} barSize={10} isAnimationActive={false} />
             <Area
               type="monotone"
               dataKey="costoCCL"
@@ -395,12 +542,13 @@ export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos:
             <Area
               type="monotone"
               dataKey="ingresoSLA"
-              name="Ingresos SLA"
+              name="Costo SLA"
               stroke="#22c55e"
               strokeWidth={2}
               fill="url(#gradIngresoSLA)"
               dot={dotPorDia('#22c55e')}
               activeDot={{ r: 4, fill: '#22c55e' }}
+              legendType="none"
               isAnimationActive={false}
             >
               <LabelList
@@ -417,10 +565,14 @@ export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos:
       </div>
     )}
   </div>
-);
+  );
+};
 
 /** Cajas diarias con meta punteada. */
-export const CajasDiariasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({ data, sinDatos }) => (
+export const CajasDiariasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({ data, sinDatos }) => {
+  const meta = CONSTANTES.META_CAJAS_DIARIAS;
+  const top = Math.max(data.reduce((m, d) => Math.max(m, d.value), 0) * 1.05, meta);
+  return (
   <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
     <ChartHeader
       title="Cajas Diarias"
@@ -442,11 +594,12 @@ export const CajasDiariasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolea
               interval={0}
             />
             <YAxis
-              domain={[0, (dataMax: number) => Math.max(dataMax * 1.05, CONSTANTES.META_CAJAS_DIARIAS)]}
-              tick={{ fill: '#71717a', fontSize: 10 }}
+              domain={[0, top]}
+              ticks={ticksEjeY(top, meta)}
+              tick={tickYDestacado(meta, '#ef4444')}
               axisLine={false}
               tickLine={false}
-              allowDecimals={false}
+              interval={0}
             />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
             <ReferenceLine
@@ -454,7 +607,7 @@ export const CajasDiariasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolea
               stroke="#ef4444"
               strokeDasharray="2 5"
               strokeWidth={2}
-              label={{ value: 'Meta', fill: '#ef4444', fontSize: 10, position: 'insideTopRight' }}
+              label={{ value: 'Meta', fill: '#ef4444', fontSize: 10, fontWeight: 700, position: 'insideTopRight' }}
             />
             <Bar dataKey="value" name="Cajas" fill="#f59e0b" fillOpacity={0.4} radius={[4, 4, 0, 0]} barSize={16} isAnimationActive={false} />
             <Line
@@ -481,71 +634,26 @@ export const CajasDiariasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolea
       </div>
     )}
   </div>
-);
+  );
+};
 
-/** Cajas cargadas por cuadrilla (donut + leyenda). Solo muestra grupos con cajas. */
+/** Cajas cargadas por cuadrilla (donut). Solo muestra grupos con cajas. */
 export const CajasGrupoPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({ data, sinDatos }) => {
   const conDatos = data.filter((d) => d.value > 0);
-  const total = conDatos.reduce((acc, c) => acc + c.value, 0);
+  const segments: SegmentoDonut[] = conDatos.map((d) => ({
+    label: d.name,
+    value: d.value,
+    color: COLOR_GRUPO[d.name] ?? '#3b82f6',
+  }));
   return (
     <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
       <ChartHeader title="Cajas Cargadas por Cuadrilla" subtitle="Distribución porcentual por tipo de cuadrilla" />
       {sinDatos || conDatos.length === 0 ? (
         <PanelEmpty />
       ) : (
-        <>
-          <div className="h-52 relative my-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={conDatos}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={80}
-                  paddingAngle={3}
-                  dataKey="value"
-                  nameKey="name"
-                  strokeWidth={0}
-                  isAnimationActive={false}
-                >
-                  {conDatos.map((entry) => (
-                    <Cell key={entry.name} fill={COLOR_GRUPO[entry.name] ?? '#3b82f6'} />
-                  ))}
-                  <LabelList
-                    dataKey="value"
-                    position="outside"
-                    style={{ fill: '#a1a1aa', fontSize: 10, fontFamily: 'monospace' }}
-                  />
-                </Pie>
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-black text-white">
-                {total.toLocaleString('es-CO')}
-              </span>
-              <span className="text-[10px] text-zinc-400 font-medium uppercase">cajas</span>
-            </div>
-          </div>
-          <div className="space-y-2 pt-2 border-t border-zinc-800/80">
-            {conDatos.map((item) => {
-              const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
-              return (
-                <div key={item.name} className="flex items-center justify-between text-xs font-medium">
-                  <div className="flex items-center space-x-2">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLOR_GRUPO[item.name] }} />
-                    <span className="text-zinc-300">{item.name}</span>
-                  </div>
-                  <div className="space-x-2 font-mono">
-                    <span className="text-white font-bold">{item.value.toLocaleString('es-CO')}</span>
-                    <span className="text-zinc-500">({pct}%)</span>
-                </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
+        <div className="flex-1 min-h-[220px]">
+          <DonutSvg segments={segments} centroLabel="Cajas Totales" />
+        </div>
       )}
     </div>
   );
@@ -621,173 +729,236 @@ export const TiemposEtapaPanel: React.FC<{ data: TiempoEtapaResumen[]; sinDatos:
   );
 };
 
-/** Tooltip del diagrama de dispersión: muestra las 5 etapas (con color) y el total del rango. */
-const RangoEtapasTooltip: React.FC<{
-  active?: boolean;
-  label?: string | number;
-  payload?: { name?: string; value?: number; color?: string }[];
-}> = ({ active, label, payload }) => {
-  if (!active || !payload) return null;
-  const total = payload.reduce((acc, p) => acc + (p.value ?? 0), 0);
-  return (
-    <div className="bg-[#121726] border border-zinc-700 rounded-xl px-3 py-2 text-[11px] text-white shadow-xl min-w-[160px]">
-      <p className="font-bold mb-1">{label}</p>
-      <div className="space-y-0.5 font-mono">
-        {payload.map((p) => (
-          <p key={p.name} className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-              <span>{p.name}</span>
-            </span>
-            <span className="text-white font-bold">{p.value ?? 0} llaves</span>
-          </p>
-        ))}
-        {total > 0 && (
-          <p className="pt-1 mt-1 border-t border-zinc-700 text-zinc-400">Total: {total} llaves</p>
-        )}
-      </div>
-    </div>
-  );
-};
+/** Convierte un color hex (#rrggbb) a rgba con la opacidad indicada. */
+function hexToRgba(hex: string, a: number): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
 
 /**
- * Histograma agrupado por rango de demora: 6 rangos en el eje X (0-30 min, ...,
- * >8 h) y, dentro de CADA rango, 5 barras — una por etapa de portería — con el
- * color de su estado. Muestra en cuántas llaves cada etapa duró dentro del rango.
+ * Heatmap de tiempos por etapa: filas = etapas de portería, columnas = rangos de
+ * demora (0-30 min ... >8 h). Cada celda se intensifica con el color de su etapa
+ * según cuántas llaves cayeron en ese rango: la celda más intensa es el mayor
+ * cuello de botella. Complementa al panel de promedios revelando LA DISPERSIÓN:
+ * un promedio bajo puede esconder llaves paradas 4-8 h en "ASIGNACIÓN MUELLE".
  */
-export const TiemposDistribucionPanel: React.FC<{
+export const TiemposHeatmapPanel: React.FC<{
   data: Record<string, Record<string, number>>;
   sinDatos: boolean;
 }> = ({ data, sinDatos }) => {
-  const chartData = RANGOS_DEMORA.map((rg) => ({
-    rango: rg.label,
-    ...(data[rg.id] ?? {}),
-  }));
-  const conDatos = ETAPAS_PORTERIA.some((e) => chartData.some((d) => (d[e.id] ?? 0) > 0));
-  const llavesMedidas = RANGOS_DEMORA.reduce((acc, rg) => {
-    const fila = data[rg.id];
-    if (!fila) return acc;
-    let suma = 0;
-    for (const etapa of ETAPAS_PORTERIA) suma += fila[etapa.id] || 0;
-    return acc + suma;
-  }, 0);
+  const maxCount = RANGOS_DEMORA.reduce(
+    (acc, rg) => ETAPAS_PORTERIA.reduce((m, e) => Math.max(m, data[rg.id]?.[e.id] ?? 0), acc),
+    0
+  );
+  const conDatos = RANGOS_DEMORA.some((rg) =>
+    ETAPAS_PORTERIA.some((e) => (data[rg.id]?.[e.id] ?? 0) > 0)
+  );
+  const totalLlaves = RANGOS_DEMORA.reduce(
+    (acc, rg) => acc + ETAPAS_PORTERIA.reduce((s, e) => s + (data[rg.id]?.[e.id] ?? 0), 0),
+    0
+  );
 
   return (
-    <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col space-y-4">
+    <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
       <ChartHeader
         title="Distribución de tiempos por etapa"
-        subtitle="Llaves por rango de demora según la duración de cada etapa (5 estados por rango)"
+        subtitle="Heatmap: etapas vs. rango de demora — la celda más intensa es el mayor cuello de botella"
       />
-      <div className="flex flex-wrap gap-1.5">
-        {ETAPAS_PORTERIA.map((e) => (
-          <span
-            key={e.id}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-zinc-800/90 text-zinc-300"
-          >
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: e.color }} />
-            {e.label}
-          </span>
-        ))}
-      </div>
-      {sinDatos || !conDatos ? (
+      {sinDatos || !conDatos || maxCount === 0 ? (
         <PanelEmpty />
       ) : (
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 4, left: -14 }}>
-              <XAxis
-                dataKey="rango"
-                tick={{ fill: '#71717a', fontSize: 10 }}
-                height={30}
-                interval={0}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: '#71717a', fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-                allowDecimals={false}
-              />
-              <CartesianGrid vertical={false} stroke="#1c2233" strokeDasharray="3 3" />
-              <Tooltip content={<RangoEtapasTooltip />} cursor={{ fill: '#1c2233' }} />
-              {ETAPAS_PORTERIA.map((etapa) => (
-                <Bar
-                  key={etapa.id}
-                  dataKey={etapa.id}
-                  name={etapa.label}
-                  fill={etapa.color}
-                  radius={[3, 3, 0, 0]}
-                  barSize={8}
-                  isAnimationActive={false}
-                />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="flex-1 flex flex-col justify-center gap-1.5">
+          <div className="grid items-center" style={{ gridTemplateColumns: '132px repeat(6, minmax(0, 1fr))', gap: 4 }}>
+            <div />
+            {RANGOS_DEMORA.map((rg) => (
+              <div
+                key={rg.id}
+                title={rg.label}
+                className="text-center text-[9px] font-mono text-zinc-500 font-bold uppercase tracking-wide truncate"
+              >
+                {rg.label}
+              </div>
+            ))}
+          </div>
+          {ETAPAS_PORTERIA.map((etapa) => {
+            const alpha = (count: number) => (count > 0 ? 0.08 + (count / maxCount) * 0.82 : 0);
+            return (
+              <div
+                key={etapa.id}
+                className="grid items-center"
+                style={{ gridTemplateColumns: '132px repeat(6, minmax(0, 1fr))', gap: 4 }}
+              >
+                <span className="flex items-center gap-1.5 pr-1 min-w-0">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: etapa.color }} />
+                  <span className="text-[9px] font-bold text-zinc-300 leading-tight truncate">{etapa.label}</span>
+                </span>
+                {RANGOS_DEMORA.map((rg) => {
+                  const count = data[rg.id]?.[etapa.id] ?? 0;
+                  const a = alpha(count);
+                  return (
+                    <div
+                      key={rg.id}
+                      title={`${etapa.descripcion}: ${count} llaves en ${rg.label}`}
+                      className={`py-2 rounded-md text-center font-mono text-[11px] font-bold ${
+                        count > 0 && a > 0.5 ? 'text-white' : 'text-zinc-500'
+                      }`}
+                      style={{ backgroundColor: count > 0 ? hexToRgba(etapa.color, a) : 'rgba(255,255,255,0.03)' }}
+                    >
+                      {count > 0 ? count : '·'}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       )}
-      {!sinDatos && conDatos && (
+      {!sinDatos && conDatos && maxCount > 0 && (
         <p className="text-[10px] text-zinc-500 font-mono">
-          Totales: {llavesMedidas} llaves medidas
+          {totalLlaves} llaves medidas · celda más intensa = {maxCount} llaves (cuello de botella)
         </p>
       )}
     </div>
   );
 };
 
-/** Tabla detalle del rango (demora contra SLA). */
-export const DetalleTabla: React.FC<{ filas: FilaTabla[] }> = ({ filas }) => (
-  <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
-    <div>
-      <h3 className="text-sm font-bold text-white">Detalle del Rango</h3>
-      <p className="text-[11px] text-zinc-400">
-        {filas.length} llaves — transporte, denominación, cajas y demora en muelle
-      </p>
-    </div>
-    {filas.length === 0 ? (
-      <PanelEmpty />
-    ) : (
-      <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-        <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-[#0b0f19] z-10">
-            <tr className="border-b border-zinc-800 text-left text-[10px] uppercase tracking-wider text-zinc-500">
-              <th className="py-2 pr-3 font-bold">Llave</th>
-              <th className="py-2 pr-3 font-bold">Transporte</th>
-              <th className="py-2 pr-3 font-bold">Denominación</th>
-              <th className="py-2 pr-3 font-bold text-right">Cajas</th>
-              <th className="py-2 pr-3 font-bold">Cuadrilla</th>
-              <th className="py-2 pr-3 font-bold">H. Inicio</th>
-              <th className="py-2 pr-3 font-bold">H. Fin</th>
-              <th className="py-2 pr-3 font-bold text-right">Tiempo muelle</th>
-              <th className="py-2 pr-3 font-bold text-right">Demora (SLA)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filas.map((f) => (
-              <tr key={f.llave} className="border-b border-zinc-800/40 hover:bg-zinc-800/20">
-                <td className="py-2 pr-3 font-mono font-bold text-white">{f.llave}</td>
-                <td className="py-2 pr-3 font-mono text-zinc-300">{f.transporte || '—'}</td>
-                <td className="py-2 pr-3 text-zinc-300">{f.denominacion || '—'}</td>
-                <td className="py-2 pr-3 text-right font-mono text-white font-bold">{f.cajas || 0}</td>
-                <td className="py-2 pr-3">
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLOR_GRUPO[tipoGrupo(f.cuadrilla)] }} />
-                    <span className="text-zinc-300">{f.cuadrilla || '—'}</span>
-                  </span>
-                </td>
-                <td className="py-2 pr-3 font-mono text-zinc-400">{f.hora_inicio_cargue || '—'}</td>
-                <td className="py-2 pr-3 font-mono text-zinc-400">{f.hora_fin_cargue || '—'}</td>
-                <td className="py-2 pr-3 text-right font-mono text-zinc-300">
-                  {f.tiempo_muelle_minutos != null ? `${f.tiempo_muelle_minutos} min` : '—'}
-                </td>
-                <td className={`py-2 pr-3 text-right font-mono font-bold ${COLOR_DEMORA[f.nivelDemora]}`}>
-                  {f.demoraMin != null ? `${f.demoraMin > 0 ? '+' : ''}${f.demoraMin} min` : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+/**
+ * Mapa de calor de posicionamiento: matriz Fecha × Hora (TABLA HTML, sin SVG).
+ * Cada celda agrupa los vehículos por el inicio real de cargue y se pinta según
+ * el cumplimiento de la cita: verde a tiempo, amarillo demora leve, azul demora
+ * crítica, rojo/gris tiempo muerto (sin operación).
+ */
+export const PosicionamientoPanel: React.FC<{
+  data: MapaPosicionamiento;
+  sinDatos: boolean;
+}> = ({ data, sinDatos }) => {
+  const { celdas, fechas, horas } = data;
+
+  const totalesPorHora = horas.map((h) =>
+    fechas.reduce((acc, f) => acc + (celdas.get(`${f.label}___${h}`)?.count ?? 0), 0)
+  );
+  const totalGeneral = totalesPorHora.reduce((a, b) => a + b, 0);
+  const hayDatos = !sinDatos && fechas.length > 0 && totalGeneral > 0;
+
+  const celdasVacias: Record<string, [string, string]> = {
+    verde: ['#064e3b', '#a7f3d0'],
+    amarillo: ['#713f12', '#fef08a'],
+    azul: ['#1e3a5f', '#93c5fd'],
+    gris: ['#7f1d1d', '#fecaca'],
+  };
+
+  /** Fondo/texto de una celda según la prioridad: verde > azul > amarillo. */
+  const estiloCelda = (c: CeldaPosicion | undefined): [string, string] => {
+    if (!c || c.count === 0) return celdasVacias.gris; // tiempo muerto
+    if (c.aTiempo > 0) return celdasVacias.verde;
+    if (c.masDe3h > 0) return celdasVacias.azul;
+    if (c.entre1y3h > 0) return celdasVacias.amarillo;
+    return celdasVacias.verde;
+  };
+
+  return (
+    <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
+      <ChartHeader
+        title="Mapa de Calor de Posicionamiento"
+        subtitle="Vehículos por fecha y hora de inicio de cargue según el cumplimiento de la cita"
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {(
+          [
+            ['A tiempo (<1h)', celdasVacias.verde[0]],
+            ['Demora leve (1h a 2:59h)', celdasVacias.amarillo[0]],
+            ['Demora crítica (≥3h)', celdasVacias.azul[0]],
+            ['Tiempo Muerto', celdasVacias.gris[0]],
+          ] as const
+        ).map(([label, bg]) => (
+          <span
+            key={label}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-zinc-800/90 text-zinc-300"
+          >
+            <span className="w-2.5 h-2.5 rounded-full border border-white/10" style={{ backgroundColor: bg }} />
+            {label}
+          </span>
+        ))}
       </div>
-    )}
-  </div>
-);
+      {!hayDatos ? (
+        <PanelEmpty />
+      ) : (
+        <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+          <table className="text-[8.5px]" style={{ borderSpacing: 1 }}>
+            <thead className="sticky top-0 z-20 bg-[#0b0f19]">
+              <tr>
+                <th className="sticky left-0 z-30 bg-[#0b0f19] px-1 py-1 text-left text-[8px] font-bold uppercase tracking-wider text-zinc-500">
+                  Fecha
+                </th>
+                {horas.map((h) => (
+                  <th key={h} className="px-0.5 py-1 text-center text-[8px] font-mono font-bold text-zinc-500">
+                    {h}
+                  </th>
+                ))}
+                <th className="px-1 py-1 text-right text-[8px] font-bold uppercase tracking-wider text-zinc-400">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {fechas.map((f) => {
+                const esDom = f.fecha.getDay() === 0;
+                const totalDia = horas.reduce((acc, h) => acc + (celdas.get(`${f.label}___${h}`)?.count ?? 0), 0);
+                return (
+                  <tr key={f.label}>
+                    <td
+                      className={`sticky left-0 z-10 bg-[#0b0f19] px-1 py-0.5 whitespace-nowrap text-[9px] font-bold ${
+                        esDom ? 'text-rose-400' : 'text-zinc-300'
+                      }`}
+                    >
+                      {f.label}
+                    </td>
+                    {horas.map((h) => {
+                      const c = celdas.get(`${f.label}___${h}`);
+                      const n = c?.count ?? 0;
+                      const [bg, fg] = estiloCelda(c);
+                      return (
+                        <td
+                          key={h}
+                          title={`${f.label} a las ${h}: ${n} ${n === 1 ? 'vehículo' : 'vehículos'}`}
+                          className={`relative text-center font-mono font-bold rounded-[3px] hover:scale-110 hover:z-10 hover:shadow-lg transition-transform duration-100 ${
+                            n > 0 ? '' : 'text-transparent'
+                          }`}
+                          style={{ backgroundColor: bg, color: n > 0 ? fg : 'transparent', padding: 2, minWidth: 14 }}
+                        >
+                          {n > 0 ? n : ''}
+                        </td>
+                      );
+                    })}
+                    <td className="px-1 py-0.5 text-right text-[9px] font-mono font-bold text-white border-l border-zinc-800/70">
+                      {totalDia}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-zinc-800">
+                <td className="sticky left-0 z-10 bg-[#0b0f19] px-1 py-1 text-[8px] font-bold uppercase tracking-wider text-zinc-400">
+                  Total gen
+                </td>
+                {totalesPorHora.map((t, i) => (
+                  <td key={i} className="px-0.5 py-1 text-center text-[8.5px] font-mono font-bold text-zinc-300">
+                    {t > 0 ? t : ''}
+                  </td>
+                ))}
+                <td className="px-1 py-1 text-right text-[9px] font-mono font-bold text-white">{totalGeneral}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+      {hayDatos && (
+        <p className="text-[10px] text-zinc-500 font-mono">{totalGeneral} vehículos posicionados en el rango</p>
+      )}
+</div>
+  );
+};

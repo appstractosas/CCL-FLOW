@@ -13,6 +13,31 @@ export function todayStr(): string {
   return addDaysStr(0);
 }
 
+/** Fecha YYYY-MM-DD del último lunes (hoy si es lunes).
+ *  Base del preset "Semana" de informes: desde el lunes de esta semana hasta hoy. */
+export function inicioSemanaStr(): string {
+  const d = new Date();
+  const diasDesdeLunes = (d.getDay() + 6) % 7; // 0 = lunes ... 6 = domingo
+  d.setDate(d.getDate() - diasDesdeLunes);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Fecha YYYY-MM-DD del primer día del mes actual.
+ *  Base del preset "Mes" de informes: desde el día 1 hasta hoy. */
+export function inicioMesStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+/** Fecha YYYY-MM-DD del primer día del año actual (1 de enero).
+ *  Punto de partida del preset "Año"; luego se ajusta al primer día con datos. */
+export function inicioAnioStr(): string {
+  return `${new Date().getFullYear()}-01-01`;
+}
+
 /** True si el valor es una hora registrada (no vacío ni '--:--'). */
 export function timeSet(value?: string): boolean {
   return value != null && value !== '' && value !== '--:--';
