@@ -23,9 +23,22 @@ export const ORDEN_ESTADOS: EstadoPorteria[] = [
   'CANCELADO',
 ];
 
-export function rankEstado(estado: EstadoPorteria): number {
-  const i = ORDEN_ESTADOS.indexOf(estado);
-  return i === -1 ? ORDEN_ESTADOS.length : i;
+/** Orden del Tablero: primero los que ya llegaron a portería/patio (arriba LLEGO A PORTERIA),
+ *  luego PENDIENTE y CONFIRMADO abajo; cerradas al final. */
+export const ORDEN_ESTADOS_TABLERO: EstadoPorteria[] = [
+  'LLEGO A PORTERIA',
+  'INGRESO A MUELLE',
+  'CARGANDO',
+  'FINALIZO CARGUE',
+  'Pendiente',
+  'Confirmado',
+  'SALIO DE PORTERIA',
+  'CANCELADO',
+];
+
+export function rankEstado(estado: EstadoPorteria, orden: EstadoPorteria[] = ORDEN_ESTADOS): number {
+  const i = orden.indexOf(estado);
+  return i === -1 ? orden.length : i;
 }
 
 function llaveNum(llave?: string): number {
@@ -34,14 +47,19 @@ function llaveNum(llave?: string): number {
 }
 
 /**
- * Ordena por estado de portería (Pendiente → Confirmado → LLEGO A PORTERIA →
- * … → SALIO DE PORTERIA → CANCELADO) con desempate estable por número de llave.
+ * Ordena por estado de portería según el orden dado (por defecto el canónico:
+ * Pendiente → Confirmado → LLEGO A PORTERIA → … → SALIO DE PORTERIA → CANCELADO)
+ * con desempate estable por número de llave.
  * Es determinístico: la misma BD siempre produce el mismo orden, así las filas
- * no saltan de posición al refrescarse por tiempo real.
+ * no saltan de posición al refrescarse por tiempo real. El Tablero pasa su
+ * propio orden (ORDEN_ESTADOS_TABLERO) sin afectar a los demás módulos.
  */
-export function sortTransportesPorEstado<T extends PorteriaRow & { llave?: string }>(rows: T[]): T[] {
+export function sortTransportesPorEstado<T extends PorteriaRow & { llave?: string }>(
+  rows: T[],
+  orden: EstadoPorteria[] = ORDEN_ESTADOS
+): T[] {
   return [...rows].sort((a, b) => {
-    const d = rankEstado(getEstadoPorteria(a)) - rankEstado(getEstadoPorteria(b));
+    const d = rankEstado(getEstadoPorteria(a), orden) - rankEstado(getEstadoPorteria(b), orden);
     if (d !== 0) return d;
     return llaveNum(a.llave) - llaveNum(b.llave) ||
       String(a.llave || '').localeCompare(String(b.llave || ''));

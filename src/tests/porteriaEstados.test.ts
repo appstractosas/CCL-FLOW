@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { getEstadoPorteria, isLlaveCerrada, cumpleFiltroActivas } from '../utils/porteria';
+import {
+  getEstadoPorteria,
+  isLlaveCerrada,
+  cumpleFiltroActivas,
+  sortTransportesPorEstado,
+  ORDEN_ESTADOS,
+  ORDEN_ESTADOS_TABLERO,
+} from '../utils/porteria';
 import { addDaysStr } from '../lib/dateUtils';
 import { UnifiedTransporte } from '../types';
 
@@ -90,5 +97,31 @@ describe('cumpleFiltroActivas (regla de fechas de la vista ACTIVAS)', () => {
     expect(
       cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00`, horaIngreso: '08:05', horaInicioCargue: '08:10' }))
     ).toBe(true);
+  });
+});
+
+describe('sortTransportesPorEstado (orden del Tablero vs canónico)', () => {
+  const fila = (llave: string, horaLlegadaPorteria: string): UnifiedTransporte =>
+    row({
+      llave,
+      citaCargue: `${addDaysStr(0)} 07:00`,
+      estadoPorteria: horaLlegadaPorteria ? 'Confirmado' : 'Pendiente',
+      horaLlegadaPorteria,
+    });
+
+  it('el orden canónico mantiene Pendiente/Confirmado arriba', () => {
+    const ordenado = sortTransportesPorEstado(
+      [fila('LL-3', '08:00'), fila('LL-1', ''), fila('LL-2', '')],
+      ORDEN_ESTADOS
+    );
+    expect(ordenado.map((f) => f.llave)).toEqual(['LL-1', 'LL-2', 'LL-3']);
+  });
+
+  it('el orden del Tablero pone arriba LLEGO A PORTERIA y abajo Pendiente/Confirmado', () => {
+    const ordenado = sortTransportesPorEstado(
+      [fila('LL-3', '08:00'), fila('LL-1', ''), fila('LL-2', '')],
+      ORDEN_ESTADOS_TABLERO
+    );
+    expect(ordenado.map((f) => f.llave)).toEqual(['LL-3', 'LL-1', 'LL-2']);
   });
 });

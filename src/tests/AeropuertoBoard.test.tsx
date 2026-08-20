@@ -31,7 +31,7 @@ describe('AeropuertoBoard (Tablero)', () => {
     expect(screen.getAllByText(/• Confirmado/)).toHaveLength(2);
   });
 
-  it('muestra TODAS las llaves por defecto (filtro inicial TODAS)', async () => {
+  it('muestra las llaves ACTIVAS por defecto (filtro inicial ACTIVAS)', async () => {
     await useLogisticsStore.getState().addTransporte({ placa: 'XYZ-999' });
     await useLogisticsStore.getState().addTransporte({ placa: 'ABC-123' });
     const cancelada = useLogisticsStore.getState().transportes.find((t) => t.placa === 'XYZ-999')!;
@@ -39,7 +39,7 @@ describe('AeropuertoBoard (Tablero)', () => {
 
     render(<AeropuertoBoard />);
 
-    expect(screen.getByText(/• CANCELADO/)).toBeInTheDocument();
+    expect(screen.queryByText(/• CANCELADO/)).not.toBeInTheDocument();
     expect(screen.getByText(/• Confirmado/)).toBeInTheDocument();
   });
 
