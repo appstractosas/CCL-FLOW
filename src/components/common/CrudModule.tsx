@@ -37,7 +37,7 @@ export const CrudModule: React.FC<CrudModuleProps> = ({
   } = useFiltrosTransportes(transportes);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 mt-[-6px] sm:mt-[-14px] lg:mt-[-22px]">
       <ModuleToolbar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
