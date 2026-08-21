@@ -411,4 +411,12 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
     const current = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
     expect(current?.horaMuelleAsignado).toBe('10:30');
   });
+
+  it('debería actualizar las cajas de un transporte activo', async () => {
+    const store = useLogisticsStore.getState();
+    const row = await store.addTransporte({ placa: 'XYZ-999', cajas: 100 });
+    await store.updateCajas(row.id, 250);
+    const current = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
+    expect(current?.cajas).toBe(250);
+  });
 });

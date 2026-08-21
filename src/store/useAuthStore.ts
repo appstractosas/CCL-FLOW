@@ -137,7 +137,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             users: PRESET_USERS,
             currentUser: null,
             initialized: true,
-            demoMode: true,
+            demoMode: !isSupabaseConfigured,
           });
         }
       },

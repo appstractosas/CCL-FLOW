@@ -46,7 +46,7 @@ interface LogisticsState {
   updateMuelleAsignado: (id: string, muelle: string) => void;
   updateMuelleHora: (id: string, hora: string) => void;
   updateCuadrilla: (id: string, cuadrilla: string) => void;
-  updateCajas: (id: string, cajas: number) => void;
+  updateCajas: (id: string, cajas: number) => Promise<void>;
   cancelTransporte: (id: string) => void;
   sendMessage: (msg: { senderRole: string; senderName: string; senderModule: 'Portería' | 'Despachos' | 'Planeación' | 'General'; content: string; llaveRelacionada?: string; muelleSugerido?: string }) => void;
   markChatRead: () => void;
@@ -176,7 +176,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
           }
         } catch (err) {
           console.error('Error loading data from Supabase:', err);
-          set({ loading: false, initialized: true, demoMode: true });
+          set({ loading: false, initialized: true, demoMode: !isSupabaseConfigured });
         }
       },
 
@@ -445,7 +445,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         );
       },
 
-      updateCajas: (id, cajas) => {
+      updateCajas: async (id, cajas) => {
         const row = get().transportes.find((t) => t.id === id);
         if (!row) return;
         if (!Number.isFinite(cajas) || cajas < 0) return;
@@ -459,7 +459,13 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         }
 
         const patch: Partial<UnifiedTransporte> = { cajas };
-        if (isSupabaseConfigured) updateTransporteRemote(id, patch).catch(console.error);
+        if (isSupabaseConfigured) {
+          try {
+            await updateTransporteRemote(id, patch);
+          } catch (err) {
+            console.error('Error actualizando cajas en Supabase:', err);
+          }
+        }
         set((s) => ({
           transportes: sortTransportesPorEstado(
             s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t))
