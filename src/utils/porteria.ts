@@ -141,3 +141,18 @@ export function cumpleFiltroActivas(row: PorteriaRow & { citaCargue?: string }):
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return false;
   return dia <= addDaysStr(1);
 }
+
+/**
+ * Extrae la fecha YYYY-MM-DD del estado 'SALIO DE PORTERIA' (horaSalida).
+ * Si horaSalida incluye fecha (ISO o YYYY-MM-DD HH:mm), toma esa fecha.
+ * Si solo contiene hora (HH:mm), usa la fecha de citaCargue o fechaHora como fallback.
+ */
+export function getFechaSalidaPorteria(row: PorteriaRow & { citaCargue?: string; fechaHora?: string }): string {
+  const hSalida = String(row.horaSalida || '').trim();
+  const mFull = /^(\d{4}-\d{2}-\d{2})/.exec(hSalida);
+  if (mFull) return mFull[1];
+
+  const fallback = String(row.citaCargue || row.fechaHora || '').trim();
+  const mFallback = /^(\d{4}-\d{2}-\d{2})/.exec(fallback);
+  return mFallback ? mFallback[1] : '';
+}

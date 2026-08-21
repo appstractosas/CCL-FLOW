@@ -58,4 +58,20 @@ describe('useFiltrosTransportes — vista ACTIVAS (regla de fechas)', () => {
     // Hoy y mañana, de cualquier estado (incluye SALIO DE PORTERIA, CANCELADO y sin cita).
     expect(result.current.rowsFiltradas.map((r) => r.id).sort()).toEqual(['2', '3', '6', '7', '8']);
   });
+
+  it('la vista FINALIZADAS filtra por la fecha de SALIO DE PORTERIA (horaSalida)', () => {
+    const testRows = [
+      row('f1', `${addDaysStr(-5)} 07:00`, `${addDaysStr(0)} 15:30`, 'SALIO DE PORTERIA'),
+      row('f2', `${addDaysStr(0)} 07:00`, `${addDaysStr(-5)} 10:00`, 'SALIO DE PORTERIA'),
+    ];
+
+    const { result } = renderHook(() => useFiltrosTransportes(testRows));
+    act(() => {
+      result.current.setEstadoFiltro('finalizadas');
+      result.current.setDateFrom(addDaysStr(0));
+      result.current.setDateTo(addDaysStr(0));
+    });
+
+    expect(result.current.rowsFiltradas.map((r) => r.id)).toEqual(['f1']);
+  });
 });
