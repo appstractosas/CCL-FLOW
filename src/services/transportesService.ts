@@ -89,6 +89,24 @@ export async function fetchTransportesByRango(fechaDesde: string, fechaHasta: st
   return (data || []).map(mapTransporteFromDB);
 }
 
+/** Igual que fetchTransportesByRango pero devuelve las filas CRUDAS de la BD:
+ *  todas las columnas existentes, sin mapear a UnifiedTransporte. La usa el
+ *  export de Informes para volcar la tabla TRANSPORTES completa, sin importar
+ *  qué columnas tenga ni qué datos contenga. */
+export async function fetchTransportesRawByRango(fechaDesde: string, fechaHasta: string): Promise<Record<string, any>[]> {
+  if (!isOnline()) return [];
+  const desde = `${fechaDesde} `;
+  const hasta = `${fechaHasta}Z`;
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .gte('cita_cargue', desde)
+    .lte('cita_cargue', hasta)
+    .order('cita_cargue', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
 export async function createTransporte(item: UnifiedTransporte): Promise<UnifiedTransporte> {
   const { data, error } = await supabase.from(TABLE).insert(mapTransporteToDB(item)).select().single();
   if (error) throw error;

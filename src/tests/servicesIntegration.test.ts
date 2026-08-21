@@ -181,6 +181,22 @@ describe('transportesService (integración Supabase mockeado)', () => {
     expect(rows[0].llave).toBe('LL-60533');
   });
 
+  it('fetchTransportesRawByRango devuelve filas CRUDAS con TODAS las columnas de la BD', async () => {
+    mem.transportes = [
+      { ...afiliado, created_at: '2026-08-13T08:00:00Z', updated_at: '2026-08-13T10:00:00Z' },
+      { ...afiliado, id: 'T-2', cita_cargue: '2026-08-14T09:00:00' },
+    ];
+    const rows = await mod.fetchTransportesRawByRango('2026-08-13', '2026-08-13');
+    expect(rows.length).toBe(1);
+    // Columnas que el mapper NO expone llegan intactas (export tabla completa).
+    expect(rows[0].created_at).toBe('2026-08-13T08:00:00Z');
+    expect(rows[0].updated_at).toBe('2026-08-13T10:00:00Z');
+    expect(rows[0].estado_transporte).toBe('DESPACHADO');
+    // Y respeta el rango de fechas.
+    const todas = await mod.fetchTransportesRawByRango('2026-08-01', '2026-08-31');
+    expect(todas.length).toBe(2);
+  });
+
   it('createTransporte inserta y devuelve la fila mapeada', async () => {
     mem.transportes = [];
     const nuevo = {

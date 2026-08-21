@@ -4,10 +4,9 @@ import { ModuleToolbar } from '../common/ModuleToolbar';
 import { todayStr, inicioSemanaStr, inicioMesStr, inicioAnioStr } from '../../lib/dateUtils';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { useLogisticsStore } from '../../store/useLogisticsStore';
-import { fetchTransportesByRango } from '../../services/transportesService';
+import { fetchTransportesRawByRango } from '../../services/transportesService';
 import { fetchInformesRango } from '../../services/informesService';
 import { subscribeToTransportes } from '../../services/transportesService';
-import { getEstadoPorteria } from '../../utils/porteria';
 import {
   calcularKPIs,
   embudoEstados,
@@ -177,33 +176,36 @@ export const InformesModule: React.FC = () => {
     try {
       const XLSX = await import('xlsx');
 
-      let dataRows: UnifiedTransporte[];
+      // Export TABLA COMPLETA: filas CRUDAS de la BD (todas las columnas que
+      // existan), acotadas al rango de fechas. Los encabezados se derivan de los
+      // datos reales, así el export no se desactualiza si la tabla cambia.
+      let rawRows: Record<string, any>[];
       if (isSupabaseConfigured) {
-        dataRows = await fetchTransportesByRango(dateFrom, dateTo);
+        rawRows = await fetchTransportesRawByRango(dateFrom, dateTo);
       } else {
-        dataRows = useLogisticsStore.getState().transportes.filter((t) => {
+        rawRows = useLogisticsStore.getState().transportes.filter((t) => {
           const d = String(t.citaCargue || '').slice(0, 10);
           return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
-        });
+        }) as unknown as Record<string, any>[];
       }
 
-      if (dataRows.length === 0) {
+      if (rawRows.length === 0) {
         alert('No hay transportes registrados en el rango de fechas seleccionado.');
         return;
       }
 
-      const headers = [
-        'LLAVE', 'FECHA', 'PLACA', 'TIPO VEHÍCULO', 'CITA CARGUE', 'TRANSPORTE', 'DENOMINACIÓN', 'CAJAS', 'DESTINO', 'KG',
-        'TRANSPORTADORA', 'ESTADO TRANSPORTE', 'ESTADO', 'MUELLE', 'CUADRILLA', 'H. ASIGNACIÓN MUELLE',
-        'H. LLEGADA PORTERÍA', 'H. INGRESO', 'H. INICIO CARGUE', 'H. FIN CARGUE', 'H. SALIDA',
-        'OBSERVACIONES',
-      ];
-      const data = dataRows.map((r) => [
-        r.llave, String(r.fechaHora || '').slice(0, 10), r.placa, r.vehiculoTipo, r.citaCargue, r.transporte || '', r.denominacion || '', r.cajas ?? '', r.destino || '', r.kg ?? '',
-        r.transportadora, r.estadoTransporte, getEstadoPorteria(r), r.muelleAsignado || '', r.cuadrilla || '',
-        r.horaMuelleAsignado || '', r.horaLlegadaPorteria || '', r.horaIngreso || '',
-        r.horaInicioCargue || '', r.horaFinCargue || '', r.horaSalida || '', r.observaciones || '',
-      ]);
+      const headers = Array.from(
+        rawRows.reduce<Set<string>>((set, row) => {
+          Object.keys(row).forEach((k) => set.add(k));
+          return set;
+        }, new Set<string>())
+      );
+      const data = rawRows.map((row) =>
+        headers.map((h) => {
+          const v = row[h];
+          return v === null || v === undefined ? '' : v;
+        })
+      );
 
       const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
       ws['!cols'] = headers.map((_, i) => ({
