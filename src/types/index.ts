@@ -118,6 +118,10 @@ export interface UnifiedTransporte {
   denominacion?: string;
   /** Cantidad de cajas del pedido. Alimenta el módulo de informes. */
   cajas?: number;
+  /** Ciudad/lugar de destino del pedido (lo escribe la app, no el sync). */
+  destino?: string;
+  /** Peso del pedido en kilogramos (lo escribe la app, no el sync). */
+  kg?: number;
   transportadora?: string;
   estadoTransporte: EstadoTransporte;
   estadoPorteria: EstadoPorteria;
@@ -142,10 +146,14 @@ export interface TransporteData {
   transportadora?: string;
   /** Número de pedido (no es placa ni vehículo). Un transporte no puede pertenecer a dos llaves. */
   transporte?: string;
+  /** Nombre del cliente (denominación). */
+  denominacion?: string;
   estadoTransporte?: EstadoTransporte;
   muelleAsignado?: string;
   cuadrilla?: string;
   cajas?: number;
+  destino?: string;
+  kg?: number;
   horaMuelleAsignado?: string;
   observaciones?: string;
 }

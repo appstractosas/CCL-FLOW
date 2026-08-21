@@ -171,6 +171,28 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
     expect(screen.queryByText('• ALISTADO')).not.toBeInTheDocument();
   });
 
+  it('muestra Nº Pedido, Cliente, Destino y Kg bajo H. Salida Portería (sin Observaciones)', () => {
+    const { container } = render(
+      <TransporteDetailPanel
+        row={makeRow({ transporte: '3000214899', denominacion: 'GLOBAL DISTR', destino: 'NEIVA', kg: 8500 })}
+        onClose={onClose}
+      />
+    );
+    const salida = screen.getByText('H. Salida Portería');
+    const pedido = screen.getByText('3000214899');
+    const cliente = screen.getByText('GLOBAL DISTR');
+    const destino = screen.getByText('NEIVA');
+    const kg = screen.getByText('8.500');
+    const enOrden = (a: HTMLElement, b: HTMLElement) =>
+      a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(enOrden(salida, pedido)).toBeTruthy();
+    expect(enOrden(pedido, cliente)).toBeTruthy();
+    expect(enOrden(cliente, destino)).toBeTruthy();
+    expect(enOrden(destino, kg)).toBeTruthy();
+    expect(screen.queryByText('Observaciones')).not.toBeInTheDocument();
+    expect(container).not.toBeNull();
+  });
+
   it('permite asignar muelle en cualquier momento, sin depender de las horas previas', () => {
     // Llave recién creada (ninguna hora registrada): el select de muelle ya está habilitado.
     render(

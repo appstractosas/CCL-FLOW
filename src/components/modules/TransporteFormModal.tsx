@@ -20,7 +20,19 @@ interface FormValues {
   fechaHora: string;
   placa: string;
   transportadora: string;
-  observaciones: string;
+  transporte: string;
+  denominacion: string;
+  cajas: string;
+  destino: string;
+  kg: string;
+}
+
+/** Convierte el texto del input a número (vacío/inválido → undefined). */
+function numeroDe(valor: string): number | undefined {
+  const t = valor.trim();
+  if (!t) return undefined;
+  const n = Number(t);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
 function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
@@ -31,7 +43,11 @@ function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
       fechaHora: editingRow.fechaHora || '',
       placa: editingRow.placa,
       transportadora: editingRow.transportadora || '',
-      observaciones: editingRow.observaciones || '',
+      transporte: editingRow.transporte || '',
+      denominacion: editingRow.denominacion || '',
+      cajas: editingRow.cajas != null ? String(editingRow.cajas) : '',
+      destino: editingRow.destino || '',
+      kg: editingRow.kg != null ? String(editingRow.kg) : '',
     };
   }
   return {
@@ -40,7 +56,11 @@ function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
     fechaHora: '',
     placa: '',
     transportadora: '',
-    observaciones: '',
+    transporte: '',
+    denominacion: '',
+    cajas: '',
+    destino: '',
+    kg: '',
   };
 }
 
@@ -80,7 +100,11 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
       citaCargue: formData.fechaHora,
       vehiculoTipo: formData.vehiculoTipo || undefined,
       transportadora: formData.transportadora,
-      observaciones: formData.observaciones,
+      transporte: formData.transporte.trim() || undefined,
+      denominacion: formData.denominacion.trim() || undefined,
+      cajas: numeroDe(formData.cajas),
+      destino: formData.destino.trim() || undefined,
+      kg: numeroDe(formData.kg),
     });
   };
 
@@ -188,17 +212,70 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">Observaciones</label>
-              <textarea
-                value={formData.observaciones}
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Nº Pedido</label>
+              <input
+                type="text"
+                placeholder="Ej: 3000214899"
+                value={formData.transporte}
                 disabled={locked}
-                onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                rows={2}
-                placeholder="Notas, instrucciones o novedades (opcional)"
-                className={`${locked ? lockedCls : inputCls} resize-none`}
+                onChange={(e) => setFormData({ ...formData, transporte: e.target.value })}
+                className={`${locked ? lockedCls : inputCls} font-mono`}
               />
             </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Cliente</label>
+              <input
+                type="text"
+                placeholder="Ej: GLOBAL DISTR"
+                value={formData.denominacion}
+                disabled={locked}
+                onChange={(e) => setFormData({ ...formData, denominacion: e.target.value })}
+                className={locked ? lockedCls : inputCls}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Cajas</label>
+              <input
+                type="number"
+                min={0}
+                placeholder="Ej: 579"
+                value={formData.cajas}
+                disabled={locked}
+                onChange={(e) => setFormData({ ...formData, cajas: e.target.value })}
+                className={`${locked ? lockedCls : inputCls} font-mono text-right`}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Kg</label>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                placeholder="Ej: 8500"
+                value={formData.kg}
+                disabled={locked}
+                onChange={(e) => setFormData({ ...formData, kg: e.target.value })}
+                className={`${locked ? lockedCls : inputCls} font-mono text-right`}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-zinc-300 mb-1">Destino</label>
+            <input
+              type="text"
+              placeholder="Ej: NEIVA"
+              value={formData.destino}
+              disabled={locked}
+              onChange={(e) => setFormData({ ...formData, destino: e.target.value })}
+              className={locked ? lockedCls : inputCls}
+            />
+          </div>
 
           <div className="flex items-center justify-end space-x-2 pt-4 border-t border-zinc-800">
             <button

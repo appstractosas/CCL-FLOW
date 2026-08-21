@@ -207,6 +207,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
           vehiculoTipo: data.vehiculoTipo || 'SENCILLO',
           citaCargue: data.citaCargue || fechaHora,
           transporte: data.transporte || undefined,
+          denominacion: data.denominacion || undefined,
           transportadora: data.transportadora || '',
           estadoTransporte: data.estadoTransporte || 'ALISTADO',
           // Placa opcional: sin placa → PENDIENTE; con placa → CONFIRMADO.
@@ -214,6 +215,8 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
           muelleAsignado: data.muelleAsignado || '',
           cuadrilla: data.cuadrilla || '',
           cajas: data.cajas,
+          destino: data.destino || undefined,
+          kg: data.kg,
           horaMuelleAsignado: data.horaMuelleAsignado || '',
           horaIngreso: '--:--',
           horaSalida: '--:--',

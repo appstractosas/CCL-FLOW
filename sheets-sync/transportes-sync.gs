@@ -24,11 +24,16 @@
  *   - Transporte   → numero de pedido (col. "Transporte")
  *   - Denominación → nombre del cliente (col. "Denominación")
  *   - Cajas        → cantidad de cajas, se envía como número (col. "Cajas")
- *   Requieren haber creado las columnas en la BD:
+ *   - Destino      → ciudad/planta de destino (col. "Destino")
+ *   - Kg           → peso en kilogramos, numérico (col. "Kg")
+ *   Requieren haber creado las columnas en la BD
+ *   (destino/kg: ver supabase-migracion-destino-kg.sql):
  *   ALTER TABLE transportes
  *     ADD COLUMN IF NOT EXISTS transporte TEXT,
  *     ADD COLUMN IF NOT EXISTS denominacion TEXT,
- *     ADD COLUMN IF NOT EXISTS cajas NUMERIC DEFAULT 0;
+ *     ADD COLUMN IF NOT EXISTS cajas NUMERIC DEFAULT 0,
+ *     ADD COLUMN IF NOT EXISTS destino TEXT,
+ *     ADD COLUMN IF NOT EXISTS kg NUMERIC;
  *   Y el UNIQUE por (llave, placa) en lugar de llave sola:
  *     ALTER TABLE transportes DROP CONSTRAINT IF EXISTS transportes_llave_key;
  *     ALTER TABLE transportes ADD CONSTRAINT transportes_llave_placa_key
@@ -68,6 +73,8 @@ var MAPPING = {
   'Denominación': 'denominacion', // Nombre del cliente
   'Placa': 'placa',
   'Cajas': 'cajas',               // Cantidad de cajas (numérica)
+  'Destino': 'destino',           // Ciudad/planta de destino del pedido
+  'Kg': 'kg',                     // Peso en kilogramos (numérico)
   // 'Estatus' alimenta estado_transporte con DESPACHADO/ALISTADO/PENDIENTE
   // (valores del CHECK de la BD). El valor CANCELADO no entra en ese CHECK:
   // se traduce a estado_porteria='CANCELADO' (ver normalización en buildRows_).
@@ -187,6 +194,12 @@ function buildRows_() {
           // NUMERIC en la BD: se envía como número (soporta "1.234" o "1234").
           var cajasNum = Number(String(raw).replace(/[.,]/g, '').trim());
           val = isFinite(cajasNum) ? Math.round(cajasNum) : null;
+        } else if (dbField === 'kg') {
+          // NUMERIC en la BD: mismo criterio de separadores que cajas.
+          // Si el Sheets aún no tiene la columna "Kg", este campo queda null y
+          // se elimina antes de enviar (no afecta el upsert).
+          var kgNum = Number(String(raw).replace(/[.,]/g, '').trim());
+          val = isFinite(kgNum) ? kgNum : null;
         } else if (dbField === 'estado_transporte') {
           // Estatus del fuente: solo DESPACHADO/ALISTADO/PENDIENTE (CHECK de la
           // BD). CANCELADO no está en el CHECK: se traduce a estado_porteria y

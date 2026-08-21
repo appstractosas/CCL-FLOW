@@ -21,7 +21,7 @@
 --      solo DESPACHADO/ALISTADO/PENDIENTE (valores del CHECK de la BD);
 --      vacío o valor desconocido -> 'ALISTADO' (DEFAULT de la columna).
 --   4) Agrupa por (llave, placa): ganador = ÚLTIMA fila del par para el resto de
---      campos y SUMA de cajas de todas las filas del par.
+--      campos (incluidos destino/kg) y SUMA de cajas de todas las filas del par.
 --   5) fecha_hora/cita_cargue: serial de Excel (ej. 46248) -> ISO, o se usan
 --      tal cual si ya vienen en ISO.
 --   6) UPSERT ON CONFLICT (llave, placa): solo actualiza campos no vacíos y
@@ -88,7 +88,10 @@ BEGIN
   END IF;
 
   -- 1) NORMALIZAR: UPPER/TRIM, estatus CANCELADO, cajas -> número.
-  --    transportadora/transporte/denominacion/estado_transporte se leen con _sync_campo.
+  --    transportadora/transporte/denominacion/destino/estado_transporte se leen
+  --    con _sync_campo. destino/kg son OPCIONALES: si el Excel aún no los envía
+  --    quedan en NULL y el upsert no los toca (requieren las columnas de
+  --    supabase-migracion-destino-kg.sql).
   CREATE TEMP TABLE tmp_sync ON COMMIT DROP AS
   SELECT
     row_number() OVER ()::int AS row_id,
@@ -98,10 +101,12 @@ BEGIN
     NULLIF(_sync_campo(f, ARRAY['transportadora','olt inicial']),'') AS transportadora,
     NULLIF(_sync_campo(f, ARRAY['transporte']),'') AS transporte,
     NULLIF(_sync_campo(f, ARRAY['denominacion','denominación']),'') AS denominacion,
+    NULLIF(_sync_campo(f, ARRAY['destino']),'') AS destino,
     NULLIF(_sync_campo(f, ARRAY['estado_transporte','estatus']),'') AS estado_transporte,
     NULLIF(TRIM(f->>'cita_cargue'),'')                   AS cita_cargue,
     NULLIF(TRIM(f->>'fecha_hora'),'')                    AS fecha_hora,
     COALESCE(ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'cajas',''),'[.,]','','g'),'')::numeric), 0) AS cajas,
+    NULLIF(REGEXP_REPLACE(COALESCE(f->>'kg',''),'[.,]','','g'),'')::numeric AS kg,
     (UPPER(TRIM(COALESCE(f->>'estatus',''))) = 'CANCELADO') AS estado_cancelado
   FROM jsonb_array_elements(_filas) AS f
   WHERE NULLIF(TRIM(f->>'llave'),'') IS NOT NULL;
@@ -119,9 +124,11 @@ BEGIN
     transportadora,
     transporte,
     denominacion,
+    destino,
     estado_transporte,
     cita_cargue,
     fecha_hora,
+    kg,
     estado_cancelado,
     SUM(cajas) OVER (PARTITION BY llave, placa)::numeric AS cajas
   FROM tmp_sync
@@ -147,14 +154,15 @@ BEGIN
     -- si el Excel llega vacío, la BD aplica su DEFAULT en vez de violar NOT NULL).
     INSERT INTO transportes (
       llave, fecha_hora, placa, vehiculo_tipo, transportadora,
-      transporte, denominacion, cita_cargue, cajas, estado_transporte, estado_porteria, updated_at
+      transporte, denominacion, destino, cita_cargue, cajas, kg,
+      estado_transporte, estado_porteria, updated_at
     ) VALUES (
       r.llave,
       COALESCE(v_fecha, now()),
       COALESCE(r.placa, ''),
       COALESCE(r.vehiculo_tipo, 'SENCILLO'),
       COALESCE(r.transportadora, ''),
-      r.transporte, r.denominacion, v_cita, r.cajas,
+      r.transporte, r.denominacion, r.destino, v_cita, r.cajas, r.kg,
       -- estado_transporte: solo los valores del CHECK de la columna; si la
       -- celda Estatus viene vacía o con un valor desconocido, se aplica el
       -- DEFAULT 'ALISTADO' (el CHECK rechaza cualquier otro valor).
@@ -169,6 +177,7 @@ BEGIN
       transportadora = COALESCE(NULLIF(EXCLUDED.transportadora,''), transportes.transportadora),
       transporte     = COALESCE(NULLIF(EXCLUDED.transporte,''), transportes.transporte),
       denominacion   = COALESCE(NULLIF(EXCLUDED.denominacion,''), transportes.denominacion),
+      destino        = COALESCE(NULLIF(EXCLUDED.destino,''), transportes.destino),
       cita_cargue    = COALESCE(NULLIF(EXCLUDED.cita_cargue,''), transportes.cita_cargue),
       -- estado_transporte: el Excel ES la fuente; se pisa solo con valores
       -- válidos (vacío/desconocido -> 'ALISTADO', nunca fuera del CHECK).
@@ -179,6 +188,9 @@ BEGIN
       -- corrida posterior corrija el valor (p. ej. filas insertadas antes de
       -- este cambio, como la llave 81810).
       cajas = EXCLUDED.cajas,
+      -- kg: opcional; solo se pisa cuando el Excel trae valor (NULL conserva el
+      -- existente, que puede venir de la captura en la app).
+      kg = COALESCE(EXCLUDED.kg, transportes.kg),
       -- estado_porteria: SOLO se pisa si llega CANCELADO; el resto del flujo de
       -- portería (Confirmado, INGRESO A MUELLE, etc.) NUNCA se sobreescribe.
       estado_porteria = CASE WHEN EXCLUDED.estado_porteria = 'CANCELADO'

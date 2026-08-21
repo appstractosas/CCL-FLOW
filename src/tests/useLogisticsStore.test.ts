@@ -44,6 +44,26 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
     expect(row.estadoPorteria).toBe('Pendiente');
   });
 
+  it('guarda transporte, denominacion, cajas, destino y kg al crear la llave', async () => {
+    const store = useLogisticsStore.getState();
+
+    const row = await store.addTransporte({
+      fechaHora: '2026-07-29 11:00',
+      placa: 'ABC-123',
+      transporte: '3000214899',
+      denominacion: 'GLOBAL DISTR',
+      cajas: 579,
+      destino: 'NEIVA',
+      kg: 8500,
+    });
+
+    expect(row.transporte).toBe('3000214899');
+    expect(row.denominacion).toBe('GLOBAL DISTR');
+    expect(row.cajas).toBe(579);
+    expect(row.destino).toBe('NEIVA');
+    expect(row.kg).toBe(8500);
+  });
+
   it('should reject the duplicate pair (llave, placa) but allow the same llave with a different placa', async () => {
     const store = useLogisticsStore.getState();
     const a = await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-50000' });

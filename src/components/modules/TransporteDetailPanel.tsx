@@ -5,7 +5,7 @@ import { EstadoBadge, TipoBadge } from '../common/EstadoBadge';
 import { getEstadoPorteria, isLlaveCerrada, puedeEditarOperacion } from '../../utils/porteria';
 import { MUELLES, MUELLE_CERO } from '../../lib/muelles';
 import { timeSet, nowDateTime, formatSlot, horaOf, combinarFechaHora, formatFechaHora } from '../../lib/dateUtils';
-import { CUADRILLAS, PORTERIA_STEPS, DetailRow, SectionTitle, TimeRow } from './TransporteDetailBits';
+import { CUADRILLAS, PORTERIA_STEPS, DetailRow, TimeRow } from './TransporteDetailBits';
 
 interface TransporteDetailPanelProps {
   row: UnifiedTransporte | null;
@@ -286,14 +286,11 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 onCheck={() => setConfirmIndex(4)}
                 onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[4].key, hora)}
               />
-            </div>
-          </div>
-
-          {/* Detalle */}
-          <div>
-            <SectionTitle>Detalle</SectionTitle>
-            <div className="bg-[#121726] rounded-xl border border-zinc-800 px-4">
-              <DetailRow label="Observaciones" value={row.observaciones} />
+              {/* Datos del pedido (bajo H. Salida Portería); las cajas quedan en su fila de arriba. */}
+              <DetailRow label="Nº Pedido" value={row.transporte} />
+              <DetailRow label="Cliente" value={row.denominacion} />
+              <DetailRow label="Destino" value={row.destino} />
+              <DetailRow label="Kg" value={row.kg != null ? row.kg.toLocaleString('es-CO') : undefined} />
             </div>
           </div>
         </div>

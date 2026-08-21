@@ -13,6 +13,8 @@ function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
     transporte: item.transporte || null,
     denominacion: item.denominacion || null,
     cajas: item.cajas ?? null,
+    destino: item.destino || null,
+    kg: item.kg ?? null,
     transportadora: item.transportadora || '',
     estado_transporte: item.estadoTransporte,
     estado_porteria: item.estadoPorteria,
@@ -39,6 +41,8 @@ function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
     transporte: item.transporte || undefined,
     denominacion: item.denominacion || undefined,
     cajas: item.cajas ?? undefined,
+    destino: item.destino || undefined,
+    kg: item.kg ?? undefined,
     transportadora: item.transportadora || '',
     estadoTransporte: item.estado_transporte,
     estadoPorteria: item.estado_porteria || 'Pendiente',
@@ -134,6 +138,8 @@ export async function updateTransporte(id: string, updates: Partial<UnifiedTrans
   if (updates.transporte !== undefined) dbUpdates.transporte = updates.transporte;
   if (updates.denominacion !== undefined) dbUpdates.denominacion = updates.denominacion;
   if (updates.cajas !== undefined) dbUpdates.cajas = updates.cajas;
+  if (updates.destino !== undefined) dbUpdates.destino = updates.destino;
+  if (updates.kg !== undefined) dbUpdates.kg = updates.kg;
   if (updates.transportadora !== undefined) dbUpdates.transportadora = updates.transportadora;
   if (updates.estadoTransporte !== undefined) dbUpdates.estado_transporte = updates.estadoTransporte;
   if (updates.estadoPorteria !== undefined) dbUpdates.estado_porteria = updates.estadoPorteria;
