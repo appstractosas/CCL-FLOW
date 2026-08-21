@@ -66,12 +66,12 @@ describe('PorteriaModule Component (Shared Unified Table)', () => {
     expect(screen.queryAllByRole('combobox')).toHaveLength(0);
 
     // The ESTADO column shows the unified estado_porteria state
-    expect(screen.getAllByText(/Pendiente/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Pendiente/i).length).toBeGreaterThan(0);
 
     // Con el filtro por defecto en "Activas" la llave ya salida no aparece;
     // al cambiar a "Todas" se muestra SALIO DE PORTERIA.
-    expect(screen.queryByText(/SALIO DE PORTERIA/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/SALIO DE PORTERIA/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Todas'));
-    expect(screen.getByText(/SALIO DE PORTERIA/)).toBeInTheDocument();
+    expect(screen.getByText(/SALIO DE PORTERIA/i)).toBeInTheDocument();
   });
 });

@@ -28,7 +28,7 @@ describe('AeropuertoBoard (Tablero)', () => {
 
     expect(screen.getByText('LL-60533')).toBeInTheDocument();
     expect(screen.getByText('LL-60534')).toBeInTheDocument();
-    expect(screen.getAllByText(/• Confirmado/)).toHaveLength(2);
+    expect(screen.getAllByText(/• CONFIRMADO/i)).toHaveLength(2);
   });
 
   it('muestra las llaves ACTIVAS por defecto (filtro inicial ACTIVAS)', async () => {
@@ -40,7 +40,7 @@ describe('AeropuertoBoard (Tablero)', () => {
     render(<AeropuertoBoard />);
 
     expect(screen.queryByText(/• CANCELADO/)).not.toBeInTheDocument();
-    expect(screen.getByText(/• Confirmado/)).toBeInTheDocument();
+    expect(screen.getByText(/• CONFIRMADO/i)).toBeInTheDocument();
   });
 
   it('permite filtrar por estado desde el selector', async () => {
@@ -53,7 +53,7 @@ describe('AeropuertoBoard (Tablero)', () => {
     fireEvent.click(screen.getByText('Canceladas'));
 
     expect(screen.getByText(/• CANCELADO/)).toBeInTheDocument();
-    expect(screen.queryByText(/• Confirmado/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/• CONFIRMADO/i)).not.toBeInTheDocument();
   });
 
   it('permite buscar por llave', async () => {

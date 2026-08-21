@@ -47,7 +47,7 @@ describe('TransportesModule', () => {
     // Header renombrado: PLACA (no PLACA REMOLQUE) y ESTATUS entre CAJAS y ESTADO.
     expect(screen.getByText('PLACA')).toBeInTheDocument();
     expect(screen.queryByText('PLACA REMOLQUE')).not.toBeInTheDocument();
-    expect(screen.getByText('• DESPACHADO')).toBeInTheDocument();
+    expect(screen.getByText('• despachado')).toBeInTheDocument();
 
     // FECHA se muestra solo con la fecha (sin la hora).
     expect(screen.getByText(todayStr())).toBeInTheDocument();
