@@ -260,6 +260,11 @@ function buildRows_() {
         if (k2 === 'cajas') {
           // SUMAR cajas de TODAS las filas del MISMO (llave, placa).
           base.cajas = (base.cajas || 0) + (v || 0);
+        } else if (k2 === 'kg') {
+          // SUMAR kg de TODAS las filas del MISMO (llave, placa).
+          // Mismo criterio de separadores que cajas: quita miles y redondea.
+          var kgNum = Number(String(v).replace(/[.,]/g, '').trim());
+          base.kg = isFinite(kgNum) ? Math.round(kgNum) : (base.kg || 0);
         } else if (v !== null && v !== undefined && v !== '') {
           // Último valor no vacío gana (no se pisan datos con filas vacías).
           base[k2] = v;
@@ -293,49 +298,30 @@ function syncTransportes() {
     return 0;
   }
 
-  var baseUrl = cfg.url.replace(/\/+$/, '') + '/rest/v1/' + TABLE + '?on_conflict=' + UNIQUE_KEY;
+  // Usa la función RPC sync_transportes (mismo endpoint y lógica que Power Automate).
+  var baseUrl = cfg.url.replace(/\/+$/, '') + '/rest/v1/rpc/sync_transportes';
   var headers = {
     'apikey': cfg.key,
     'Authorization': 'Bearer ' + cfg.key,
-    'Prefer': 'resolution=merge-duplicates,return=minimal',
     'Content-Type': 'application/json',
   };
 
-  // AGRUPACIÓN POR FIRMA DE COLUMNAS. PostgREST exige que todas las filas de un
-  // mismo POST lleven EXACTAMENTE las mismas claves (PGRST102). Como las filas
-  // se normalizan en buildRows_ (solo se envían los campos con valor, más placa
-  // siempre), cada fila trae su propio conjunto de columnas. Se agrupan
-  // las que comparten la misma firma y se envía UN POST por grupo, en lugar de
-  // uno por fila. Así una sincronización completa usa 1-3 llamadas HTTP en vez
-  // de N (una por fila), evitando agotar la cuota diaria de urlfetch (~20k/día);
-  // el temporal de 1 minuto deja de multiplicarlas por fila.
-  var grupos = {};
-  for (var i = 0; i < rows.length; i++) {
-    var firma = Object.keys(rows[i]).sort().join(',');
-    (grupos[firma] = grupos[firma] || []).push(rows[i]);
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: headers,
+    payload: JSON.stringify({ _filas: rows }),
+    muteHttpExceptions: true,
+  };
+
+  var res = UrlFetchApp.fetch(baseUrl, options);
+  var code = res.getResponseCode();
+  if (code >= 400) {
+    throw new Error('syncTransportes RPC → Supabase respondió ' + code + ': ' + res.getContentText());
   }
 
-  var firmas = Object.keys(grupos);
-  var enviadas = 0;
-  for (var g = 0; g < firmas.length; g++) {
-    var lote = grupos[firmas[g]];
-    var options = {
-      method: 'post',
-      contentType: 'application/json',
-      headers: headers,
-      payload: JSON.stringify(lote),
-      muteHttpExceptions: true,
-    };
-    var res = UrlFetchApp.fetch(baseUrl, options);
-    var code = res.getResponseCode();
-    if (code >= 400) {
-      throw new Error('Lote ' + (g + 1) + ' (firma: ' + firmas[g] + ') → Supabase respondió ' + code + ': ' + res.getContentText());
-    }
-    enviadas += lote.length;
-  }
-
-  Logger.log('syncTransportes: ' + enviadas + ' filas sincronizadas en ' + firmas.length + ' lotes (pares llave+placa).');
-  return enviadas;
+  Logger.log('syncTransportes: ' + rows.length + ' filas sincronizadas vía RPC sync_transportes.');
+  return rows.length;
 }
 
 /* ---------------------- control de acceso: solo el admin ---------------- */

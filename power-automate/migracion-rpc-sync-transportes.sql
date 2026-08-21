@@ -183,11 +183,10 @@ BEGIN
       -- válidos (vacío/desconocido -> 'ALISTADO', nunca fuera del CHECK).
       estado_transporte = CASE WHEN EXCLUDED.estado_transporte IN ('DESPACHADO','ALISTADO','PENDIENTE')
                                THEN EXCLUDED.estado_transporte ELSE 'ALISTADO' END,
-      -- cajas: se SUMAN POR PLACA en tmp_cons, por lo que el sync ES la fuente
-      -- de cajas de cada (llave, placa). Se incluye en el UPDATE para que una
-      -- corrida posterior corrija el valor (p. ej. filas insertadas antes de
-      -- este cambio, como la llave 81810).
-      cajas = EXCLUDED.cajas,
+      -- cajas: en llaves existentes el sync NO sobreescribe cajas capturadas/editadas
+      -- desde la app; en filas existentes preserva transportes.cajas y solo asigna
+      -- EXCLUDED.cajas si transportes.cajas era NULL.
+      cajas = COALESCE(transportes.cajas, EXCLUDED.cajas),
       -- kg: opcional; solo se pisa cuando el Excel trae valor (NULL conserva el
       -- existente, que puede venir de la captura en la app).
       kg = COALESCE(EXCLUDED.kg, transportes.kg),
