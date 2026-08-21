@@ -193,13 +193,13 @@ export const InformesModule: React.FC = () => {
       }
 
       const headers = [
-        'LLAVE', 'FECHA', 'PLACA REMOLQUE', 'TIPO VEHÍCULO', 'CITA CARGUE', 'TRANSPORTE', 'DENOMINACIÓN', 'CAJAS',
+        'LLAVE', 'FECHA', 'PLACA', 'TIPO VEHÍCULO', 'CITA CARGUE', 'TRANSPORTE', 'DENOMINACIÓN', 'CAJAS',
         'TRANSPORTADORA', 'ESTADO TRANSPORTE', 'ESTADO', 'MUELLE', 'CUADRILLA', 'H. ASIGNACIÓN MUELLE',
         'H. LLEGADA PORTERÍA', 'H. INGRESO', 'H. INICIO CARGUE', 'H. FIN CARGUE', 'H. SALIDA',
         'OBSERVACIONES',
       ];
       const data = dataRows.map((r) => [
-        r.llave, r.fechaHora, r.placa, r.vehiculoTipo, r.citaCargue, r.transporte || '', r.denominacion || '', r.cajas ?? '',
+        r.llave, String(r.fechaHora || '').slice(0, 10), r.placa, r.vehiculoTipo, r.citaCargue, r.transporte || '', r.denominacion || '', r.cajas ?? '',
         r.transportadora, r.estadoTransporte, getEstadoPorteria(r), r.muelleAsignado || '', r.cuadrilla || '',
         r.horaMuelleAsignado || '', r.horaLlegadaPorteria || '', r.horaIngreso || '',
         r.horaInicioCargue || '', r.horaFinCargue || '', r.horaSalida || '', r.observaciones || '',

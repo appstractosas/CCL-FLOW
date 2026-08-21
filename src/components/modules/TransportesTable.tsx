@@ -5,7 +5,7 @@ import { TipoBadge, EstadoBadge } from '../common/EstadoBadge';
 import { TransporteDetailPanel } from './TransporteDetailPanel';
 import { Pagination } from '../common/Pagination';
 import { getEstadoPorteria, isLlaveCerrada, puedeEditarOperacion } from '../../utils/porteria';
-import { formatFechaHora } from '../../lib/dateUtils';
+import { formatFecha, formatFechaHora } from '../../lib/dateUtils';
 
 export interface TransportesTableProps {
   rows: UnifiedTransporte[];
@@ -22,6 +22,8 @@ export interface TransportesTableProps {
   checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
   showCajas?: boolean;
+  /** Muestra la columna ESTATUS (estado_transporte de la BD) entre CAJAS y ESTADO. */
+  showEstatus?: boolean;
   /** Llave que cambia solo cuando los FILTROS cambian (no cuando refrescan los datos por time real).
    *  Al cambiar, se vuelve a la página 1. Si no se pasa, se usa la identidad de `rows`. */
   pageResetKey?: string;
@@ -42,6 +44,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   checklistOwner,
   onPorteriaHora,
   showCajas = false,
+  showEstatus = false,
   pageResetKey,
 }) => {
   const [selected, setSelected] = useState<UnifiedTransporte | null>(null);
@@ -60,7 +63,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const showActions = (showEdit || showDelete) && !hideAcciones;
-  const colCount = 7 + (showCajas ? 1 : 0) + (showActions ? 1 : 0);
+  const colCount = 7 + (showCajas ? 1 : 0) + (showEstatus ? 1 : 0) + (showActions ? 1 : 0);
 
   const displayedRow = selected ? rows.find((r) => r.id === selected.id) || null : null;
 
@@ -74,10 +77,11 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
               <th className="py-3.5 px-3">FECHA</th>
               <th className="py-3.5 px-3">FECHA HORA CITA</th>
               <th className="py-3.5 px-3">LLAVE</th>
-              <th className="py-3.5 px-3">PLACA REMOLQUE</th>
+              <th className="py-3.5 px-3">PLACA</th>
               <th className="py-3.5 px-3">TIPO</th>
               <th className="py-3.5 px-3">MUELLE</th>
               {showCajas && <th className="py-3.5 px-3">CAJAS</th>}
+              {showEstatus && <th className="py-3.5 px-3">ESTATUS</th>}
               <th className="py-3.5 px-3">ESTADO</th>
               {showActions && <th className="py-3.5 px-3 text-right">ACCIONES</th>}
             </tr>
@@ -98,7 +102,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                   title="Clic para ver detalle"
                 >
                   <td className="py-3.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
-                    {formatFechaHora(row.fechaHora)}
+                    {formatFecha(row.fechaHora)}
                   </td>
                   <td className="py-3.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
                     {formatFechaHora(row.citaCargue)}
@@ -124,6 +128,11 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                   {showCajas && (
                     <td className="py-3.5 px-3 font-mono font-bold text-amber-400 whitespace-nowrap">
                       {row.cajas ? row.cajas.toLocaleString('es-CO') : '—'}
+                    </td>
+                  )}
+                  {showEstatus && (
+                    <td className="py-3.5 px-3 whitespace-nowrap">
+                      <EstadoBadge estado={row.estadoTransporte} />
                     </td>
                   )}
                   <td className="py-3.5 px-3 whitespace-nowrap">
@@ -180,6 +189,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
         showEdit={showEdit}
         showDelete={showDelete}
         canCancel={canCancel}
+        showEstatus={showEstatus}
         onEdit={(row) => {
           setSelected(null);
           onEdit?.(row);

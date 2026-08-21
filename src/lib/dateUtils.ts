@@ -78,6 +78,13 @@ export function formatFechaHora(value?: string): string {
   return `${m[1]} ${m[2]}:${m[3]}`;
 }
 
+/** Formatea "YYYY-MM-DD[T ]HH:MM..." a solo "YYYY-MM-DD" (sin hora). */
+export function formatFecha(value?: string): string {
+  if (!value) return '—';
+  const m = value.match(/(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : value;
+}
+
 /** Formatea un slot de cita ("YYYY-MM-DD[T ]HH:MM[:SS][Z|offset]") a "YYYY-MM-DD HH:MM". */
 export function formatSlot(value?: string): string {
   if (!value) return '';

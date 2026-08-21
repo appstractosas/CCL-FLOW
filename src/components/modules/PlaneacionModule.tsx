@@ -56,6 +56,7 @@ export const PlaneacionModule: React.FC = () => {
         showEdit: canEdit,
         showDelete: canEdit,
         showCajas: true,
+        showEstatus: true,
         canCancel: canCancelLlave,
         onEdit: openEdit,
         onDelete: handleCancel,

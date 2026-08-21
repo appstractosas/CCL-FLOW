@@ -21,6 +21,8 @@ interface TransporteDetailPanelProps {
   onCajas?: (row: UnifiedTransporte, cajas: number) => void;
   checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
+  /** Muestra el badge ESTATUS (estado_transporte) junto al estado de portería. */
+  showEstatus?: boolean;
 }
 
 export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
@@ -37,6 +39,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   onCajas,
   checklistOwner,
   onPorteriaHora,
+  showEstatus = false,
 }) => {
   const [confirmIndex, setConfirmIndex] = useState<number | null>(null);
 
@@ -118,9 +121,12 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
           {/* Control de tiempos / columnas de operación */}
           <div>
-            <div className="flex items-center justify-between pb-1">
+            <div className="flex items-center justify-between pb-1 gap-1.5">
               <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Control de Tiempos</h4>
-              <EstadoBadge estado={getEstadoPorteria(row)} />
+              <div className="flex items-center gap-1.5 shrink-0">
+                {showEstatus && <EstadoBadge estado={row.estadoTransporte} />}
+                <EstadoBadge estado={getEstadoPorteria(row)} />
+              </div>
             </div>
             {checklistOwner === 'porteria' && estado === 'Pendiente' && (
               <div className="mb-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] rounded-lg px-3 py-2 leading-relaxed">

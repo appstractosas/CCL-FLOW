@@ -30,6 +30,7 @@ export const DespachosModule: React.FC = () => {
       tableProps={{
         checklistOwner: canEditRole ? 'despachos' : undefined,
         showCajas: true,
+        showEstatus: true,
         onPorteriaHora: canEditRole ? handlePorteriaHora : undefined,
         onCuadrilla: canModifyCuadrilla ? handleCuadrilla : undefined,
         onCajas: canModifyCuadrilla ? handleCajas : undefined,

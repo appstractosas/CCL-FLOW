@@ -155,6 +155,22 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
     expect(screen.getByLabelText('H. Llegada Portería')).toBeEnabled();
   });
 
+  it('muestra el badge ESTATUS entre "Control de Tiempos" y el estado de portería (showEstatus)', () => {
+    render(<TransporteDetailPanel row={makeRow()} onClose={onClose} showEstatus />);
+    const control = screen.getByText('Control de Tiempos');
+    const estatus = screen.getByText('• ALISTADO');
+    const porteria = screen.getByText('• Confirmado');
+    const enOrden = (a: HTMLElement, b: HTMLElement) =>
+      a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(enOrden(control, estatus)).toBeTruthy();
+    expect(enOrden(estatus, porteria)).toBeTruthy();
+  });
+
+  it('sin showEstatus NO muestra el badge ESTATUS del detalle', () => {
+    render(<TransporteDetailPanel row={makeRow()} onClose={onClose} />);
+    expect(screen.queryByText('• ALISTADO')).not.toBeInTheDocument();
+  });
+
   it('permite asignar muelle en cualquier momento, sin depender de las horas previas', () => {
     // Llave recién creada (ninguna hora registrada): el select de muelle ya está habilitado.
     render(
