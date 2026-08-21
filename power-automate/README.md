@@ -130,7 +130,7 @@ El repo queda así en la rama `dev`:
 | `Denominación` | `denominacion` | cliente |
 | `Placa` | `placa` | mayúsculas; si está vacía se envía `''` |
 | `Cajas` | `cajas` | número |
-| `Estatus` | (no se envía) | solo señal: si dice `CANCELADO`, setear `estado_porteria='CANCELADO'` |
+| `Estatus` | `estado_transporte` | DESPACHADO/ALISTADO/PENDIENTE (valores del CHECK de la BD). Vacío o desconocido → `'ALISTADO'`. Si dice `CANCELADO`, no entra al CHECK: pasa a `estado_porteria='CANCELADO'` |
 
 ## Servicios/acciones de Power Automate a usar (lo que falta)
 
@@ -172,8 +172,9 @@ El repo queda así en la rama `dev`:
 5. **Probar con 1 fila de ejemplo** (llave `LL-TEST-001`) verificando el UPSERT
    por `(llave, placa)`: si el Excel repite la misma llave con otra placa, deben
    crearse DOS filas en la BD; y si repite la MISMA (llave, placa), la BD guarda
-   la SUMA de cajas de esas filas. Además fechas ISO y
-   `estado_porteria='CANCELADO'` cuando `estatus` diga CANCELADO.
+   la SUMA de cajas de esas filas. Además fechas ISO,
+   `estado_transporte` = valor de la columna Estatus (DESPACHADO/ALISTADO/
+   PENDIENTE) y `estado_porteria='CANCELADO'` cuando `estatus` diga CANCELADO.
 6. Desactivar/limpiar: quitar el temporal de Apps Script cuando Power Automate
    esté estable y documentar.
 7. Cambiar origen de OneDrive → SharePoint cuando se apruebe el acceso al sitio.

@@ -17,17 +17,20 @@
 -- Qué hace (normalización conservada de la versión anterior):
 --   1) Normaliza llave/placa a UPPER+TRIM y cajas a número (limpia [.,]).
 --   2) Estatus 'CANCELADO' -> estado_porteria = 'CANCELADO'.
---   3) Agrupa por (llave, placa): ganador = ÚLTIMA fila del par para el resto de
+--   3) estatus (col. Estatus/estado_transporte del Excel) -> estado_transporte:
+--      solo DESPACHADO/ALISTADO/PENDIENTE (valores del CHECK de la BD);
+--      vacío o valor desconocido -> 'ALISTADO' (DEFAULT de la columna).
+--   4) Agrupa por (llave, placa): ganador = ÚLTIMA fila del par para el resto de
 --      campos y SUMA de cajas de todas las filas del par.
---   4) fecha_hora/cita_cargue: serial de Excel (ej. 46248) -> ISO, o se usan
+--   5) fecha_hora/cita_cargue: serial de Excel (ej. 46248) -> ISO, o se usan
 --      tal cual si ya vienen en ISO.
---   5) UPSERT ON CONFLICT (llave, placa): solo actualiza campos no vacíos y
+--   6) UPSERT ON CONFLICT (llave, placa): solo actualiza campos no vacíos y
 --      NUNCA pisa el estado de portería salvo que venga CANCELADO; cajas SÍ se
 --      actualiza (se reconstruye la SUMA por placa en cada corrida).
---   6) CAJAS POR PLACA: cada registro (llave, placa) guarda la sumatoria de las
+--   7) CAJAS POR PLACA: cada registro (llave, placa) guarda la sumatoria de las
 --      cajas de las filas del Excel con ese mismo par. La suma total de una
 --      llave = la suma de sus placas (registros).
---   7) Si el Excel repite un TRANSPORTE en llaves DISTINTAS, el trigger
+--   8) Si el Excel repite un TRANSPORTE en llaves DISTINTAS, el trigger
 --      fn_transporte_una_llave lo rechaza y la corrida se aborta (regla de
 --      negocio: un pedido no puede pertenecer a dos llaves).
 --
@@ -85,7 +88,7 @@ BEGIN
   END IF;
 
   -- 1) NORMALIZAR: UPPER/TRIM, estatus CANCELADO, cajas -> número.
-  --    transportadora/transporte/denominacion se leen con _sync_campo.
+  --    transportadora/transporte/denominacion/estado_transporte se leen con _sync_campo.
   CREATE TEMP TABLE tmp_sync ON COMMIT DROP AS
   SELECT
     row_number() OVER ()::int AS row_id,
@@ -95,6 +98,7 @@ BEGIN
     NULLIF(_sync_campo(f, ARRAY['transportadora','olt inicial']),'') AS transportadora,
     NULLIF(_sync_campo(f, ARRAY['transporte']),'') AS transporte,
     NULLIF(_sync_campo(f, ARRAY['denominacion','denominación']),'') AS denominacion,
+    NULLIF(_sync_campo(f, ARRAY['estado_transporte','estatus']),'') AS estado_transporte,
     NULLIF(TRIM(f->>'cita_cargue'),'')                   AS cita_cargue,
     NULLIF(TRIM(f->>'fecha_hora'),'')                    AS fecha_hora,
     COALESCE(ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'cajas',''),'[.,]','','g'),'')::numeric), 0) AS cajas,
@@ -115,6 +119,7 @@ BEGIN
     transportadora,
     transporte,
     denominacion,
+    estado_transporte,
     cita_cargue,
     fecha_hora,
     estado_cancelado,
@@ -142,7 +147,7 @@ BEGIN
     -- si el Excel llega vacío, la BD aplica su DEFAULT en vez de violar NOT NULL).
     INSERT INTO transportes (
       llave, fecha_hora, placa, vehiculo_tipo, transportadora,
-      transporte, denominacion, cita_cargue, cajas, estado_porteria, updated_at
+      transporte, denominacion, cita_cargue, cajas, estado_transporte, estado_porteria, updated_at
     ) VALUES (
       r.llave,
       COALESCE(v_fecha, now()),
@@ -150,6 +155,11 @@ BEGIN
       COALESCE(r.vehiculo_tipo, 'SENCILLO'),
       COALESCE(r.transportadora, ''),
       r.transporte, r.denominacion, v_cita, r.cajas,
+      -- estado_transporte: solo los valores del CHECK de la columna; si la
+      -- celda Estatus viene vacía o con un valor desconocido, se aplica el
+      -- DEFAULT 'ALISTADO' (el CHECK rechaza cualquier otro valor).
+      CASE WHEN r.estado_transporte IN ('DESPACHADO','ALISTADO','PENDIENTE')
+           THEN r.estado_transporte ELSE 'ALISTADO' END,
       CASE WHEN r.estado_cancelado THEN 'CANCELADO' ELSE 'Pendiente' END,
       now()
     )
@@ -160,6 +170,10 @@ BEGIN
       transporte     = COALESCE(NULLIF(EXCLUDED.transporte,''), transportes.transporte),
       denominacion   = COALESCE(NULLIF(EXCLUDED.denominacion,''), transportes.denominacion),
       cita_cargue    = COALESCE(NULLIF(EXCLUDED.cita_cargue,''), transportes.cita_cargue),
+      -- estado_transporte: el Excel ES la fuente; se pisa solo con valores
+      -- válidos (vacío/desconocido -> 'ALISTADO', nunca fuera del CHECK).
+      estado_transporte = CASE WHEN EXCLUDED.estado_transporte IN ('DESPACHADO','ALISTADO','PENDIENTE')
+                               THEN EXCLUDED.estado_transporte ELSE 'ALISTADO' END,
       -- cajas: se SUMAN POR PLACA en tmp_cons, por lo que el sync ES la fuente
       -- de cajas de cada (llave, placa). Se incluye en el UPDATE para que una
       -- corrida posterior corrija el valor (p. ej. filas insertadas antes de

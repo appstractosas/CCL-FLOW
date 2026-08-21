@@ -50,8 +50,6 @@ var UNIQUE_KEY = 'llave,placa';
 
 // Encabezados relevantes (llave y placa identifican la fila en el Sheets).
 var HEADER_LLAVE = 'Llave 2';
-var HEADER_PLACA = 'Placa';   // columna Y
-var HEADER_ESTATUS = 'Estatus';
 
 // Cuenta de Google con permiso total para editar/eliminar en el Sheets.
 // Se puede sobreescribir con la Script Property ADMIN_EMAIL (sin tocar código).
@@ -70,8 +68,10 @@ var MAPPING = {
   'Denominación': 'denominacion', // Nombre del cliente
   'Placa': 'placa',
   'Cajas': 'cajas',               // Cantidad de cajas (numérica)
-  // 'Estatus' NO alimenta observaciones: solo se usa como señal de CANCELADO
-  // (si la celda dice exactamente CANCELADO, la llave pasa a estado CANCELADO).
+  // 'Estatus' alimenta estado_transporte con DESPACHADO/ALISTADO/PENDIENTE
+  // (valores del CHECK de la BD). El valor CANCELADO no entra en ese CHECK:
+  // se traduce a estado_porteria='CANCELADO' (ver normalización en buildRows_).
+  'Estatus': 'estado_transporte',
 };
 
 // Valor de la columna Estatus que cancela la llave en la app.
@@ -187,15 +187,25 @@ function buildRows_() {
           // NUMERIC en la BD: se envía como número (soporta "1.234" o "1234").
           var cajasNum = Number(String(raw).replace(/[.,]/g, '').trim());
           val = isFinite(cajasNum) ? Math.round(cajasNum) : null;
+        } else if (dbField === 'estado_transporte') {
+          // Estatus del fuente: solo DESPACHADO/ALISTADO/PENDIENTE (CHECK de la
+          // BD). CANCELADO no está en el CHECK: se traduce a estado_porteria y
+          // NO se envía en estado_transporte. Cualquier otro valor se ignora
+          // (la BD aplica su DEFAULT 'ALISTADO').
+          var est = String(raw).trim().toUpperCase();
+          if (est === CANCELAR_KEYWORD) {
+            obj.estado_porteria = 'CANCELADO';
+            continue;
+          }
+          if (est !== 'DESPACHADO' && est !== 'ALISTADO' && est !== 'PENDIENTE') {
+            continue;
+          }
+          val = est;
         } else {
           val = String(raw).trim();
         }
 
         obj[dbField] = val;
-      } else if (normalizeHeader_(headers[c]) === normalizeHeader_(HEADER_ESTATUS)) {
-        // Estatus solo cancela la fila si dice CANCELADO.
-        var est = String(values[r][c] || '').trim().toUpperCase();
-        if (est === CANCELAR_KEYWORD) obj.estado_porteria = 'CANCELADO';
       }
     }
 
