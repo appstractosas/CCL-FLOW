@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Edit2, XCircle } from 'lucide-react';
 import { UnifiedTransporte, PorteriaTimeField } from '../../types';
-import { EstadoBadge, TipoBadge } from '../common/EstadoBadge';
+import { EstadoBadge, EstatusBadge, TipoBadge } from '../common/EstadoBadge';
 import { getEstadoPorteria, isLlaveCerrada, puedeEditarOperacion } from '../../utils/porteria';
 import { MUELLES, MUELLE_CERO } from '../../lib/muelles';
 import { timeSet, nowDateTime, formatSlot, horaOf, combinarFechaHora, formatFechaHora } from '../../lib/dateUtils';
@@ -24,6 +24,42 @@ interface TransporteDetailPanelProps {
   /** Muestra el badge ESTATUS (estado_transporte) junto al estado de portería. */
   showEstatus?: boolean;
 }
+
+const CajasInput: React.FC<{
+  row: UnifiedTransporte;
+  onCajas: (row: UnifiedTransporte, cajas: number) => void;
+}> = ({ row, onCajas }) => {
+  const [val, setVal] = useState<string>(row.cajas != null ? String(row.cajas) : '');
+
+  React.useEffect(() => {
+    setVal(row.cajas != null ? String(row.cajas) : '');
+  }, [row.cajas]);
+
+  const commit = () => {
+    const num = Number(val);
+    if (Number.isFinite(num) && num >= 0 && num !== row.cajas) {
+      onCajas(row, num);
+    }
+  };
+
+  return (
+    <input
+      type="number"
+      min={0}
+      value={val}
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          commit();
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+      title="Editar número de cajas"
+      className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2.5 py-1.5 rounded-lg font-bold focus:outline-none text-xs text-right w-24 focus:border-emerald-500"
+    />
+  );
+};
 
 export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   row,
@@ -109,8 +145,12 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
               <p className="text-[11px] font-semibold text-zinc-100 truncate">{row.placa || 'SIN PLACA'}</p>
             </div>
           </div>
-          <div className="flex-1 flex justify-center">
-            <TipoBadge tipo={row.vehiculoTipo} />
+          <div className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[11px] font-semibold text-zinc-100 truncate">{row.transportadora || '—'}</span>
+              <TipoBadge tipo={row.vehiculoTipo} />
+            </div>
+            <span className="text-[11px] font-semibold text-zinc-100 truncate">{row.destino || '—'}</span>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-white p-1.5 rounded-lg shrink-0">
             <X className="w-5 h-5" />
@@ -124,7 +164,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
             <div className="flex items-center justify-between pb-1 gap-1.5">
               <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Control de Tiempos</h4>
               <div className="flex items-center gap-1.5 shrink-0">
-                {showEstatus && <EstadoBadge estado={row.estadoTransporte} />}
+                {showEstatus && <EstatusBadge estado={row.estadoTransporte} />}
                 <EstadoBadge estado={getEstadoPorteria(row)} />
               </div>
             </div>
@@ -135,7 +175,6 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
               </div>
             )}
             <div className="bg-[#121726] rounded-xl border border-zinc-800 px-4">
-              <DetailRow label="Transportadora" value={row.transportadora} />
               <DetailRow label="Hora Cita (Slot programado)" value={formatSlot(row.citaCargue)} />
               <TimeRow
                 showCheck={showCheck && ownedIndexes.includes(0)}
@@ -248,18 +287,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                   Cajas
                 </span>
                 {onCajas ? (
-                  <input
-                    type="number"
-                    min={0}
-                    value={row.cajas ?? ''}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      if (!Number.isFinite(v) || v < 0) return;
-                      onCajas(row, v);
-                    }}
-                    title="Editar número de cajas"
-                    className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2.5 py-1.5 rounded-lg font-bold focus:outline-none text-xs text-right"
-                  />
+                  <CajasInput row={row} onCajas={onCajas} />
                 ) : (
                   <span className="text-xs font-semibold text-zinc-100 text-right">
                     {row.cajas != null ? row.cajas.toLocaleString('es-CO') : '—'}
@@ -286,10 +314,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 onCheck={() => setConfirmIndex(4)}
                 onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[4].key, hora)}
               />
-              {/* Datos del pedido (bajo H. Salida Portería); las cajas quedan en su fila de arriba. */}
-              <DetailRow label="Nº Pedido" value={row.transporte} />
-              <DetailRow label="Cliente" value={row.denominacion} />
-              <DetailRow label="Destino" value={row.destino} />
+              {/* Nº Pedido y Cliente retirados de la UI (siguen en la BD). */}
               <DetailRow label="Kg" value={row.kg != null ? row.kg.toLocaleString('es-CO') : undefined} />
             </div>
           </div>

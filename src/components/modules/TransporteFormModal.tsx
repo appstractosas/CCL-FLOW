@@ -212,30 +212,8 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">Nº Pedido</label>
-              <input
-                type="text"
-                placeholder="Ej: 3000214899"
-                value={formData.transporte}
-                disabled={locked}
-                onChange={(e) => setFormData({ ...formData, transporte: e.target.value })}
-                className={`${locked ? lockedCls : inputCls} font-mono`}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">Cliente</label>
-              <input
-                type="text"
-                placeholder="Ej: GLOBAL DISTR"
-                value={formData.denominacion}
-                disabled={locked}
-                onChange={(e) => setFormData({ ...formData, denominacion: e.target.value })}
-                className={locked ? lockedCls : inputCls}
-              />
-            </div>
-          </div>
+          {/* Nº Pedido y Cliente se retiraron de la UI (no aportan al control de patios).
+              Sus valores siguen viajando intactos en el submit para NO borrarlos de la BD. */}
 
           <div className="grid grid-cols-2 gap-3">
             <div>

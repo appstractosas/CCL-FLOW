@@ -158,8 +158,8 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
   it('muestra el badge ESTATUS entre "Control de Tiempos" y el estado de portería (showEstatus)', () => {
     render(<TransporteDetailPanel row={makeRow()} onClose={onClose} showEstatus />);
     const control = screen.getByText('Control de Tiempos');
-    const estatus = screen.getByText('• ALISTADO');
-    const porteria = screen.getByText('• Confirmado');
+    const estatus = screen.getByText('• alistado');
+    const porteria = screen.getByText('• CONFIRMADO');
     const enOrden = (a: HTMLElement, b: HTMLElement) =>
       a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
     expect(enOrden(control, estatus)).toBeTruthy();
@@ -168,27 +168,39 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
 
   it('sin showEstatus NO muestra el badge ESTATUS del detalle', () => {
     render(<TransporteDetailPanel row={makeRow()} onClose={onClose} />);
-    expect(screen.queryByText('• ALISTADO')).not.toBeInTheDocument();
+    expect(screen.queryByText('• alistado')).not.toBeInTheDocument();
   });
 
-  it('muestra Nº Pedido, Cliente, Destino y Kg bajo H. Salida Portería (sin Observaciones)', () => {
+  it('muestra transportadora y destino en el encabezado sin títulos, y Kg bajo H. Salida (sin Nº Pedido ni Cliente)', () => {
     const { container } = render(
       <TransporteDetailPanel
         row={makeRow({ transporte: '3000214899', denominacion: 'GLOBAL DISTR', destino: 'NEIVA', kg: 8500 })}
         onClose={onClose}
       />
     );
-    const salida = screen.getByText('H. Salida Portería');
-    const pedido = screen.getByText('3000214899');
-    const cliente = screen.getByText('GLOBAL DISTR');
-    const destino = screen.getByText('NEIVA');
-    const kg = screen.getByText('8.500');
+
+    // Encabezado: transportadora (izquierda del tipo de vehículo) y destino debajo, SIN títulos.
+    expect(screen.getByText('ICOLTRANS')).toBeInTheDocument();
+    expect(screen.getByText('NEIVA')).toBeInTheDocument();
+    expect(screen.queryByText('Transportadora')).not.toBeInTheDocument();
+    expect(screen.queryByText('Destino')).not.toBeInTheDocument();
+
+    // En el cuerpo ya no existe la fila Transportadora sobre Hora Cita.
     const enOrden = (a: HTMLElement, b: HTMLElement) =>
       a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
-    expect(enOrden(salida, pedido)).toBeTruthy();
-    expect(enOrden(pedido, cliente)).toBeTruthy();
-    expect(enOrden(cliente, destino)).toBeTruthy();
-    expect(enOrden(destino, kg)).toBeTruthy();
+    const horaCita = screen.getByText('Hora Cita (Slot programado)');
+    expect(enOrden(horaCita, screen.getByText('H. Llegada Portería'))).toBeTruthy();
+
+    // Nº Pedido y Cliente se retiraron de la UI (los datos siguen en la BD).
+    expect(screen.queryByText('Nº Pedido')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cliente')).not.toBeInTheDocument();
+    expect(screen.queryByText('3000214899')).not.toBeInTheDocument();
+    expect(screen.queryByText('GLOBAL DISTR')).not.toBeInTheDocument();
+
+    // Kg queda bajo H. Salida Portería.
+    const salida = screen.getByText('H. Salida Portería');
+    const kg = screen.getByText('8.500');
+    expect(enOrden(salida, kg)).toBeTruthy();
     expect(screen.queryByText('Observaciones')).not.toBeInTheDocument();
     expect(container).not.toBeNull();
   });

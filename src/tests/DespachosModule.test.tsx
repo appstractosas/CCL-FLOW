@@ -55,6 +55,7 @@ describe('DespachosModule', () => {
     expect(inputCajas).toBeInTheDocument();
     expect(inputCajas).toHaveValue(500);
     fireEvent.change(inputCajas, { target: { value: '721' } });
+    fireEvent.blur(inputCajas);
     expect(useLogisticsStore.getState().transportes[0].cajas).toBe(721);
   });
 
