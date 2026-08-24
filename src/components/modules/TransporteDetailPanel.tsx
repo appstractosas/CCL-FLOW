@@ -254,7 +254,10 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 enabled={stepEnabled(2)}
                 editable={stepEditable(2)}
                 value={row.horaInicioCargue}
-                onCheck={() => setConfirmIndex(2)}
+                onCheck={() => {
+                setConfirmIndex(2);
+                onPorteriaHora?.(row.id, 'horaInicioCargue', nowDateTime());
+              }}
                 onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[2].key, hora)}
               />
               <div className="flex items-center justify-between gap-3 py-2.5 border-b border-zinc-800/60 last:border-0">

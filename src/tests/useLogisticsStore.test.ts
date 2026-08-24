@@ -236,23 +236,23 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
 
     expect(find().estadoPorteria).toBe('Confirmado');
 
-    store.updatePorteriaHora(row.id, 'horaLlegadaPorteria', '08:00');
+    await store.updatePorteriaHora(row.id, 'horaLlegadaPorteria', '08:00');
     expect(find().estadoPorteria).toBe('LLEGO A PORTERIA');
     expect(getEstadoPorteria(find())).toBe('LLEGO A PORTERIA');
 
-    store.updatePorteriaHora(row.id, 'horaIngreso', '08:05');
+    await store.updatePorteriaHora(row.id, 'horaIngreso', '08:05');
     expect(find().estadoPorteria).toBe('INGRESO A MUELLE');
     expect(getEstadoPorteria(find())).toBe('INGRESO A MUELLE');
 
-    store.updatePorteriaHora(row.id, 'horaInicioCargue', '08:10');
+    await store.updatePorteriaHora(row.id, 'horaInicioCargue', '08:10');
     expect(find().estadoPorteria).toBe('CARGANDO');
     expect(getEstadoPorteria(find())).toBe('CARGANDO');
 
-    store.updatePorteriaHora(row.id, 'horaFinCargue', '09:00');
+    await store.updatePorteriaHora(row.id, 'horaFinCargue', '09:00');
     expect(find().estadoPorteria).toBe('FINALIZO CARGUE');
     expect(getEstadoPorteria(find())).toBe('FINALIZO CARGUE');
 
-    store.updatePorteriaHora(row.id, 'horaSalida', '09:15');
+    await store.updatePorteriaHora(row.id, 'horaSalida', '09:15');
     expect(find().estadoPorteria).toBe('SALIO DE PORTERIA');
     expect(getEstadoPorteria(find())).toBe('SALIO DE PORTERIA');
   });
