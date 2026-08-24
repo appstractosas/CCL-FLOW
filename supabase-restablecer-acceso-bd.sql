@@ -1,61 +1,58 @@
 -- ============================================================================
 -- CCL FLOW · Restablecer Políticas de Acceso Directo de la BD (100% Funcional)
 -- ----------------------------------------------------------------------------
--- Elimina los bloqueos RLS y restablece las políticas abiertas app_full_access_*
--- para que la app lea y escriba directamente los datos reales de Supabase.
+-- Elimina los bloqueos RLS restrictivos (ccl_rls_*) y restablece las políticas
+-- abiertas app_full_access_* para que la app lea y escriba directamente los
+-- datos reales de Supabase con el rol anon.
+--
+-- Idempotente y seguro con esquemas parciales: si una tabla no existe se
+-- omite sin abortar el resto del script (antes un ALTER sobre tabla faltante
+-- detenía todo dejando políticas a medias).
 --
 -- Ejecutar en Supabase: SQL Editor -> New query -> Run.
+-- Al final imprime las políticas resultantes para verificación visual.
 -- ============================================================================
 
-ALTER TABLE public.transportes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.notificaciones ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.clientes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ciudades ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.historial_movimientos ENABLE ROW LEVEL SECURITY;
+DO $$
+DECLARE
+  t text;
+  tablas text[] := ARRAY[
+    'transportes', 'chat_messages', 'notificaciones',
+    'clientes', 'ciudades', 'roles', 'users', 'historial_movimientos'
+  ];
+  viejas text[] := ARRAY[
+    'ccl_rls_%select', 'ccl_rls_%insert', 'ccl_rls_%update',
+    'ccl_rls_%delete', 'ccl_rls_%write', 'ccl_rls_%all'
+  ];
+  v_pol record;
+BEGIN
+  FOREACH t IN ARRAY tablas LOOP
+    -- Solo si la tabla existe en el esquema public.
+    IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = t) THEN
+      CONTINUE;
+    END IF;
 
--- Limpieza de políticas RLS restrictivas
-DROP POLICY IF EXISTS "ccl_rls_transportes_select" ON public.transportes;
-DROP POLICY IF EXISTS "ccl_rls_transportes_insert" ON public.transportes;
-DROP POLICY IF EXISTS "ccl_rls_transportes_update" ON public.transportes;
-DROP POLICY IF EXISTS "ccl_rls_transportes_delete" ON public.transportes;
-DROP POLICY IF EXISTS "app_full_access_transportes" ON public.transportes;
-CREATE POLICY "app_full_access_transportes" ON public.transportes FOR ALL USING (true) WITH CHECK (true);
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
 
-DROP POLICY IF EXISTS "ccl_rls_chat_select" ON public.chat_messages;
-DROP POLICY IF EXISTS "ccl_rls_chat_insert" ON public.chat_messages;
-DROP POLICY IF EXISTS "app_full_access_chat" ON public.chat_messages;
-CREATE POLICY "app_full_access_chat" ON public.chat_messages FOR ALL USING (true) WITH CHECK (true);
+    -- Limpieza de políticas restrictivas previas (cualquier variante ccl_rls_*).
+    FOR v_pol IN
+      SELECT policyname FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = t AND policyname LIKE 'ccl_rls%'
+    LOOP
+      EXECUTE format('DROP POLICY %I ON public.%I', v_pol.policyname, t);
+    END LOOP;
 
-DROP POLICY IF EXISTS "ccl_rls_notif_select" ON public.notificaciones;
-DROP POLICY IF EXISTS "ccl_rls_notif_insert" ON public.notificaciones;
-DROP POLICY IF EXISTS "ccl_rls_notif_update" ON public.notificaciones;
-DROP POLICY IF EXISTS "app_full_access_notificaciones" ON public.notificaciones;
-CREATE POLICY "app_full_access_notificaciones" ON public.notificaciones FOR ALL USING (true) WITH CHECK (true);
+    -- Política abierta única para la app (idempotente).
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'app_full_access_' || t, t);
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR ALL USING (true) WITH CHECK (true)',
+      'app_full_access_' || t, t
+    );
+  END LOOP;
+END $$;
 
-DROP POLICY IF EXISTS "ccl_rls_clientes_select" ON public.clientes;
-DROP POLICY IF EXISTS "app_full_access_clientes" ON public.clientes;
-CREATE POLICY "app_full_access_clientes" ON public.clientes FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "ccl_rls_ciudades_select" ON public.ciudades;
-DROP POLICY IF EXISTS "app_full_access_ciudades" ON public.ciudades;
-CREATE POLICY "app_full_access_ciudades" ON public.ciudades FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "ccl_rls_users_select" ON public.users;
-DROP POLICY IF EXISTS "ccl_rls_users_write" ON public.users;
-DROP POLICY IF EXISTS "ccl_rls_users_all" ON public.users;
-DROP POLICY IF EXISTS "app_full_access_users" ON public.users;
-CREATE POLICY "app_full_access_users" ON public.users FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "ccl_rls_roles_select" ON public.roles;
-DROP POLICY IF EXISTS "ccl_rls_roles_write" ON public.roles;
-DROP POLICY IF EXISTS "ccl_rls_roles_all" ON public.roles;
-DROP POLICY IF EXISTS "app_full_access_roles" ON public.roles;
-CREATE POLICY "app_full_access_roles" ON public.roles FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "ccl_rls_historial_select" ON public.historial_movimientos;
-DROP POLICY IF EXISTS "ccl_rls_historial_insert" ON public.historial_movimientos;
-DROP POLICY IF EXISTS "app_full_access_historial" ON public.historial_movimientos;
-CREATE POLICY "app_full_access_historial" ON public.historial_movimientos FOR ALL USING (true) WITH CHECK (true);
+-- Verificación: deben quedar SOLO políticas app_full_access_* por tabla.
+SELECT tablename, policyname, cmd, roles
+FROM pg_policies
+WHERE schemaname = 'public'
+ORDER BY tablename, policyname;
