@@ -170,6 +170,16 @@ export async function updateTransporte(id: string, updates: Partial<UnifiedTrans
   if (updates.horaInicioCargue !== undefined) dbUpdates.hora_inicio_cargue = updates.horaInicioCargue;
   if (updates.horaFinCargue !== undefined) dbUpdates.hora_fin_cargue = updates.horaFinCargue;
   if (updates.observaciones !== undefined) dbUpdates.observaciones = updates.observaciones;
-  const { error } = await supabase.from(TABLE).update(dbUpdates).eq('id', id);
+  // Con count exacto se detecta el caso silencioso: PostgREST responde 200 sin
+  // error cuando RLS bloquea la escritura o el id no existe (0 filas afectadas).
+  const { error, count } = await supabase
+    .from(TABLE)
+    .update(dbUpdates, { count: 'exact' })
+    .eq('id', id);
   if (error) throw error;
+  if (count === 0) {
+    throw new Error(
+      `La BD no actualizó ninguna fila (id=${id}). La fila no existe o una política RLS bloqueó la escritura del rol anon.`
+    );
+  }
 }

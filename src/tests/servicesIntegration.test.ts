@@ -32,6 +32,7 @@ function makeQuery(table: string) {
     patch: null as Record<string, any> | null,
     filters: [] as { col: string; op: 'gte' | 'lte' | 'eq'; val: string }[],
     error: null as Error | null,
+    wantsCount: false,
   };
 
   const materialize = () => {
@@ -47,13 +48,20 @@ function makeQuery(table: string) {
     if (state.patch) {
       for (const r of rows) Object.assign(r, state.patch);
       state.patch = null;
+      if (state.wantsCount) {
+        // PostgREST en modo representation: devuelve las filas afectadas y count.
+        return { data: rows.map((r) => ({ id: r.id })), count: rows.length, error: null };
+      }
       return { data: null, error: null };
     }
     return { data: state.isSingle ? rows[0] : rows, error: null };
   };
 
   const q = {
-    select: vi.fn(() => q),
+    select: vi.fn((_cols?: string, options?: { count?: string }) => {
+      if (options && 'count' in options) state.wantsCount = true;
+      return q;
+    }),
     order: vi.fn((col: string, { ascending = true } = {}) => {
       state.orderCol = col;
       state.orderAsc = ascending;
@@ -84,8 +92,9 @@ function makeQuery(table: string) {
       mem[table].push({ ...row });
       return q;
     }),
-    update: vi.fn((patch: any) => {
+    update: vi.fn((patch: any, options?: { count?: string }) => {
       state.patch = patch;
+      if (options && 'count' in options) state.wantsCount = true;
       return q;
     }),
     then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
@@ -222,6 +231,14 @@ describe('transportesService (integración Supabase mockeado)', () => {
   it('updateTransporte persiste cajas en la columna cajas de la BD', async () => {
     await mod.updateTransporte('T-1', { cajas: 721 });
     expect(mem.transportes[0].cajas).toBe(721);
+  });
+
+  it('updateTransporte LANZA cuando ninguna fila coincide (id inexistente o RLS)', async () => {
+    await expect(mod.updateTransporte('ID-INEXISTENTE', { cajas: 5 })).rejects.toThrow(
+      /no actualizó ninguna fila/
+    );
+    // La fila existente quedó intacta (el patch no se aplicó a nadie).
+    expect(mem.transportes[0].placa).toBe('XYZ-999');
   });
 });
 
