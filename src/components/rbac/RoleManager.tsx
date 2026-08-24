@@ -14,7 +14,7 @@ export const RoleManager: React.FC = () => {
   const [tab, setTab] = useState<Tab>('matriz');
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 mt-[-6px] sm:mt-[-14px] lg:mt-[-22px]">
       <div className="flex items-center space-x-1 bg-zinc-900/70 border border-zinc-800 rounded-xl p-1 w-fit">
         {TABS.map((t) => (
           <button
