@@ -4,7 +4,7 @@ import {
   HistorialMovimiento, UserType,
 } from '../types';
 import {
-  fetchRoles, updateRole, fetchUsers, createUser, updateUser as updateUserRemote,
+  fetchRoles, updateRole, fetchUsers, createUser as createUserRemote, updateUser as updateUserRemote,
   deleteUser as deleteUserRemote, seedInitialData, PRESET_ROLES, PRESET_USERS, roleForUserType,
 } from '../services/rbacService';
 import { fetchHistorial, createMovimiento } from '../services/historialService';
@@ -66,7 +66,7 @@ interface AuthState {
   logout: () => void;
   addMovimiento: (accion: string, modulo: string, detalle?: string, llave?: string) => void;
   createUser: (data: { nombre: string; cedula: string; clave: string; tipoUsuario: UserType }) => Promise<UserRecord>;
-  updateUser: (id: string, data: Partial<UserRecord>) => void;
+  updateUser: (id: string, data: Partial<UserRecord>) => Promise<void>;
   deleteUser: (id: string) => boolean;
   updateRolePermissions: (roleId: string, moduleId: AppModuleId, enabled: boolean) => void;
   hasModuleAccess: (moduleId: AppModuleId) => boolean;
@@ -216,20 +216,27 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           createdAt: new Date().toISOString(),
         };
 
+        // La BD es la verdad: si el insert falla (rol inexistente, CHECK de
+        // tipo, duplicados...) se avisa al usuario y NO se agrega en local.
+        let persisted = newUser;
         if (isSupabaseConfigured) {
           try {
-            await createUser(newUser);
+            persisted = await createUserRemote(newUser);
           } catch (err) {
-            console.error('Error saving user to Supabase:', err);
+            window.alert(
+              `No se pudo crear el usuario en la base de datos.\nMotivo: ${(err as Error).message}\n` +
+                'Verifica que el rol exista en la tabla ROLES (migración SQL ejecutada) y vuelve a intentar.'
+            );
+            throw err;
           }
         }
 
-        set((s) => ({ users: [...s.users, newUser] }));
-        get().addMovimiento('CREAR_USUARIO', 'usuarios', `Usuario ${newUser.nombre} (${userTypeLabel(newUser.tipoUsuario)})`);
-        return newUser;
+        set((s) => ({ users: [...s.users, persisted] }));
+        get().addMovimiento('CREAR_USUARIO', 'usuarios', `Usuario ${persisted.nombre} (${userTypeLabel(persisted.tipoUsuario)})`);
+        return persisted;
       },
 
-      updateUser: (id, data) => {
+      updateUser: async (id, data) => {
         const target = get().users.find((u) => u.id === id);
         if (!target) return;
 
@@ -240,14 +247,21 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         }
 
         if (isSupabaseConfigured) {
-          updateUserRemote(id, {
-            nombre: updated.nombre,
-            cedula: updated.cedula,
-            clave: updated.clave,
-            tipoUsuario: updated.tipoUsuario,
-            roleId: updated.roleId,
-            roleName: updated.roleName,
-          }).catch(console.error);
+          try {
+            await updateUserRemote(id, {
+              nombre: updated.nombre,
+              cedula: updated.cedula,
+              clave: updated.clave,
+              tipoUsuario: updated.tipoUsuario,
+              roleId: updated.roleId,
+              roleName: updated.roleName,
+            });
+          } catch (err) {
+            window.alert(
+              `No se pudo actualizar el usuario en la base de datos.\nMotivo: ${(err as Error).message}`
+            );
+            throw err;
+          }
         }
 
         set((s) => ({

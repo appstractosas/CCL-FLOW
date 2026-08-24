@@ -28,10 +28,15 @@ export const UsuariosModule: React.FC = () => {
   };
 
   const handleSave = async (data: { nombre: string; cedula: string; clave: string; tipoUsuario: UserType }) => {
-    if (editingUser) {
-      updateUser(editingUser.id, data);
-    } else {
-      await createUser(data);
+    try {
+      if (editingUser) {
+        await updateUser(editingUser.id, data);
+      } else {
+        await createUser(data);
+      }
+    } catch {
+      // El store ya mostró el motivo; el modal queda abierto para corregir.
+      return;
     }
     setModalOpen(false);
   };
