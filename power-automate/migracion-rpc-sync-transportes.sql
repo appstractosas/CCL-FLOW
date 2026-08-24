@@ -4,24 +4,28 @@
 -- MODELO: UNA FILA POR PLACA.
 --   * Cada LLAVE puede repetirse con PLACAS diferentes (cada placa = una fila).
 --   * El par (llave, placa) identifica la fila (UNIQUE en la BD).
---   * Las CAJAS se SUMAN POR PLACA (filas del mismo llave+placa guardan la suma).
+--   * Las CAJAS y el KG se SUMAN POR PLACA (filas del mismo llave+placa guardan
+--     la suma; kg conserva decimales).
 --
 -- Cambios frente a la versión que "consolidaba por llave (SUMA cajas)":
 --   - Cada fila del Excel es una LLAVE + PLACA. Una llave puede repetirse con
 --     PLACAS diferentes: cada PLACA es un registro propio de la BD.
---   - Las CAJAS se SUMAN POR PLACA: si la misma (llave, placa) aparece en varias
---     filas del Excel (p. ej. varios transportes del mismo camión), el registro
---     de esa placa guarda la SUMA de esas filas (antes: la ÚLTIMA fila).
+--   - Las CAJAS y el KG se SUMAN POR PLACA: si la misma (llave, placa) aparece
+--     en varias filas del Excel (p. ej. varios transportes del mismo camión), el
+--     registro de esa placa guarda la SUMA de esas filas (antes: la ÚLTIMA fila;
+--     para kg el cambio aplica junto con los decimales de _sync_numero).
 --   - El UPSERT usa ON CONFLICT (llave, placa) en lugar de ON CONFLICT (llave).
 --
 -- Qué hace (normalización conservada de la versión anterior):
---   1) Normaliza llave/placa a UPPER+TRIM y cajas a número (limpia [.,]).
+--   1) Normaliza llave/placa a UPPER+TRIM, cajas a número (limpia [.,]) y kg a
+--      NUMERIC con DECIMALES vía _sync_numero() ('7.71' → 7.71, ya no → 771).
 --   2) Estatus 'CANCELADO' -> estado_porteria = 'CANCELADO'.
 --   3) estatus (col. Estatus/estado_transporte del Excel) -> estado_transporte:
 --      solo DESPACHADO/ALISTADO/PENDIENTE (valores del CHECK de la BD);
 --      vacío o valor desconocido -> 'ALISTADO' (DEFAULT de la columna).
 --   4) Agrupa por (llave, placa): ganador = ÚLTIMA fila del par para el resto de
---      campos (incluidos destino/kg) y SUMA de cajas de todas las filas del par.
+--      campos y SUMA de cajas y kg de todas las filas del par (kg conserva
+--      decimales; si ninguna fila del par trae kg, la suma es NULL).
 --   5) fecha_hora/cita_cargue: serial de Excel (ej. 46248) -> ISO, o se usan
 --      tal cual si ya vienen en ISO.
 --   6) UPSERT ON CONFLICT (llave, placa): solo actualiza campos no vacíos y
@@ -72,6 +76,49 @@ BEGIN
 END;
 $$;
 
+-- Helper: convierte un número del Excel a NUMERIC conservando DECIMALES.
+-- Reglas idénticas a parseNumero_() en sheets-sync/transportes-sync.gs:
+--   '7.71'→7.71 | '12,5'→12.5 | '1.234,56'→1234.56 | '1,234.56'→1234.56
+--   '8.500'→8500 (miles) | '1,234,567'→1234567 (miles) | vacío/inválido→NULL
+-- (Antes se hacía REGEXP_REPLACE(kg,'[.,]','','g') y '7.71' llegaba como 771.)
+CREATE OR REPLACE FUNCTION public._sync_numero(valor text)
+RETURNS numeric
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+  s text := btrim(COALESCE(valor, ''));
+  u_coma int;
+  u_punto int;
+BEGIN
+  IF s = '' THEN RETURN NULL; END IF;
+  u_coma := position(',' IN reverse(s));
+  u_punto := position('.' IN reverse(s));
+  IF u_coma > 0 AND u_punto > 0 THEN
+    -- Ambos separadores: el más a la derecha es el decimal, el otro es miles.
+    IF u_coma > u_punto THEN
+      s := replace(replace(s, '.', ''), ',', '.');
+    ELSE
+      s := replace(s, ',', '');
+    END IF;
+  ELSIF s ~ '^[0-9]{1,3}(\.[0-9]{3})+$' THEN
+    -- Grupos completos de miles con punto: '8.500', '1.234.567'.
+    s := replace(s, '.', '');
+  ELSIF s ~ '^[0-9]{1,3}(,[0-9]{3})+$' THEN
+    -- Grupos completos de miles con coma: '1,234,567'.
+    s := replace(s, ',', '');
+  ELSE
+    -- Un solo separador con decimales reales ('7.71', '12,5'): es decimal.
+    s := replace(s, ',', '.');
+  END IF;
+  BEGIN
+    RETURN s::numeric;
+  EXCEPTION WHEN others THEN
+    RETURN NULL;
+  END;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.sync_transportes(_filas jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -106,15 +153,16 @@ BEGIN
     NULLIF(TRIM(f->>'cita_cargue'),'')                   AS cita_cargue,
     NULLIF(TRIM(f->>'fecha_hora'),'')                    AS fecha_hora,
     COALESCE(ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'cajas',''),'[.,]','','g'),'')::numeric), 0) AS cajas,
-    NULLIF(REGEXP_REPLACE(COALESCE(f->>'kg',''),'[.,]','','g'),'')::numeric AS kg,
+    _sync_numero(f->>'kg') AS kg,
     (UPPER(TRIM(COALESCE(f->>'estatus',''))) = 'CANCELADO') AS estado_cancelado
   FROM jsonb_array_elements(_filas) AS f
   WHERE NULLIF(TRIM(f->>'llave'),'') IS NOT NULL;
 
 -- 2) UNA FILA POR (llave, placa): la placa es el registro. Si el Excel repite la
 --    MISMA (llave, placa) (un camión con varios transportes), gana la ÚLTIMA
---    fila para el resto de campos y las CAJAS se SUMAN (SUM por (llave, placa)).
---    Placas DISTINTAS de la misma llave son registros aparte (NO se mezclan).
+--    fila para el resto de campos y CAJAS y KG se SUMAN (SUM por (llave,placa);
+--    kg con decimales vía _sync_numero). Placas DISTINTAS de la misma llave son
+--    registros aparte (NO se mezclan).
   CREATE TEMP TABLE tmp_cons ON COMMIT DROP AS
   SELECT DISTINCT ON (llave, placa)
     row_id,
@@ -128,7 +176,7 @@ BEGIN
     estado_transporte,
     cita_cargue,
     fecha_hora,
-    kg,
+    SUM(kg) OVER (PARTITION BY llave, placa) AS kg,
     estado_cancelado,
     SUM(cajas) OVER (PARTITION BY llave, placa)::numeric AS cajas
   FROM tmp_sync
@@ -187,8 +235,9 @@ BEGIN
       -- desde la app; en filas existentes preserva transportes.cajas y solo asigna
       -- EXCLUDED.cajas si transportes.cajas era NULL.
       cajas = COALESCE(transportes.cajas, EXCLUDED.cajas),
-      -- kg: opcional; solo se pisa cuando el Excel trae valor (NULL conserva el
-      -- existente, que puede venir de la captura en la app).
+      -- kg: suma del par (llave, placa) con decimales; solo se pisa cuando el
+      -- Excel trae valor (suma NULL conserva el existente, que puede venir de
+      -- la captura en la app).
       kg = COALESCE(EXCLUDED.kg, transportes.kg),
       -- estado_porteria: SOLO se pisa si llega CANCELADO; el resto del flujo de
       -- portería (Confirmado, INGRESO A MUELLE, etc.) NUNCA se sobreescribe.
@@ -201,3 +250,11 @@ $$;
 
 -- Permisos para el rol que usa el Service Role key (POST vía PostgREST).
 GRANT EXECUTE ON FUNCTION public.sync_transportes(jsonb) TO anon, authenticated, service_role;
+
+-- Verificación rápida del parser (opcional, ejecutar aparte en el SQL Editor):
+--   SELECT public._sync_numero('7.71')      AS decimal_punto,   -- 7.71
+--          public._sync_numero('12,5')      AS decimal_coma,    -- 12.5
+--          public._sync_numero('1.234,56')  AS mixto_coma_dec,  -- 1234.56
+--          public._sync_numero('1,234.56')  AS mixto_punto_dec, -- 1234.56
+--          public._sync_numero('8.500')     AS miles_punto,     -- 8500
+--          public._sync_numero('1,234,567') AS miles_comas;     -- 1234567

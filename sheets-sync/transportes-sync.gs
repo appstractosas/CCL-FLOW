@@ -90,6 +90,41 @@ function pad_(n) {
   return n < 10 ? '0' + n : '' + n;
 }
 
+/**
+ * Convierte un número del Sheets a valor numérico CONSERVANDO DECIMALES.
+ * Reglas (idénticas a _sync_numero() en migracion-rpc-sync-transportes.sql):
+ *   - Ambos separadores ('1.234,56' | '1,234.56'): el más a la derecha es el
+ *     decimal y el otro se elimina (miles).
+ *   - Grupos completos de miles ('8.500', '1.234.567', '1,234,567'): se
+ *     quitan los separadores (entero).
+ *   - Un solo separador con decimales reales ('7.71', '12,5', '0.75'): es
+ *     decimal ('7.71' → 7.71, ya NO se vuelve 771).
+ *   - Vacío o no numérico → NaN (el llamador decide si envía null).
+ */
+function parseNumero_(val) {
+  var s = String(val === null || val === undefined ? '' : val).trim();
+  if (!s) return NaN;
+  var negativo = s.charAt(0) === '-';
+  if (negativo) s = s.substring(1);
+  var ultComa = s.lastIndexOf(',');
+  var ultPunto = s.lastIndexOf('.');
+  if (ultComa >= 0 && ultPunto >= 0) {
+    if (ultComa > ultPunto) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else {
+      s = s.replace(/,/g, '');
+    }
+  } else if (/^[0-9]{1,3}([.][0-9]{3})+$/.test(s)) {
+    s = s.replace(/\./g, '');
+  } else if (/^[0-9]{1,3}(,[0-9]{3})+$/.test(s)) {
+    s = s.replace(/,/g, '');
+  } else if (ultComa >= 0) {
+    s = s.split(',').join('.');
+  }
+  var n = Number(s);
+  return isFinite(n) ? (negativo ? -n : n) : NaN;
+}
+
 /** Índice (0-based) de un encabezado en la fila de títulos, o -1 si no existe. */
 function headerIndex_(headers, name) {
   return headers.indexOf(String(name).trim());
@@ -195,11 +230,12 @@ function buildRows_() {
           var cajasNum = Number(String(raw).replace(/[.,]/g, '').trim());
           val = isFinite(cajasNum) ? Math.round(cajasNum) : null;
         } else if (dbField === 'kg') {
-          // NUMERIC en la BD: mismo criterio de separadores que cajas.
-          // Si el Sheets aún no tiene la columna "Kg", este campo queda null y
-          // se elimina antes de enviar (no afecta el upsert).
-          var kgNum = Number(String(raw).replace(/[.,]/g, '').trim());
-          val = isFinite(kgNum) ? kgNum : null;
+          // NUMERIC en la BD con DECIMALES: parseNumero_ conserva '7.71' como
+          // 7.71 (antes el strip de [.,] lo convertía en 771). Si el Sheets
+          // aún no tiene la columna "Kg", queda null y se elimina antes de
+          // enviar (no afecta el upsert).
+          var kgVal = parseNumero_(raw);
+          val = isNaN(kgVal) ? null : kgVal;
         } else if (dbField === 'estado_transporte') {
           // Estatus del fuente: solo DESPACHADO/ALISTADO/PENDIENTE (CHECK de la
           // BD). CANCELADO no está en el CHECK: se traduce a estado_porteria y
@@ -240,9 +276,9 @@ function buildRows_() {
 
   // DEDUPE POR (llave, placa): la clave de la fila es el par (llave, placa). Si el
   // Sheets repite el MISMO par (un camión/placa con varios transportes), se
-  // fusionan: la placa guarda la SUMA de cajas de todas sus filas (cajas por
-  // placa) y el resto de campos toma el ÚLTIMO valor no vacío. Placas DISTINTAS
-  // de la misma llave son filas APARTE y se conservan tal cual.
+  // fusionan: la placa guarda la SUMA de cajas Y de kg de todas sus filas
+  // (cajas y kg por placa) y el resto de campos toma el ÚLTIMO valor no vacío.
+  // Placas DISTINTAS de la misma llave son filas APARTE y se conservan tal cual.
   var dedup = {};
   var orden = [];
   for (var i = 0; i < rows.length; i++) {
@@ -261,10 +297,14 @@ function buildRows_() {
           // SUMAR cajas de TODAS las filas del MISMO (llave, placa).
           base.cajas = (base.cajas || 0) + (v || 0);
         } else if (k2 === 'kg') {
-          // SUMAR kg de TODAS las filas del MISMO (llave, placa).
-          // Mismo criterio de separadores que cajas: quita miles y redondea.
-          var kgNum = Number(String(v).replace(/[.,]/g, '').trim());
-          base.kg = isFinite(kgNum) ? Math.round(kgNum) : (base.kg || 0);
+          // SUMAR kg de TODAS las filas del MISMO (llave, placa), igual que
+          // cajas. Con decimales vía parseNumero_ ('7.71' → 7.71; ya no 771).
+          // Una fila sin kg no aporta: no se pisa lo acumulado con 0 ni con null.
+          var kgNum = parseNumero_(v);
+          if (!isNaN(kgNum)) {
+            var kgAcum = Number(base.kg);
+            base.kg = (isFinite(kgAcum) ? kgAcum : 0) + kgNum;
+          }
         } else if (v !== null && v !== undefined && v !== '') {
           // Último valor no vacío gana (no se pisan datos con filas vacías).
           base[k2] = v;
