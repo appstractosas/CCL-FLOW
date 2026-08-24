@@ -49,6 +49,14 @@ export const PRESET_ROLES: Role[] = [
     id: 'ROLE_TRANSPORTES', name: 'TRANSPORTES', description: 'Registro y edición de placas de transportes.', isPreset: true,
     permissions: permissionsAll(['transportes', 'informes', 'tablero'], ['transportes']),
   },
+  {
+    id: 'ROLE_TABLERO', name: 'TABLERO', description: 'Consulta del tablero del aeropuerto (solo lectura).', isPreset: true,
+    permissions: permissionsAll(['tablero'], []),
+  },
+  {
+    id: 'ROLE_INFORMES', name: 'INFORMES', description: 'Consulta y exportación de informes (sin edición operativa).', isPreset: true,
+    permissions: permissionsAll(['informes'], []),
+  },
 ];
 
 export const ROLE_ID_BY_TYPE: Record<UserType, string> = ROLE_ID_BY_USER_TYPE;

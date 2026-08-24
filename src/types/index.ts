@@ -12,7 +12,7 @@ export type AppModuleId =
   | 'tablero';
 
 /** Tipos de usuario del sistema (mapean a un rol de la matriz de permisos). */
-export type UserType = 'admin' | 'despachador' | 'portero' | 'planeador' | 'supervisor' | 'monitor' | 'transportes';
+export type UserType = 'admin' | 'despachador' | 'portero' | 'planeador' | 'supervisor' | 'monitor' | 'transportes' | 'tablero' | 'informes';
 
 export interface ModulePermission {
   canAccess: boolean;
