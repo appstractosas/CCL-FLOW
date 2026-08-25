@@ -74,6 +74,7 @@ var MAPPING = {
   'Placa': 'placa',
   'Cajas': 'cajas',               // Cantidad de cajas (numérica)
   'Destino': 'destino',           // Ciudad/planta de destino del pedido
+  'Region': 'region',             // Región del pedido (region en la BD)
   'Kg': 'kg',                     // Peso en kilogramos (numérico)
   // 'Estatus' alimenta estado_transporte con DESPACHADO/ALISTADO/PENDIENTE
   // (valores del CHECK de la BD). El valor CANCELADO no entra en ese CHECK:

@@ -24,6 +24,7 @@ interface FormValues {
   denominacion: string;
   cajas: string;
   destino: string;
+  region: string;
   kg: string;
 }
 
@@ -47,6 +48,7 @@ function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
       denominacion: editingRow.denominacion || '',
       cajas: editingRow.cajas != null ? String(editingRow.cajas) : '',
       destino: editingRow.destino || '',
+      region: editingRow.region || '',
       kg: editingRow.kg != null ? String(editingRow.kg) : '',
     };
   }
@@ -60,6 +62,7 @@ function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
     denominacion: '',
     cajas: '',
     destino: '',
+    region: '',
     kg: '',
   };
 }
@@ -104,6 +107,7 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
       denominacion: formData.denominacion.trim() || undefined,
       cajas: numeroDe(formData.cajas),
       destino: formData.destino.trim() || undefined,
+      region: formData.region.trim() || undefined,
       kg: numeroDe(formData.kg),
     });
   };
@@ -215,6 +219,33 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
           {/* Nº Pedido y Cliente se retiraron de la UI (no aportan al control de patios).
               Sus valores siguen viajando intactos en el submit para NO borrarlos de la BD. */}
 
+          {/* Nº Pedido (transporte) y Cliente (denominación) ahora son visibles. */}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Denominación</label>
+              <input
+                type="text"
+                placeholder="Ej: GLOBAL DISTR"
+                value={formData.denominacion}
+                disabled={locked}
+                onChange={(e) => setFormData({ ...formData, denominacion: e.target.value })}
+                className={locked ? lockedCls : inputCls}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Transporte</label>
+              <input
+                type="text"
+                placeholder="Ej: 3000214899"
+                value={formData.transporte}
+                disabled={locked}
+                onChange={(e) => setFormData({ ...formData, transporte: e.target.value })}
+                className={`${locked ? lockedCls : inputCls} font-mono`}
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-zinc-300 mb-1">Cajas</label>
@@ -243,16 +274,29 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-zinc-300 mb-1">Destino</label>
-            <input
-              type="text"
-              placeholder="Ej: NEIVA"
-              value={formData.destino}
-              disabled={locked}
-              onChange={(e) => setFormData({ ...formData, destino: e.target.value })}
-              className={locked ? lockedCls : inputCls}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Destino</label>
+              <input
+                type="text"
+                placeholder="Ej: NEIVA"
+                value={formData.destino}
+                disabled={locked}
+                onChange={(e) => setFormData({ ...formData, destino: e.target.value })}
+                className={locked ? lockedCls : inputCls}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Región</label>
+              <input
+                type="text"
+                placeholder="Ej: SUR"
+                value={formData.region}
+                disabled={locked}
+                onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                className={locked ? lockedCls : inputCls}
+              />
+            </div>
           </div>
 
           <div className="flex items-center justify-end space-x-2 pt-4 border-t border-zinc-800">

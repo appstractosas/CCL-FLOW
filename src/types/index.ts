@@ -118,8 +118,10 @@ export interface UnifiedTransporte {
   denominacion?: string;
   /** Cantidad de cajas del pedido. Alimenta el módulo de informes. */
   cajas?: number;
-  /** Ciudad/lugar de destino del pedido (lo escribe la app, no el sync). */
+  /** Ciudad/lugar de destino del pedido (viene del Excel o se captura en la app). */
   destino?: string;
+  /** Región del pedido (columna Region del Excel / region en la BD). */
+  region?: string;
   /** Peso del pedido en kilogramos (lo escribe la app, no el sync). */
   kg?: number;
   transportadora?: string;
@@ -153,6 +155,7 @@ export interface TransporteData {
   cuadrilla?: string;
   cajas?: number;
   destino?: string;
+  region?: string;
   kg?: number;
   horaMuelleAsignado?: string;
   observaciones?: string;

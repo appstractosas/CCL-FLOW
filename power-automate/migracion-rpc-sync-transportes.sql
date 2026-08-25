@@ -135,10 +135,9 @@ BEGIN
   END IF;
 
   -- 1) NORMALIZAR: UPPER/TRIM, estatus CANCELADO, cajas -> número.
-  --    transportadora/transporte/denominacion/destino/estado_transporte se leen
-  --    con _sync_campo. destino/kg son OPCIONALES: si el Excel aún no los envía
-  --    quedan en NULL y el upsert no los toca (requieren las columnas de
-  --    supabase-migracion-destino-kg.sql).
+  --    transportadora/transporte/denominacion/destino/region/estado_transporte
+  --    se leen con _sync_campo. destino/region/kg son OPCIONALES: si el Excel aún
+  --    no los envía quedan en NULL y el upsert no los toca.
   CREATE TEMP TABLE tmp_sync ON COMMIT DROP AS
   SELECT
     row_number() OVER ()::int AS row_id,
@@ -149,6 +148,7 @@ BEGIN
     NULLIF(_sync_campo(f, ARRAY['transporte']),'') AS transporte,
     NULLIF(_sync_campo(f, ARRAY['denominacion','denominación']),'') AS denominacion,
     NULLIF(_sync_campo(f, ARRAY['destino']),'') AS destino,
+    NULLIF(_sync_campo(f, ARRAY['region','región']),'') AS region,
     NULLIF(_sync_campo(f, ARRAY['estado_transporte','estatus']),'') AS estado_transporte,
     NULLIF(TRIM(f->>'cita_cargue'),'')                   AS cita_cargue,
     NULLIF(TRIM(f->>'fecha_hora'),'')                    AS fecha_hora,
@@ -173,6 +173,7 @@ BEGIN
     transporte,
     denominacion,
     destino,
+    region,
     estado_transporte,
     cita_cargue,
     fecha_hora,
@@ -202,7 +203,7 @@ BEGIN
     -- si el Excel llega vacío, la BD aplica su DEFAULT en vez de violar NOT NULL).
     INSERT INTO transportes (
       llave, fecha_hora, placa, vehiculo_tipo, transportadora,
-      transporte, denominacion, destino, cita_cargue, cajas, kg,
+      transporte, denominacion, destino, region, cita_cargue, cajas, kg,
       estado_transporte, estado_porteria, updated_at
     ) VALUES (
       r.llave,
@@ -210,7 +211,7 @@ BEGIN
       COALESCE(r.placa, ''),
       COALESCE(r.vehiculo_tipo, 'SENCILLO'),
       COALESCE(r.transportadora, ''),
-      r.transporte, r.denominacion, r.destino, v_cita, r.cajas, r.kg,
+      r.transporte, r.denominacion, r.destino, r.region, v_cita, r.cajas, r.kg,
       -- estado_transporte: solo los valores del CHECK de la columna; si la
       -- celda Estatus viene vacía o con un valor desconocido, se aplica el
       -- DEFAULT 'ALISTADO' (el CHECK rechaza cualquier otro valor).
@@ -226,6 +227,8 @@ BEGIN
       transporte     = COALESCE(NULLIF(EXCLUDED.transporte,''), transportes.transporte),
       denominacion   = COALESCE(NULLIF(EXCLUDED.denominacion,''), transportes.denominacion),
       destino        = COALESCE(NULLIF(EXCLUDED.destino,''), transportes.destino),
+      -- región: igual que destino; solo se pisa cuando el Excel trae valor.
+      region         = COALESCE(NULLIF(EXCLUDED.region,''), transportes.region),
       cita_cargue    = COALESCE(NULLIF(EXCLUDED.cita_cargue,''), transportes.cita_cargue),
       -- estado_transporte: el Excel ES la fuente; se pisa solo con valores
       -- válidos (vacío/desconocido -> 'ALISTADO', nunca fuera del CHECK).
