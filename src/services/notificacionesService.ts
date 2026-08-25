@@ -43,14 +43,14 @@ export async function createNotificacion(
   payload: Omit<Notificacion, 'id' | 'leida' | 'createdAt'>
 ): Promise<Notificacion> {
   if (!isOnline()) throw new Error('Notificaciones deshabilitadas en MODO DEMO');
-  const { data, error } = await supabase.from(TABLE).insert(mapNotifToDB(payload)).select().single();
+  const { data, error } = await supabase.rpc('ccl_create_notificacion', { p_data: mapNotifToDB(payload) });
   if (error) throw error;
   return mapNotifFromDB(data);
 }
 
 export async function markAllNotificacionesLeidas(): Promise<void> {
   if (!isOnline()) return;
-  const { error } = await supabase.from(TABLE).update({ leida: true }).eq('leida', false);
+  const { error } = await supabase.rpc('ccl_mark_notifs_read');
   if (error) throw error;
 }
 

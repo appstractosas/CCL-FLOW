@@ -137,18 +137,18 @@ export async function fetchRoles(): Promise<Role[]> {
 }
 
 export async function createRole(item: Role): Promise<Role> {
-  const { data, error } = await supabase.from(ROLES_TABLE).insert(mapRoleToDB(item)).select().single();
+  const { data, error } = await supabase.rpc('ccl_create_role', { p_data: mapRoleToDB(item) });
   if (error) throw error;
   return mapRoleFromDB(data);
 }
 
 export async function updateRole(id: string, name: string, description: string, permissions: any): Promise<void> {
-  const { error } = await supabase.from(ROLES_TABLE).update({ name, description, permissions }).eq('id', id);
+  const { error } = await supabase.rpc('ccl_update_role', { p_id: id, p_name: name, p_description: description, p_permissions: permissions });
   if (error) throw error;
 }
 
 export async function deleteRole(id: string): Promise<void> {
-  const { error } = await supabase.from(ROLES_TABLE).delete().eq('id', id);
+  const { error } = await supabase.rpc('ccl_delete_role', { p_id: id });
   if (error) throw error;
 }
 
@@ -161,7 +161,7 @@ export async function fetchUsers(): Promise<UserRecord[]> {
 }
 
 export async function createUser(item: UserRecord): Promise<UserRecord> {
-  const { data, error } = await supabase.from(USERS_TABLE).insert(mapUserToDB(item)).select().single();
+  const { data, error } = await supabase.rpc('ccl_create_user', { p_data: mapUserToDB(item) });
   if (error) throw error;
   return mapUserFromDB(data);
 }
@@ -174,33 +174,18 @@ export async function updateUser(id: string, item: Partial<UserRecord>): Promise
   if (item.tipoUsuario !== undefined) dbUpdates.tipo_usuario = item.tipoUsuario;
   if (item.roleId !== undefined) dbUpdates.role_id = item.roleId;
   if (item.roleName !== undefined) dbUpdates.role_name = item.roleName;
-  const { error } = await supabase.from(USERS_TABLE).update(dbUpdates).eq('id', id);
+  const { error } = await supabase.rpc('ccl_update_user', { p_id: id, p_data: dbUpdates });
   if (error) throw error;
 }
 
 export async function deleteUser(id: string): Promise<void> {
-  const { error } = await supabase.from(USERS_TABLE).delete().eq('id', id);
+  const { error } = await supabase.rpc('ccl_delete_user', { p_id: id });
   if (error) throw error;
 }
 
 export async function seedInitialData(): Promise<boolean> {
   if (!isOnline()) return false;
-
-  const { count: roleCount, error: roleErr } = await supabase.from(ROLES_TABLE).select('*', { count: 'exact', head: true });
-  if (roleErr) throw roleErr;
-
-  if (!roleCount || roleCount === 0) {
-    const { error: insertRoleErr } = await supabase.from(ROLES_TABLE).insert(PRESET_ROLES.map(mapRoleToDB));
-    if (insertRoleErr) throw insertRoleErr;
-  }
-
-  const { count: userCount, error: userErr } = await supabase.from(USERS_TABLE).select('*', { count: 'exact', head: true });
-  if (userErr) throw userErr;
-
-  if (!userCount || userCount === 0) {
-    const { error: insertUserErr } = await supabase.from(USERS_TABLE).insert(PRESET_USERS.map(mapUserToDB));
-    if (insertUserErr) throw insertUserErr;
-  }
-
+  const { error } = await supabase.rpc('ccl_seed_initial_data');
+  if (error) throw error;
   return true;
 }

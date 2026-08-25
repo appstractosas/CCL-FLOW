@@ -34,21 +34,17 @@ export async function fetchHistorial(limit = 200): Promise<HistorialMovimiento[]
 
 export async function createMovimiento(item: HistorialMovimiento): Promise<HistorialMovimiento | null> {
   if (!isOnline()) return null;
-  // Nota: NO se envía `id` de cliente; la columna es UUID y el insert fallaba con ids tipo "HIS-...".
-  const { data, error } = await supabase
-    .from(TABLE)
-    .insert({
-      usuario: item.usuario,
-      tipo_usuario: item.tipoUsuario,
-      cedula: item.cedula || null,
-      accion: item.accion,
-      modulo: item.modulo,
-      detalle: item.detalle || null,
-      llave_relacionada: item.llaveRelacionada || null,
-      created_at: item.createdAt,
-    })
-    .select()
-    .single();
+  const payload: Record<string, any> = {
+    usuario: item.usuario,
+    tipo_usuario: item.tipoUsuario,
+    cedula: item.cedula || null,
+    accion: item.accion,
+    modulo: item.modulo,
+    detalle: item.detalle || null,
+    llave_relacionada: item.llaveRelacionada || null,
+    created_at: item.createdAt,
+  };
+  const { data, error } = await supabase.rpc('ccl_create_movimiento', { p_data: payload });
   if (error) throw error;
   return mapMovimientoFromDB(data);
 }

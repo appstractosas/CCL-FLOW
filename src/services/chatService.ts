@@ -42,7 +42,7 @@ export async function fetchMessages(): Promise<ChatMessage[]> {
 }
 
 export async function sendMessage(item: ChatMessage): Promise<ChatMessage> {
-  const { data, error } = await supabase.from(TABLE).insert(mapMessageToDB(item)).select().single();
+  const { data, error } = await supabase.rpc('ccl_send_message', { p_data: mapMessageToDB(item) });
   if (error) throw error;
   return mapMessageFromDB(data);
 }

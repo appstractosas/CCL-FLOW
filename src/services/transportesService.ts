@@ -14,6 +14,7 @@ function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
     denominacion: item.denominacion || null,
     cajas: item.cajas ?? null,
     destino: item.destino || null,
+    region: item.region || null,
     kg: item.kg ?? null,
     transportadora: item.transportadora || '',
     estado_transporte: item.estadoTransporte,
@@ -42,6 +43,7 @@ function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
     denominacion: item.denominacion || undefined,
     cajas: item.cajas ?? undefined,
     destino: item.destino || undefined,
+    region: item.region || undefined,
     kg: item.kg ?? undefined,
     transportadora: item.transportadora || '',
     estadoTransporte: item.estado_transporte,
@@ -108,7 +110,7 @@ export async function fetchTransportesRawByRango(fechaDesde: string, fechaHasta:
 }
 
 export async function createTransporte(item: UnifiedTransporte): Promise<UnifiedTransporte> {
-  const { data, error } = await supabase.from(TABLE).insert(mapTransporteToDB(item)).select().single();
+  const { data, error } = await supabase.rpc('ccl_create_transporte', { p_data: mapTransporteToDB(item) });
   if (error) throw error;
   return mapTransporteFromDB(data);
 }
@@ -157,6 +159,7 @@ export async function updateTransporte(id: string, updates: Partial<UnifiedTrans
   if (updates.denominacion !== undefined) dbUpdates.denominacion = updates.denominacion;
   if (updates.cajas !== undefined) dbUpdates.cajas = updates.cajas;
   if (updates.destino !== undefined) dbUpdates.destino = updates.destino;
+  if (updates.region !== undefined) dbUpdates.region = updates.region;
   if (updates.kg !== undefined) dbUpdates.kg = updates.kg;
   if (updates.transportadora !== undefined) dbUpdates.transportadora = updates.transportadora;
   if (updates.estadoTransporte !== undefined) dbUpdates.estado_transporte = updates.estadoTransporte;
@@ -170,16 +173,6 @@ export async function updateTransporte(id: string, updates: Partial<UnifiedTrans
   if (updates.horaInicioCargue !== undefined) dbUpdates.hora_inicio_cargue = updates.horaInicioCargue;
   if (updates.horaFinCargue !== undefined) dbUpdates.hora_fin_cargue = updates.horaFinCargue;
   if (updates.observaciones !== undefined) dbUpdates.observaciones = updates.observaciones;
-  // Con count exacto se detecta el caso silencioso: PostgREST responde 200 sin
-  // error cuando RLS bloquea la escritura o el id no existe (0 filas afectadas).
-  const { error, count } = await supabase
-    .from(TABLE)
-    .update(dbUpdates, { count: 'exact' })
-    .eq('id', id);
+  const { error } = await supabase.rpc('ccl_update_transporte', { p_id: id, p_data: dbUpdates });
   if (error) throw error;
-  if (count === 0) {
-    throw new Error(
-      `La BD no actualizó ninguna fila (id=${id}). La fila no existe o una política RLS bloqueó la escritura del rol anon.`
-    );
-  }
 }
