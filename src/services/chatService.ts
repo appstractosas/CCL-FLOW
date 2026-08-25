@@ -3,6 +3,7 @@ import type { ChatMessage } from '../types';
 
 const TABLE = 'chat_messages';
 
+/** Convierte un mensaje del formato frontend al formato BD (snake_case). */
 function mapMessageToDB(item: ChatMessage): Record<string, any> {
   return {
     sender_role: item.senderRole,
@@ -16,6 +17,7 @@ function mapMessageToDB(item: ChatMessage): Record<string, any> {
   };
 }
 
+/** Convierte un mensaje de la BD al formato frontend. */
 function mapMessageFromDB(item: Record<string, any>): ChatMessage {
   return {
     id: item.id,
@@ -34,6 +36,7 @@ function isOnline(): boolean {
   return isSupabaseConfigured;
 }
 
+/** Obtiene todos los mensajes del chat ordenados por timestamp ascendente. */
 export async function fetchMessages(): Promise<ChatMessage[]> {
   if (!isOnline()) return [];
   const { data, error } = await supabase
@@ -44,6 +47,10 @@ export async function fetchMessages(): Promise<ChatMessage[]> {
   return (data || []).map(mapMessageFromDB);
 }
 
+/**
+ * Envía un mensaje nuevo al chat via RPC `ccl_send_message`.
+ * Retorna el mensaje creado con el ID generado por la BD.
+ */
 export async function sendMessage(item: ChatMessage): Promise<ChatMessage> {
   const { data, error } = await supabase.rpc('ccl_send_message', { p_data: mapMessageToDB(item) });
   if (error) throw error;
@@ -54,6 +61,12 @@ export type RealtimeCallback<T> = (payload: T) => void;
 
 let activeUnsubscribe: (() => void) | null = null;
 
+/**
+ * Se suscribe a mensajes nuevos del chat via Supabase Realtime.
+ * Solo escucha eventos INSERT (no UPDATE/DELETE).
+ * Limpia la suscripción previa automáticamente.
+ * @returns Función para desuscribirse.
+ */
 export function subscribeToMessages(callback: RealtimeCallback<ChatMessage>): () => void {
   if (!isOnline()) return () => {};
 

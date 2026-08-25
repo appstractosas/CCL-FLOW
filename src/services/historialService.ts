@@ -3,6 +3,7 @@ import type { HistorialMovimiento } from '../types';
 
 const TABLE = 'historial_movimientos';
 
+/** Convierte un movimiento de la BD al formato frontend. */
 function mapMovimientoFromDB(item: Record<string, any>): HistorialMovimiento {
   return {
     id: item.id,
@@ -21,6 +22,10 @@ function isOnline(): boolean {
   return isSupabaseConfigured;
 }
 
+/**
+ * Obtiene el historial de movimientos más recientes.
+ * @param limit - Cantidad máxima de registros (default: 200).
+ */
 export async function fetchHistorial(limit = 200): Promise<HistorialMovimiento[]> {
   if (!isOnline()) return [];
   const { data, error } = await supabase
@@ -32,6 +37,11 @@ export async function fetchHistorial(limit = 200): Promise<HistorialMovimiento[]
   return (data || []).map(mapMovimientoFromDB);
 }
 
+/**
+ * Registra un movimiento de auditoría via RPC `ccl_create_movimiento`.
+ * Se llama automáticamente al crear/editar/eliminar transportes, usuarios, etc.
+ * @returns El movimiento creado, o null si está en modo demo.
+ */
 export async function createMovimiento(
   item: HistorialMovimiento,
 ): Promise<HistorialMovimiento | null> {

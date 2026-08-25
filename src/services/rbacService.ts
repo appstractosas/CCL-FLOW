@@ -173,6 +173,10 @@ export const PRESET_USERS: UserRecord[] = [
   },
 ];
 
+/**
+ * Retorna el roleId y roleName correspondientes a un tipo de usuario.
+ * Mapea: admin → ROLE_ADMIN, portero → ROLE_PORTERO, etc.
+ */
 export function roleForUserType(tipo: UserType): { roleId: string; roleName: string } {
   return { roleId: ROLE_ID_BY_USER_TYPE[tipo], roleName: ROLE_NAME_BY_USER_TYPE[tipo] };
 }
@@ -228,6 +232,7 @@ function isOnline(): boolean {
   return isSupabaseConfigured;
 }
 
+/** Obtiene todos los roles de la BD. Si la BD está vacía, retorna los roles predefinidos. */
 export async function fetchRoles(): Promise<Role[]> {
   if (!isOnline()) return PRESET_ROLES;
   const { data, error } = await supabase
@@ -239,12 +244,14 @@ export async function fetchRoles(): Promise<Role[]> {
   return roles.length > 0 ? roles : PRESET_ROLES;
 }
 
+/** Crea un rol nuevo via RPC `ccl_create_role`. */
 export async function createRole(item: Role): Promise<Role> {
   const { data, error } = await supabase.rpc('ccl_create_role', { p_data: mapRoleToDB(item) });
   if (error) throw error;
   return mapRoleFromDB(data);
 }
 
+/** Actualiza nombre, descripción y permisos de un rol via RPC `ccl_update_role`. */
 export async function updateRole(
   id: string,
   name: string,
@@ -260,11 +267,13 @@ export async function updateRole(
   if (error) throw error;
 }
 
+/** Elimina un rol via RPC `ccl_delete_role`. No se pueden eliminar roles predefinidos. */
 export async function deleteRole(id: string): Promise<void> {
   const { error } = await supabase.rpc('ccl_delete_role', { p_id: id });
   if (error) throw error;
 }
 
+/** Obtiene todos los usuarios de la BD. Si está vacía, retorna los usuarios predefinidos. */
 export async function fetchUsers(): Promise<UserRecord[]> {
   if (!isOnline()) return PRESET_USERS;
   const { data, error } = await supabase
@@ -276,12 +285,18 @@ export async function fetchUsers(): Promise<UserRecord[]> {
   return users.length > 0 ? users : PRESET_USERS;
 }
 
+/**
+ * Crea un usuario via RPC `ccl_create_user`.
+ * La contraseña se hashea server-side con bcrypt (pgcrypto).
+ * Valida fortaleza: mínimo 8 caracteres, 1 mayúscula, 1 número.
+ */
 export async function createUser(item: UserRecord): Promise<UserRecord> {
   const { data, error } = await supabase.rpc('ccl_create_user', { p_data: mapUserToDB(item) });
   if (error) throw error;
   return mapUserFromDB(data);
 }
 
+/** Actualiza un usuario via RPC `ccl_update_user`. Si cambia la clave, se re-hashea con bcrypt. */
 export async function updateUser(id: string, item: Partial<UserRecord>): Promise<void> {
   const dbUpdates: Record<string, any> = {};
   if (item.nombre !== undefined) dbUpdates.nombre = item.nombre;
@@ -294,11 +309,16 @@ export async function updateUser(id: string, item: Partial<UserRecord>): Promise
   if (error) throw error;
 }
 
+/** Elimina un usuario via RPC `ccl_delete_user`. */
 export async function deleteUser(id: string): Promise<void> {
   const { error } = await supabase.rpc('ccl_delete_user', { p_id: id });
   if (error) throw error;
 }
 
+/**
+ * Inicializa roles y usuarios predefinidos en la BD si está vacía.
+ * Se llama al arrancar la app (initialize). Las contraseñas se hashean con bcrypt.
+ */
 export async function seedInitialData(): Promise<boolean> {
   if (!isOnline()) return false;
   const { error } = await supabase.rpc('ccl_seed_initial_data');

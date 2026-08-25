@@ -3,6 +3,7 @@ import type { Notificacion, TipoNotificacion } from '../types';
 
 const TABLE = 'notificaciones';
 
+/** Convierte una notificación de la BD al formato frontend. */
 function mapNotifFromDB(item: Record<string, any>): Notificacion {
   return {
     id: item.id,
@@ -28,6 +29,10 @@ function isOnline(): boolean {
   return isSupabaseConfigured;
 }
 
+/**
+ * Obtiene las notificaciones más recientes.
+ * @param limit - Cantidad máxima de notificaciones (default: 50).
+ */
 export async function fetchNotificaciones(limit = 50): Promise<Notificacion[]> {
   if (!isOnline()) return [];
   const { data, error } = await supabase
@@ -39,6 +44,10 @@ export async function fetchNotificaciones(limit = 50): Promise<Notificacion[]> {
   return (data || []).map(mapNotifFromDB);
 }
 
+/**
+ * Crea una notificación via RPC `ccl_create_notificacion`.
+ * Las notificaciones se propagan a todos los usuarios via Realtime.
+ */
 export async function createNotificacion(
   payload: Omit<Notificacion, 'id' | 'leida' | 'createdAt'>,
 ): Promise<Notificacion> {
@@ -50,6 +59,7 @@ export async function createNotificacion(
   return mapNotifFromDB(data);
 }
 
+/** Marca todas las notificaciones como leídas via RPC `ccl_mark_notifs_read`. */
 export async function markAllNotificacionesLeidas(): Promise<void> {
   if (!isOnline()) return;
   const { error } = await supabase.rpc('ccl_mark_notifs_read');
@@ -60,6 +70,11 @@ export type RealtimeNotificacionCallback = (payload: Notificacion) => void;
 
 let activeUnsubscribe: (() => void) | null = null;
 
+/**
+ * Se suscribe a notificaciones nuevas via Supabase Realtime.
+ * Solo escucha eventos INSERT. Limpia la suscripción previa automáticamente.
+ * @returns Función para desuscribirse.
+ */
 export function subscribeToNotificaciones(callback: RealtimeNotificacionCallback): () => void {
   if (!isOnline()) return () => {};
 

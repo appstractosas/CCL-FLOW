@@ -1,3 +1,7 @@
+/**
+ * Identificadores de módulos de la aplicación.
+ * Cada módulo tiene permisos de acceso y edición en la matriz RBAC.
+ */
 export type AppModuleId =
   | 'despachos'
   | 'porteria'
@@ -23,13 +27,19 @@ export type UserType =
   | 'tablero'
   | 'informes';
 
+/** Permisos de un módulo para un rol: puede acceder y/o puede editar. */
 export interface ModulePermission {
   canAccess: boolean;
   canEdit: boolean;
 }
 
+/** Mapa completo de permisos: un flag por cada módulo de la app. */
 export type PermissionsMap = Record<AppModuleId, ModulePermission>;
 
+/**
+ * Rol de la matriz de permisos (tabla `roles` en Supabase).
+ * Los roles predefinidos (isPreset=true) no se pueden eliminar.
+ */
 export interface Role {
   id: string;
   name: string;
@@ -38,6 +48,10 @@ export interface Role {
   permissions: PermissionsMap;
 }
 
+/**
+ * Sesión activa del usuario logueado.
+ * Se almacena en Zustand (no en localStorage — solo el token va a localStorage).
+ */
 export interface UserSession {
   id: string;
   name: string;
@@ -59,6 +73,7 @@ export interface UserRecord {
   createdAt?: string;
 }
 
+/** Acciones que se registran en el historial de movimientos. */
 export type HistorialAccion =
   | 'INICIO_SESION'
   | 'CIERRE_SESION'
@@ -166,6 +181,7 @@ export interface TransporteData {
   observaciones?: string;
 }
 
+/** Mensaje del chat inter-módulo (tabla `chat_messages` en Supabase). */
 export interface ChatMessage {
   id: string;
   senderRole: string;
@@ -205,6 +221,7 @@ export interface Ciudad {
   ciudad: string;
 }
 
+/** Estadísticas KPI del tablero de métricas. */
 export interface KPIStats {
   totalPedidos: number;
   cumplimientoSLA: number;

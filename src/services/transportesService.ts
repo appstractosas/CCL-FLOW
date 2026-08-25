@@ -3,6 +3,10 @@ import type { UnifiedTransporte } from '../types';
 
 const TABLE = 'transportes';
 
+/**
+ * Convierte un registro del formato frontend (camelCase) al formato BD (snake_case).
+ * Se usa para inserts y updates via RPC.
+ */
 function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
   return {
     llave: item.llave,
@@ -31,6 +35,7 @@ function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
   };
 }
 
+/** Convierte un registro de la BD (snake_case) al formato frontend (camelCase). */
 function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
   return {
     id: item.id,
@@ -65,6 +70,10 @@ function isOnline(): boolean {
   return isSupabaseConfigured;
 }
 
+/**
+ * Obtiene todos los transportes ordenados por fecha descendente.
+ * En modo demo retorna array vacío.
+ */
 export async function fetchTransportes(): Promise<UnifiedTransporte[]> {
   if (!isOnline()) return [];
   const { data, error } = await supabase
@@ -157,6 +166,11 @@ export function subscribeToTransportes(onChange: () => void): () => void {
   return activeRealtimeUnsubscribe;
 }
 
+/**
+ * Actualiza campos específicos de un transporte existente.
+ * Llama a la RPC `ccl_update_transporte` (SECURITY DEFINER).
+ * Si la BD no afecta ninguna fila, lanza un error explícito.
+ */
 export async function updateTransporte(
   id: string,
   updates: Partial<UnifiedTransporte>,
