@@ -263,7 +263,7 @@ BEGIN
     hora_fin_cargue = CASE WHEN p_data ? 'hora_fin_cargue' THEN p_data->>'hora_fin_cargue' ELSE hora_fin_cargue END,
     hora_salida = CASE WHEN p_data ? 'hora_salida' THEN p_data->>'hora_salida' ELSE hora_salida END,
     observaciones = CASE WHEN p_data ? 'observaciones' THEN p_data->>'observaciones' ELSE observaciones END
-  WHERE id = p_id;
+  WHERE id = p_id::uuid;
 
   GET DIAGNOSTICS v_count = ROW_COUNT;
   IF v_count = 0 THEN
