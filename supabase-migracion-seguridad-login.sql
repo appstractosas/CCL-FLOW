@@ -72,7 +72,6 @@ DECLARE
   v_user public.users%ROWTYPE;
   v_token TEXT;
   v_failed_count INTEGER;
-  v_user_record public.users%ROWTYPE;
 BEGIN
   -- PASO A: Rate limiting — contar intentos fallidos en últimos 5 minutos
   SELECT count(*) INTO v_failed_count
@@ -138,10 +137,12 @@ SET search_path = public
 AS $$
 DECLARE
   v_user public.users%ROWTYPE;
-  v_session RECORD;
+  v_created_at TIMESTAMPTZ;
+  v_expires_at TIMESTAMPTZ;
 BEGIN
-  -- Buscar sesión válida
-  SELECT s.*, u.* INTO v_session
+  -- Buscar sesión válida (usar alias para evitar ambigüedad de columnas duplicadas)
+  SELECT u.*, s.created_at, s.expires_at
+  INTO v_user, v_created_at, v_expires_at
   FROM public.sessions s
   JOIN public.users u ON u.cedula = s.cedula
   WHERE s.token = p_token
@@ -153,9 +154,7 @@ BEGIN
   END IF;
 
   -- Verificar inactividad: si la sesión tiene más de 30 minutos sin usar
-  -- created_at se actualiza en cada validate exitoso
-  IF v_session.created_at < now() - INTERVAL '30 minutes' THEN
-    -- Sesión expirada por inactividad — eliminar
+  IF v_created_at < now() - INTERVAL '30 minutes' THEN
     DELETE FROM public.sessions WHERE token = p_token;
     RETURN jsonb_build_object('ok', FALSE, 'reason', 'session_expired_inactive');
   END IF;
@@ -168,12 +167,12 @@ BEGIN
   RETURN jsonb_build_object(
     'ok', TRUE,
     'user', jsonb_build_object(
-      'id', v_session.id,
-      'nombre', v_session.nombre,
-      'cedula', v_session.cedula,
-      'tipo_usuario', v_session.tipo_usuario,
-      'role_id', v_session.role_id,
-      'role_name', v_session.role_name
+      'id', v_user.id,
+      'nombre', v_user.nombre,
+      'cedula', v_user.cedula,
+      'tipo_usuario', v_user.tipo_usuario,
+      'role_id', v_user.role_id,
+      'role_name', v_user.role_name
     )
   );
 END;
