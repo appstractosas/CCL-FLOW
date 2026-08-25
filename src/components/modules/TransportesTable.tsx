@@ -25,8 +25,6 @@ export interface TransportesTableProps {
   showCajas?: boolean;
   /** Muestra la columna ESTATUS (estado_transporte de la BD) entre CAJAS y ESTADO. */
   showEstatus?: boolean;
-  /** Llave que cambia solo cuando los FILTROS cambian (no cuando refrescan los datos por time real).
-   *  Al cambiar, se vuelve a la página 1. Si no se pasa, se usa la identidad de `rows`. */
   pageResetKey?: string;
 }
 

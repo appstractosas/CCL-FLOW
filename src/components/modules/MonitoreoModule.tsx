@@ -5,7 +5,7 @@ import { CrudModule } from '../common/CrudModule';
 import { UnifiedTransporte, PorteriaTimeField } from '../../types';
 
 export const MonitoreoModule: React.FC = () => {
-  const { updatePorteriaHora } = useLogisticsStore();
+  const { updatePorteriaHora, transportes } = useLogisticsStore();
   const { hasModuleEdit } = useAuthStore();
   const canEditRole = hasModuleEdit('monitoreo');
 
@@ -20,6 +20,7 @@ export const MonitoreoModule: React.FC = () => {
         hideAcciones: true,
         checklistOwner: canEditRole ? 'monitoreo' : undefined,
         onPorteriaHora: canEditRole ? handlePorteriaHora : undefined,
+
       }}
     />
   );

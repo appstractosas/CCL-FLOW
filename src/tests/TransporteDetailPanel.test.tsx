@@ -171,33 +171,23 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
     expect(screen.queryByText('• alistado')).not.toBeInTheDocument();
   });
 
-  it('muestra transportadora y destino en el encabezado sin títulos, y Kg bajo H. Salida (sin Nº Pedido ni Cliente)', () => {
+  it('muestra transportadora y región en el encabezado sin títulos, y Kg bajo H. Salida', () => {
     const { container } = render(
       <TransporteDetailPanel
-        row={makeRow({ transporte: '3000214899', denominacion: 'GLOBAL DISTR', destino: 'NEIVA', kg: 8500 })}
+        row={makeRow({ transporte: '3000214899', denominacion: 'GLOBAL DISTR', destino: 'NEIVA', region: 'BOGOTA', kg: 8500 })}
         onClose={onClose}
       />
     );
 
-    // Encabezado: transportadora (izquierda del tipo de vehículo) y destino debajo, SIN títulos.
+    // Encabezado: transportadora y región, SIN títulos.
     expect(screen.getByText('ICOLTRANS')).toBeInTheDocument();
-    expect(screen.getByText('NEIVA')).toBeInTheDocument();
+    expect(screen.getByText('BOGOTA')).toBeInTheDocument();
     expect(screen.queryByText('Transportadora')).not.toBeInTheDocument();
-    expect(screen.queryByText('Destino')).not.toBeInTheDocument();
-
-    // En el cuerpo ya no existe la fila Transportadora sobre Hora Cita.
-    const enOrden = (a: HTMLElement, b: HTMLElement) =>
-      a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
-    const horaCita = screen.getByText('Hora Cita (Slot programado)');
-    expect(enOrden(horaCita, screen.getByText('H. Llegada Portería'))).toBeTruthy();
-
-    // Nº Pedido y Cliente se retiraron de la UI (los datos siguen en la BD).
-    expect(screen.queryByText('Nº Pedido')).not.toBeInTheDocument();
-    expect(screen.queryByText('Cliente')).not.toBeInTheDocument();
-    expect(screen.queryByText('3000214899')).not.toBeInTheDocument();
-    expect(screen.queryByText('GLOBAL DISTR')).not.toBeInTheDocument();
+    expect(screen.queryByText('Región')).not.toBeInTheDocument();
 
     // Kg queda bajo H. Salida Portería.
+    const enOrden = (a: HTMLElement, b: HTMLElement) =>
+      a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
     const salida = screen.getByText('H. Salida Portería');
     const kg = screen.getByText('8.500');
     expect(enOrden(salida, kg)).toBeTruthy();

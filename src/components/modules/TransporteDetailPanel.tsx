@@ -150,7 +150,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
               <span className="text-[11px] font-semibold text-zinc-100 truncate">{row.transportadora || '—'}</span>
               <TipoBadge tipo={row.vehiculoTipo} />
             </div>
-            <span className="text-[11px] font-semibold text-zinc-100 truncate">{row.destino || '—'}</span>
+            <span className="text-[11px] font-semibold text-zinc-100 truncate">{row.region || '—'}</span>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-white p-1.5 rounded-lg shrink-0">
             <X className="w-5 h-5" />
