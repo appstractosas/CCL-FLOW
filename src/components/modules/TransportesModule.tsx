@@ -38,7 +38,6 @@ export const TransportesModule: React.FC = () => {
         showCajas: true,
         showEstatus: true,
         onEdit: openEdit,
-
       }}
     >
       {editingRow && (

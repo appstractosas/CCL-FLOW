@@ -69,9 +69,9 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
     const a = await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-50000' });
 
     // Misma llave + MISMA placa (aunque se escriba en minúsculas) → rechazado.
-    await expect(
-      store.addTransporte({ placa: 'xyz-999', llave: 'LL-50000' })
-    ).rejects.toThrow(/ya existe/i);
+    await expect(store.addTransporte({ placa: 'xyz-999', llave: 'LL-50000' })).rejects.toThrow(
+      /ya existe/i,
+    );
 
     // Misma llave + OTRA placa → crea su PROPIA fila (una fila por placa).
     const b = await store.addTransporte({ placa: 'ABC-123', llave: 'LL-50000' });
@@ -96,13 +96,13 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
     const store = useLogisticsStore.getState();
     await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-50000' });
     useLogisticsStore.setState({
-      transportes: useLogisticsStore.getState().transportes.map((t) =>
-        t.llave === 'LL-50000' ? { ...t, transporte: '3000000001' } : t
-      ),
+      transportes: useLogisticsStore
+        .getState()
+        .transportes.map((t) => (t.llave === 'LL-50000' ? { ...t, transporte: '3000000001' } : t)),
     });
 
     await expect(
-      store.addTransporte({ placa: 'ABC-123', llave: 'LL-50001', transporte: '3000000001' })
+      store.addTransporte({ placa: 'ABC-123', llave: 'LL-50001', transporte: '3000000001' }),
     ).rejects.toThrow(/ya está asociado a otra llave/i);
   });
 
@@ -111,9 +111,9 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
     const a = await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-60533' });
     const b = await store.addTransporte({ placa: 'ABC-123', llave: 'LL-60534' });
     useLogisticsStore.setState({
-      transportes: useLogisticsStore.getState().transportes.map((t) =>
-        t.id === a.id ? { ...t, transporte: '3000000001' } : t
-      ),
+      transportes: useLogisticsStore
+        .getState()
+        .transportes.map((t) => (t.id === a.id ? { ...t, transporte: '3000000001' } : t)),
     });
 
     await store.updateTransporte(b.id, { transporte: '3000000001' });
@@ -142,7 +142,7 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
     expect(row.estadoPorteria).toBe('Confirmado');
 
     store.updatePorteriaHora(row.id, 'horaLlegadaPorteria', '08:00');
-    let currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
+    const currentRow = useLogisticsStore.getState().transportes.find((t) => t.id === row.id);
     expect(currentRow?.horaLlegadaPorteria).toBe('08:00');
     expect(currentRow?.estadoPorteria).toBe('LLEGO A PORTERIA');
   });
@@ -364,7 +364,12 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
 
   it('debería marcar el chat como leído (unreadChatCount=0)', () => {
     const store = useLogisticsStore.getState();
-    store.sendMessage({ senderRole: 'portero', senderName: 'R', senderModule: 'Portería', content: 'Hola' });
+    store.sendMessage({
+      senderRole: 'portero',
+      senderName: 'R',
+      senderModule: 'Portería',
+      content: 'Hola',
+    });
     store.markChatRead();
     expect(useLogisticsStore.getState().unreadChatCount).toBe(0);
     expect(useLogisticsStore.getState().messages.every((m) => m.isRead)).toBe(true);
@@ -373,7 +378,14 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
   it('debería marcar las notificaciones como leídas', () => {
     useLogisticsStore.setState({
       notificaciones: [
-        { id: 'N-1', tipo: 'LLEGO_PORTERIA', titulo: 't', mensaje: 'm', leida: false, createdAt: 'x' },
+        {
+          id: 'N-1',
+          tipo: 'LLEGO_PORTERIA',
+          titulo: 't',
+          mensaje: 'm',
+          leida: false,
+          createdAt: 'x',
+        },
       ],
       unreadNotifCount: 1,
     });

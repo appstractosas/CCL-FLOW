@@ -13,7 +13,9 @@ describe('dateUtils · presets de rango (informes)', () => {
 
   it('inicioMesStr es el día 1 del mes actual', () => {
     const d = new Date();
-    expect(inicioMesStr()).toBe(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`);
+    expect(inicioMesStr()).toBe(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`,
+    );
   });
 
   it('inicioAnioStr es el 1 de enero del año actual', () => {

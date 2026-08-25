@@ -31,7 +31,9 @@ export const LoginScreen: React.FC = () => {
               <Truck className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">Torre de Control Logística</h1>
+              <h1 className="text-lg font-bold text-white tracking-tight">
+                Torre de Control Logística
+              </h1>
               <p className="text-xs text-zinc-400">Inicio de sesión · CCL-FLOW</p>
             </div>
           </div>
@@ -74,7 +76,11 @@ export const LoginScreen: React.FC = () => {
               disabled={loading}
               className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-sm py-2.5 rounded-xl flex items-center justify-center space-x-2 transition-all active:scale-[0.98]"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <LogIn className="w-4 h-4" />
+              )}
               <span>{loading ? 'Verificando...' : 'Ingresar al sistema'}</span>
             </button>
 
@@ -82,7 +88,8 @@ export const LoginScreen: React.FC = () => {
               <div className="flex items-center justify-center space-x-1.5 text-[10px] text-zinc-500">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 <span>
-                  ADMIN por defecto: cédula <strong className="text-zinc-300 font-mono">0000000000</strong> / clave{' '}
+                  ADMIN por defecto: cédula{' '}
+                  <strong className="text-zinc-300 font-mono">0000000000</strong> / clave{' '}
                   <strong className="text-zinc-300 font-mono">admin</strong>
                 </span>
               </div>

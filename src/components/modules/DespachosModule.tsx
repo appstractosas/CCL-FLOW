@@ -34,7 +34,6 @@ export const DespachosModule: React.FC = () => {
         onPorteriaHora: canEditRole ? handlePorteriaHora : undefined,
         onCuadrilla: canModifyCuadrilla ? handleCuadrilla : undefined,
         onCajas: canModifyCuadrilla ? handleCajas : undefined,
-
       }}
     />
   );

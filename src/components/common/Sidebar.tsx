@@ -51,7 +51,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* Logo & Header */}
       <div className="px-3 py-2.5 border-b border-zinc-800/80">
-        <div className="flex items-center space-x-1.5 cursor-pointer" onClick={() => setActiveModule('despachos')}>
+        <div
+          className="flex items-center space-x-1.5 cursor-pointer"
+          onClick={() => setActiveModule('despachos')}
+        >
           <img src={logoSrc} alt="CCL Logo" className="h-8 w-auto" />
           <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-1.5 py-0.5 rounded border border-emerald-500/30">
             YMS
@@ -88,7 +91,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }`}
             >
               <div className="flex items-center space-x-2">
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-400' : 'text-zinc-500'}`} />
+                <Icon
+                  className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-400' : 'text-zinc-500'}`}
+                />
                 <span>{item.label}</span>
               </div>
             </button>

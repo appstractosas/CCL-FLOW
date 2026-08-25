@@ -36,7 +36,10 @@ function isOnline(): boolean {
 
 export async function fetchMessages(): Promise<ChatMessage[]> {
   if (!isOnline()) return [];
-  const { data, error } = await supabase.from(TABLE).select('*').order('timestamp', { ascending: true });
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .order('timestamp', { ascending: true });
   if (error) throw error;
   return (data || []).map(mapMessageFromDB);
 }
@@ -62,12 +65,9 @@ export function subscribeToMessages(callback: RealtimeCallback<ChatMessage>): ()
 
   const channel = supabase
     .channel('chat_messages_realtime')
-    .on('postgres_changes',
-      { event: 'INSERT', schema: 'public', table: TABLE },
-      (payload) => {
-        callback(mapMessageFromDB(payload.new));
-      }
-    )
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLE }, (payload) => {
+      callback(mapMessageFromDB(payload.new));
+    })
     .subscribe();
 
   activeUnsubscribe = () => {

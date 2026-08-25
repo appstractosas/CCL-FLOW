@@ -96,7 +96,11 @@ export function dotPorDia(base: string, esDomingoCheck: (fecha: string) => boole
  * costos fijos (Costo CCL) que se repiten cada día: evita repetir la misma
  * etiqueta y la sitúa sobre el punto, alineada con el eje Y.
  */
-export function dotUltimoConEtiqueta(base: string, ultimaFecha: string, formatear: (n: number) => string) {
+export function dotUltimoConEtiqueta(
+  base: string,
+  ultimaFecha: string,
+  formatear: (n: number) => string,
+) {
   return (props: { cx?: number; cy?: number; payload?: { name?: string; value?: number } }) => {
     const { cx, cy, payload } = props;
     if (cx == null || cy == null) return null;
@@ -153,7 +157,10 @@ function ChartHeader({ title, subtitle }: { title: string; subtitle: string }) {
 }
 
 /** Embudo operativo (BarChart vertical): llaves por estado del flujo. */
-export const EmbudoPanel: React.FC<{ data: EstadoConteo[]; sinDatos: boolean }> = ({ data, sinDatos }) => (
+export const EmbudoPanel: React.FC<{ data: EstadoConteo[]; sinDatos: boolean }> = ({
+  data,
+  sinDatos,
+}) => (
   <div className="lg:col-span-5 bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
     <ChartHeader title="Embudo Operativo" subtitle="Llaves por estado del flujo" />
     {sinDatos ? (
@@ -161,7 +168,11 @@ export const EmbudoPanel: React.FC<{ data: EstadoConteo[]; sinDatos: boolean }> 
     ) : (
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ top: 0, right: 28, bottom: 0, left: 8 }}>
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 0, right: 28, bottom: 0, left: 8 }}
+          >
             <YAxis
               type="category"
               dataKey="estado"
@@ -277,7 +288,14 @@ export const DonutSvg: React.FC<{
         </defs>
 
         {/* Anillo de sombra gris (debajo de todos los segmentos) */}
-        <circle cx={CX} cy={CY} r={OUTER} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth={grosor} />
+        <circle
+          cx={CX}
+          cy={CY}
+          r={OUTER}
+          fill="none"
+          stroke="rgba(0,0,0,0.06)"
+          strokeWidth={grosor}
+        />
 
         {partes.map((p, i) => {
           const [x1o, y1o] = pt(OUTER, p.start);
@@ -328,7 +346,13 @@ export const DonutSvg: React.FC<{
               >
                 {p.label}
               </text>
-              <text x={labelX + offX} y={labelY + fontSizeValor * 1.1} fontSize={fontSizeValor} fill="#ffffff" textAnchor={anchor}>
+              <text
+                x={labelX + offX}
+                y={labelY + fontSizeValor * 1.1}
+                fontSize={fontSizeValor}
+                fill="#ffffff"
+                textAnchor={anchor}
+              >
                 {`${fmtMiles(p.value)} (${pct}%)`}
               </text>
             </g>
@@ -343,10 +367,24 @@ export const DonutSvg: React.FC<{
           fill="#172033"
           style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.05))' }}
         />
-        <text x={CX} y={CY - 3 * escala} textAnchor="middle" fontSize={17 * escala} fontWeight={800} fill="#ffffff">
+        <text
+          x={CX}
+          y={CY - 3 * escala}
+          textAnchor="middle"
+          fontSize={17 * escala}
+          fontWeight={800}
+          fill="#ffffff"
+        >
           {fmtMiles(total)}
         </text>
-        <text x={CX} y={CY + 15 * escala} textAnchor="middle" fontSize={10 * escala} fontWeight={600} fill="#a1a1aa">
+        <text
+          x={CX}
+          y={CY + 15 * escala}
+          textAnchor="middle"
+          fontSize={10 * escala}
+          fontWeight={600}
+          fill="#a1a1aa"
+        >
           {centroLabel}
         </text>
       </svg>
@@ -355,7 +393,10 @@ export const DonutSvg: React.FC<{
 };
 
 /** Flota por tipo (donut) con etiquetas, sombra y total al centro. */
-export const FlotaPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({ data, sinDatos }) => {
+export const FlotaPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({
+  data,
+  sinDatos,
+}) => {
   const segments: SegmentoDonut[] = data.map((d) => ({
     label: d.name,
     value: d.value,
@@ -376,7 +417,10 @@ export const FlotaPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = 
 };
 
 /** Llaves por transportadora (top N). */
-export const TransportadorasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({ data, sinDatos }) => (
+export const TransportadorasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({
+  data,
+  sinDatos,
+}) => (
   <div className="lg:col-span-4 bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
     <ChartHeader title="Llaves por Transportadora" subtitle="Top 8 del rango" />
     {sinDatos ? (
@@ -396,9 +440,20 @@ export const TransportadorasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boo
               textAnchor="end"
               height={64}
             />
-            <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <YAxis
+              tick={{ fill: '#71717a', fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+            />
             <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: '#1c2233' }} />
-            <Bar dataKey="value" fill="#0284c7" radius={[6, 6, 0, 0]} barSize={18} isAnimationActive={false}>
+            <Bar
+              dataKey="value"
+              fill="#0284c7"
+              radius={[6, 6, 0, 0]}
+              barSize={18}
+              isAnimationActive={false}
+            >
               <LabelList
                 dataKey="value"
                 position="top"
@@ -413,7 +468,10 @@ export const TransportadorasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boo
 );
 
 /** Volumen de llaves por día (área). */
-export const VolumenPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({ data, sinDatos }) => (
+export const VolumenPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({
+  data,
+  sinDatos,
+}) => (
   <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
     <ChartHeader title="Volumen de Llaves por Día" subtitle="Entradas programadas en el rango" />
     {sinDatos ? (
@@ -436,10 +494,31 @@ export const VolumenPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> 
               axisLine={false}
               tickLine={false}
             />
-            <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <YAxis
+              tick={{ fill: '#71717a', fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+            />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
-            <Bar dataKey="value" name="Llaves" fill="#10b981" fillOpacity={0.35} radius={[4, 4, 0, 0]} barSize={16} isAnimationActive={false} />
-            <Area type="monotone" dataKey="value" name="Llaves" stroke="#10b981" strokeWidth={2} fill="url(#fillVolumen)" isAnimationActive={false}>
+            <Bar
+              dataKey="value"
+              name="Llaves"
+              fill="#10b981"
+              fillOpacity={0.35}
+              radius={[4, 4, 0, 0]}
+              barSize={16}
+              isAnimationActive={false}
+            />
+            <Area
+              type="monotone"
+              dataKey="value"
+              name="Llaves"
+              stroke="#10b981"
+              strokeWidth={2}
+              fill="url(#fillVolumen)"
+              isAnimationActive={false}
+            >
               <LabelList
                 dataKey="value"
                 position="top"
@@ -454,25 +533,75 @@ export const VolumenPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> 
 );
 
 /** Uso y ocupación de muelles (barras apiladas llaves/cajas). */
-export const MuellesPanel: React.FC<{ data: MuelleUso[]; sinDatos: boolean }> = ({ data, sinDatos }) => (
+export const MuellesPanel: React.FC<{ data: MuelleUso[]; sinDatos: boolean }> = ({
+  data,
+  sinDatos,
+}) => (
   <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
-    <ChartHeader title="Uso y Ocupación de Muelles" subtitle="Número de llaves y cajas por muelle (más cajas arriba, menos cajas abajo)" />
+    <ChartHeader
+      title="Uso y Ocupación de Muelles"
+      subtitle="Número de llaves y cajas por muelle (más cajas arriba, menos cajas abajo)"
+    />
     {sinDatos ? (
       <PanelEmpty />
     ) : (
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ top: 0, right: 34, bottom: 0, left: 4 }}>
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 0, right: 34, bottom: 0, left: 4 }}
+          >
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#27272a" />
-            <XAxis type="number" tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
-            <YAxis type="category" dataKey="name" tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} />
+            <XAxis
+              type="number"
+              tick={{ fill: '#71717a', fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+            />
+            <YAxis
+              type="category"
+              dataKey="name"
+              tick={{ fill: '#71717a', fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+            />
             <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: '#1c2233' }} />
             <Legend wrapperStyle={{ fontSize: 10 }} />
-            <Bar dataKey="despachos" name="Llaves" fill="#0284c7" radius={[0, 6, 6, 0]} barSize={12} isAnimationActive={false}>
-              <LabelList dataKey="despachos" position="insideEnd" fill="#ffffff" fontSize={10} fontFamily="monospace" formatter={(v) => (v === 0 ? '' : v)} />
+            <Bar
+              dataKey="despachos"
+              name="Llaves"
+              fill="#0284c7"
+              radius={[0, 6, 6, 0]}
+              barSize={12}
+              isAnimationActive={false}
+            >
+              <LabelList
+                dataKey="despachos"
+                position="insideEnd"
+                fill="#ffffff"
+                fontSize={10}
+                fontFamily="monospace"
+                formatter={(v) => (v === 0 ? '' : v)}
+              />
             </Bar>
-            <Bar dataKey="cajas" name="Cajas" fill="#f59e0b" radius={[0, 6, 6, 0]} barSize={12} isAnimationActive={false}>
-              <LabelList dataKey="cajas" position="insideEnd" fill="#ffffff" fontSize={10} fontFamily="monospace" formatter={(v) => (v === 0 ? '' : v)} />
+            <Bar
+              dataKey="cajas"
+              name="Cajas"
+              fill="#f59e0b"
+              radius={[0, 6, 6, 0]}
+              barSize={12}
+              isAnimationActive={false}
+            >
+              <LabelList
+                dataKey="cajas"
+                position="insideEnd"
+                fill="#ffffff"
+                fontSize={10}
+                fontFamily="monospace"
+                formatter={(v) => (v === 0 ? '' : v)}
+              />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -482,163 +611,196 @@ export const MuellesPanel: React.FC<{ data: MuelleUso[]; sinDatos: boolean }> = 
 );
 
 /** Rentabilidad por cuadrilla (áreas sombreadas costo CCL vs ingresos SLA, domingos en rojo). */
-export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos: boolean }> = ({ data, sinDatos }) => {
+export const RentabilidadPanel: React.FC<{ data: RentabilidadBucket[]; sinDatos: boolean }> = ({
+  data,
+  sinDatos,
+}) => {
   const ccl = CONSTANTES.COSTO_DIARIO_CCL;
   const top = Math.max(1.05 * data.reduce((m, b) => Math.max(m, b.ingresoSLA, b.costoCCL), 0), ccl);
   return (
-  <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
-    <ChartHeader
-      title="Rentabilidad por Cuadrilla"
-      subtitle={`Costo CCL: ${CONSTANTES.COSTO_DIARIO_CCL.toLocaleString('es-CO')} por día · Costo SLA: cajas del día × ${CONSTANTES.INGRESO_CAJA_SLA.toLocaleString('es-CO')}`}
-    />
-    {sinDatos ? (
-      <PanelEmpty />
-    ) : (
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 18, right: 10, bottom: 0, left: -20 }}>
-            <defs>
-              <linearGradient id="gradCostoCCL" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.05} />
-              </linearGradient>
-              <linearGradient id="gradIngresoSLA" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.5} />
-                <stop offset="100%" stopColor="#22c55e" stopOpacity={0.05} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
-            <XAxis
-              dataKey="name"
-              tickFormatter={(v: string) => v.slice(5)}
-              tick={{ fill: '#71717a', fontSize: 10 }}
-              axisLine={false}
-              tickLine={false}
-              interval={0}
-            />
-            <YAxis
-              domain={[0, top]}
-              ticks={ticksEjeY(top, ccl)}
-              tick={tickYDestacado(ccl, '#3b82f6')}
-              axisLine={false}
-              tickLine={false}
-              allowDecimals={false}
-              interval={0}
-            />
-            <Tooltip contentStyle={TOOLTIP_STYLE} />
-            <Legend wrapperStyle={{ fontSize: 10 }} />
-            <Bar dataKey="ingresoSLA" name="Costo SLA" fill="#22c55e" fillOpacity={0.4} radius={[4, 4, 0, 0]} barSize={10} isAnimationActive={false} />
-            <Area
-              type="monotone"
-              dataKey="costoCCL"
-              name="Costo CCL"
-              stroke="#3b82f6"
-              strokeWidth={2}
-              fill="url(#gradCostoCCL)"
-              dot={dotUltimoConEtiqueta('#3b82f6', data[data.length - 1]?.name ?? '', (v) => v.toLocaleString('es-CO'))}
-              activeDot={{ r: 4, fill: '#3b82f6' }}
-              isAnimationActive={false}
-            />
-            <Area
-              type="monotone"
-              dataKey="ingresoSLA"
-              name="Costo SLA"
-              stroke="#22c55e"
-              strokeWidth={2}
-              fill="url(#gradIngresoSLA)"
-              dot={dotPorDia('#22c55e')}
-              activeDot={{ r: 4, fill: '#22c55e' }}
-              legendType="none"
-              isAnimationActive={false}
-            >
-              <LabelList
-                dataKey="ingresoSLA"
-                position="top"
-                formatter={(v: unknown) =>
-                  String(v).length > 0 && Number(v) > 0 ? Number(v).toLocaleString('es-CO') : ''
-                }
-                style={{ fill: '#86efac', fontSize: 9, fontFamily: 'monospace' }}
+    <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
+      <ChartHeader
+        title="Rentabilidad por Cuadrilla"
+        subtitle={`Costo CCL: ${CONSTANTES.COSTO_DIARIO_CCL.toLocaleString('es-CO')} por día · Costo SLA: cajas del día × ${CONSTANTES.INGRESO_CAJA_SLA.toLocaleString('es-CO')}`}
+      />
+      {sinDatos ? (
+        <PanelEmpty />
+      ) : (
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={data} margin={{ top: 18, right: 10, bottom: 0, left: -20 }}>
+              <defs>
+                <linearGradient id="gradCostoCCL" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.05} />
+                </linearGradient>
+                <linearGradient id="gradIngresoSLA" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="#22c55e" stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
+              <XAxis
+                dataKey="name"
+                tickFormatter={(v: string) => v.slice(5)}
+                tick={{ fill: '#71717a', fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                interval={0}
               />
-            </Area>
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-    )}
-  </div>
+              <YAxis
+                domain={[0, top]}
+                ticks={ticksEjeY(top, ccl)}
+                tick={tickYDestacado(ccl, '#3b82f6')}
+                axisLine={false}
+                tickLine={false}
+                allowDecimals={false}
+                interval={0}
+              />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
+              <Legend wrapperStyle={{ fontSize: 10 }} />
+              <Bar
+                dataKey="ingresoSLA"
+                name="Costo SLA"
+                fill="#22c55e"
+                fillOpacity={0.4}
+                radius={[4, 4, 0, 0]}
+                barSize={10}
+                isAnimationActive={false}
+              />
+              <Area
+                type="monotone"
+                dataKey="costoCCL"
+                name="Costo CCL"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                fill="url(#gradCostoCCL)"
+                dot={dotUltimoConEtiqueta('#3b82f6', data[data.length - 1]?.name ?? '', (v) =>
+                  v.toLocaleString('es-CO'),
+                )}
+                activeDot={{ r: 4, fill: '#3b82f6' }}
+                isAnimationActive={false}
+              />
+              <Area
+                type="monotone"
+                dataKey="ingresoSLA"
+                name="Costo SLA"
+                stroke="#22c55e"
+                strokeWidth={2}
+                fill="url(#gradIngresoSLA)"
+                dot={dotPorDia('#22c55e')}
+                activeDot={{ r: 4, fill: '#22c55e' }}
+                legendType="none"
+                isAnimationActive={false}
+              >
+                <LabelList
+                  dataKey="ingresoSLA"
+                  position="top"
+                  formatter={(v: unknown) =>
+                    String(v).length > 0 && Number(v) > 0 ? Number(v).toLocaleString('es-CO') : ''
+                  }
+                  style={{ fill: '#86efac', fontSize: 9, fontFamily: 'monospace' }}
+                />
+              </Area>
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
   );
 };
 
 /** Cajas diarias con meta punteada. */
-export const CajasDiariasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({ data, sinDatos }) => {
+export const CajasDiariasPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({
+  data,
+  sinDatos,
+}) => {
   const meta = CONSTANTES.META_CAJAS_DIARIAS;
   const top = Math.max(data.reduce((m, d) => Math.max(m, d.value), 0) * 1.05, meta);
   return (
-  <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
-    <ChartHeader
-      title="Cajas Diarias"
-      subtitle={`Cantidad de cajas registradas por día — meta diaria ${CONSTANTES.META_CAJAS_DIARIAS.toLocaleString('es-CO')}`}
-    />
-    {sinDatos ? (
-      <PanelEmpty />
-    ) : (
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 18, right: 10, bottom: 0, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
-            <XAxis
-              dataKey="name"
-              tickFormatter={(v: string) => v.slice(5)}
-              tick={{ fill: '#71717a', fontSize: 10 }}
-              axisLine={false}
-              tickLine={false}
-              interval={0}
-            />
-            <YAxis
-              domain={[0, top]}
-              ticks={ticksEjeY(top, meta)}
-              tick={tickYDestacado(meta, '#ef4444')}
-              axisLine={false}
-              tickLine={false}
-              interval={0}
-            />
-            <Tooltip contentStyle={TOOLTIP_STYLE} />
-            <ReferenceLine
-              y={CONSTANTES.META_CAJAS_DIARIAS}
-              stroke="#ef4444"
-              strokeDasharray="2 5"
-              strokeWidth={2}
-              label={{ value: 'Meta', fill: '#ef4444', fontSize: 10, fontWeight: 700, position: 'insideTopRight' }}
-            />
-            <Bar dataKey="value" name="Cajas" fill="#f59e0b" fillOpacity={0.4} radius={[4, 4, 0, 0]} barSize={16} isAnimationActive={false} />
-            <Line
-              type="monotone"
-              dataKey="value"
-              name="Cajas"
-              stroke="#f59e0b"
-              strokeWidth={2}
-              dot={dotPorDia('#f59e0b')}
-              activeDot={{ r: 4, fill: '#f59e0b' }}
-              isAnimationActive={false}
-            >
-              <LabelList
-                dataKey="value"
-                position="top"
-                formatter={(v: unknown) =>
-                  String(v).length > 0 ? Number(v).toLocaleString('es-CO') : ''
-                }
-                style={{ fill: '#fcd34d', fontSize: 9, fontFamily: 'monospace' }}
+    <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
+      <ChartHeader
+        title="Cajas Diarias"
+        subtitle={`Cantidad de cajas registradas por día — meta diaria ${CONSTANTES.META_CAJAS_DIARIAS.toLocaleString('es-CO')}`}
+      />
+      {sinDatos ? (
+        <PanelEmpty />
+      ) : (
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={data} margin={{ top: 18, right: 10, bottom: 0, left: -20 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a" />
+              <XAxis
+                dataKey="name"
+                tickFormatter={(v: string) => v.slice(5)}
+                tick={{ fill: '#71717a', fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                interval={0}
               />
-            </Line>
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-    )}
-  </div>
+              <YAxis
+                domain={[0, top]}
+                ticks={ticksEjeY(top, meta)}
+                tick={tickYDestacado(meta, '#ef4444')}
+                axisLine={false}
+                tickLine={false}
+                interval={0}
+              />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
+              <ReferenceLine
+                y={CONSTANTES.META_CAJAS_DIARIAS}
+                stroke="#ef4444"
+                strokeDasharray="2 5"
+                strokeWidth={2}
+                label={{
+                  value: 'Meta',
+                  fill: '#ef4444',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  position: 'insideTopRight',
+                }}
+              />
+              <Bar
+                dataKey="value"
+                name="Cajas"
+                fill="#f59e0b"
+                fillOpacity={0.4}
+                radius={[4, 4, 0, 0]}
+                barSize={16}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="value"
+                name="Cajas"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                dot={dotPorDia('#f59e0b')}
+                activeDot={{ r: 4, fill: '#f59e0b' }}
+                isAnimationActive={false}
+              >
+                <LabelList
+                  dataKey="value"
+                  position="top"
+                  formatter={(v: unknown) =>
+                    String(v).length > 0 ? Number(v).toLocaleString('es-CO') : ''
+                  }
+                  style={{ fill: '#fcd34d', fontSize: 9, fontFamily: 'monospace' }}
+                />
+              </Line>
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
   );
 };
 
 /** Cajas cargadas por cuadrilla (donut). Solo muestra grupos con cajas. */
-export const CajasGrupoPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({ data, sinDatos }) => {
+export const CajasGrupoPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = ({
+  data,
+  sinDatos,
+}) => {
   const conDatos = data.filter((d) => d.value > 0);
   const segments: SegmentoDonut[] = conDatos.map((d) => ({
     label: d.name,
@@ -647,7 +809,10 @@ export const CajasGrupoPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean 
   }));
   return (
     <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
-      <ChartHeader title="Cajas Cargadas por Cuadrilla" subtitle="Distribución porcentual por tipo de cuadrilla" />
+      <ChartHeader
+        title="Cajas Cargadas por Cuadrilla"
+        subtitle="Distribución porcentual por tipo de cuadrilla"
+      />
       {sinDatos || conDatos.length === 0 ? (
         <PanelEmpty />
       ) : (
@@ -660,10 +825,10 @@ export const CajasGrupoPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean 
 };
 
 /** Etapa de portería: descripción, promedio/mín/máx y llaves medidas. */
-const TiempoEtapaTooltip: React.FC<{ active?: boolean; payload?: { payload: TiempoEtapaResumen }[] }> = ({
-  active,
-  payload,
-}) => {
+const TiempoEtapaTooltip: React.FC<{
+  active?: boolean;
+  payload?: { payload: TiempoEtapaResumen }[];
+}> = ({ active, payload }) => {
   if (!active || !payload || payload.length === 0) return null;
   const e = payload[0].payload;
   return (
@@ -686,7 +851,10 @@ const TiempoEtapaTooltip: React.FC<{ active?: boolean; payload?: { payload: Tiem
  * Barras horizontales: tiempo promedio (minutos) de cada etapa de portería.
  * Revela el "cuello de botella" del flujo entre dos hitos de hora.
  */
-export const TiemposEtapaPanel: React.FC<{ data: TiempoEtapaResumen[]; sinDatos: boolean }> = ({ data, sinDatos }) => {
+export const TiemposEtapaPanel: React.FC<{ data: TiempoEtapaResumen[]; sinDatos: boolean }> = ({
+  data,
+  sinDatos,
+}) => {
   const conDatos = data.some((d) => d.conteo > 0);
   return (
     <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
@@ -699,7 +867,11 @@ export const TiemposEtapaPanel: React.FC<{ data: TiempoEtapaResumen[]; sinDatos:
       ) : (
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} layout="vertical" margin={{ top: 0, right: 40, bottom: 0, left: 8 }}>
+            <BarChart
+              data={data}
+              layout="vertical"
+              margin={{ top: 0, right: 40, bottom: 0, left: 8 }}
+            >
               <YAxis
                 type="category"
                 dataKey="label"
@@ -710,7 +882,13 @@ export const TiemposEtapaPanel: React.FC<{ data: TiempoEtapaResumen[]; sinDatos:
               />
               <XAxis type="number" hide />
               <Tooltip content={<TiempoEtapaTooltip />} cursor={{ fill: '#1c2233' }} />
-              <Bar dataKey="promedio" name="Promedio" radius={[0, 6, 6, 0]} barSize={18} isAnimationActive={false}>
+              <Bar
+                dataKey="promedio"
+                name="Promedio"
+                radius={[0, 6, 6, 0]}
+                barSize={18}
+                isAnimationActive={false}
+              >
                 {data.map((entry) => (
                   <Cell key={entry.id} fill={entry.color} />
                 ))}
@@ -751,14 +929,14 @@ export const TiemposHeatmapPanel: React.FC<{
 }> = ({ data, sinDatos }) => {
   const maxCount = RANGOS_DEMORA.reduce(
     (acc, rg) => ETAPAS_PORTERIA.reduce((m, e) => Math.max(m, data[rg.id]?.[e.id] ?? 0), acc),
-    0
+    0,
   );
   const conDatos = RANGOS_DEMORA.some((rg) =>
-    ETAPAS_PORTERIA.some((e) => (data[rg.id]?.[e.id] ?? 0) > 0)
+    ETAPAS_PORTERIA.some((e) => (data[rg.id]?.[e.id] ?? 0) > 0),
   );
   const totalLlaves = RANGOS_DEMORA.reduce(
     (acc, rg) => acc + ETAPAS_PORTERIA.reduce((s, e) => s + (data[rg.id]?.[e.id] ?? 0), 0),
-    0
+    0,
   );
 
   return (
@@ -771,7 +949,10 @@ export const TiemposHeatmapPanel: React.FC<{
         <PanelEmpty />
       ) : (
         <div className="flex-1 flex flex-col justify-center gap-1.5">
-          <div className="grid items-center" style={{ gridTemplateColumns: '132px repeat(6, minmax(0, 1fr))', gap: 4 }}>
+          <div
+            className="grid items-center"
+            style={{ gridTemplateColumns: '132px repeat(6, minmax(0, 1fr))', gap: 4 }}
+          >
             <div />
             {RANGOS_DEMORA.map((rg) => (
               <div
@@ -792,8 +973,13 @@ export const TiemposHeatmapPanel: React.FC<{
                 style={{ gridTemplateColumns: '132px repeat(6, minmax(0, 1fr))', gap: 4 }}
               >
                 <span className="flex items-center gap-1.5 pr-1 min-w-0">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: etapa.color }} />
-                  <span className="text-[9px] font-bold text-zinc-300 leading-tight truncate">{etapa.label}</span>
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: etapa.color }}
+                  />
+                  <span className="text-[9px] font-bold text-zinc-300 leading-tight truncate">
+                    {etapa.label}
+                  </span>
                 </span>
                 {RANGOS_DEMORA.map((rg) => {
                   const count = data[rg.id]?.[etapa.id] ?? 0;
@@ -805,7 +991,10 @@ export const TiemposHeatmapPanel: React.FC<{
                       className={`py-2 rounded-md text-center font-mono text-[11px] font-bold ${
                         count > 0 && a > 0.5 ? 'text-white' : 'text-zinc-500'
                       }`}
-                      style={{ backgroundColor: count > 0 ? hexToRgba(etapa.color, a) : 'rgba(255,255,255,0.03)' }}
+                      style={{
+                        backgroundColor:
+                          count > 0 ? hexToRgba(etapa.color, a) : 'rgba(255,255,255,0.03)',
+                      }}
                     >
                       {count > 0 ? count : '·'}
                     </div>
@@ -838,7 +1027,7 @@ export const PosicionamientoPanel: React.FC<{
   const { celdas, fechas, horas } = data;
 
   const totalesPorHora = horas.map((h) =>
-    fechas.reduce((acc, f) => acc + (celdas.get(`${f.label}___${h}`)?.count ?? 0), 0)
+    fechas.reduce((acc, f) => acc + (celdas.get(`${f.label}___${h}`)?.count ?? 0), 0),
   );
   const totalGeneral = totalesPorHora.reduce((a, b) => a + b, 0);
   const hayDatos = !sinDatos && fechas.length > 0 && totalGeneral > 0;
@@ -878,7 +1067,10 @@ export const PosicionamientoPanel: React.FC<{
             key={label}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-zinc-800/90 text-zinc-300"
           >
-            <span className="w-2.5 h-2.5 rounded-full border border-white/10" style={{ backgroundColor: bg }} />
+            <span
+              className="w-2.5 h-2.5 rounded-full border border-white/10"
+              style={{ backgroundColor: bg }}
+            />
             {label}
           </span>
         ))}
@@ -894,7 +1086,10 @@ export const PosicionamientoPanel: React.FC<{
                   Fecha
                 </th>
                 {horas.map((h) => (
-                  <th key={h} className="px-0.5 py-1 text-center text-[8px] font-mono font-bold text-zinc-500">
+                  <th
+                    key={h}
+                    className="px-0.5 py-1 text-center text-[8px] font-mono font-bold text-zinc-500"
+                  >
                     {h}
                   </th>
                 ))}
@@ -906,7 +1101,10 @@ export const PosicionamientoPanel: React.FC<{
             <tbody>
               {fechas.map((f) => {
                 const esDom = f.fecha.getDay() === 0;
-                const totalDia = horas.reduce((acc, h) => acc + (celdas.get(`${f.label}___${h}`)?.count ?? 0), 0);
+                const totalDia = horas.reduce(
+                  (acc, h) => acc + (celdas.get(`${f.label}___${h}`)?.count ?? 0),
+                  0,
+                );
                 return (
                   <tr key={f.label}>
                     <td
@@ -927,7 +1125,12 @@ export const PosicionamientoPanel: React.FC<{
                           className={`relative text-center font-mono font-bold rounded-[3px] hover:scale-110 hover:z-10 hover:shadow-lg transition-transform duration-100 ${
                             n > 0 ? '' : 'text-transparent'
                           }`}
-                          style={{ backgroundColor: bg, color: n > 0 ? fg : 'transparent', padding: 2, minWidth: 14 }}
+                          style={{
+                            backgroundColor: bg,
+                            color: n > 0 ? fg : 'transparent',
+                            padding: 2,
+                            minWidth: 14,
+                          }}
                         >
                           {n > 0 ? n : ''}
                         </td>
@@ -946,19 +1149,26 @@ export const PosicionamientoPanel: React.FC<{
                   Total gen
                 </td>
                 {totalesPorHora.map((t, i) => (
-                  <td key={i} className="px-0.5 py-1 text-center text-[8.5px] font-mono font-bold text-zinc-300">
+                  <td
+                    key={i}
+                    className="px-0.5 py-1 text-center text-[8.5px] font-mono font-bold text-zinc-300"
+                  >
                     {t > 0 ? t : ''}
                   </td>
                 ))}
-                <td className="px-1 py-1 text-right text-[9px] font-mono font-bold text-white">{totalGeneral}</td>
+                <td className="px-1 py-1 text-right text-[9px] font-mono font-bold text-white">
+                  {totalGeneral}
+                </td>
               </tr>
             </tfoot>
           </table>
         </div>
       )}
       {hayDatos && (
-        <p className="text-[10px] text-zinc-500 font-mono">{totalGeneral} vehículos posicionados en el rango</p>
+        <p className="text-[10px] text-zinc-500 font-mono">
+          {totalGeneral} vehículos posicionados en el rango
+        </p>
       )}
-</div>
+    </div>
   );
 };

@@ -54,7 +54,7 @@ describe('CrudModule (esqueleto compartido)', () => {
 
   it('pasa rightContent para acciones del módulo', () => {
     render(
-      <CrudModule searchPlaceholder="Buscar..." rightContent={<button>+ NUEVA LLAVE</button>} />
+      <CrudModule searchPlaceholder="Buscar..." rightContent={<button>+ NUEVA LLAVE</button>} />,
     );
     expect(screen.getByText('+ NUEVA LLAVE')).toBeInTheDocument();
   });

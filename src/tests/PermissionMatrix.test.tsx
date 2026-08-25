@@ -8,7 +8,12 @@ import { PRESET_ROLES, PRESET_USERS } from '../services/rbacService';
 
 describe('PermissionMatrix', () => {
   beforeEach(() => {
-    useAuthStore.setState({ roles: PRESET_ROLES, users: PRESET_USERS, currentUser: null, historial: [] });
+    useAuthStore.setState({
+      roles: PRESET_ROLES,
+      users: PRESET_USERS,
+      currentUser: null,
+      historial: [],
+    });
   });
 
   it('muestra la matriz con los módulos y las columnas de rol', () => {
@@ -44,19 +49,28 @@ describe('PermissionMatrix', () => {
 
 describe('Roles TABLERO e INFORMES (solo lectura)', () => {
   beforeEach(() => {
-    useAuthStore.setState({ roles: PRESET_ROLES, users: PRESET_USERS, currentUser: null, historial: [] });
+    useAuthStore.setState({
+      roles: PRESET_ROLES,
+      users: PRESET_USERS,
+      currentUser: null,
+      historial: [],
+    });
   });
 
   it('ROLE_TABLERO solo accede al tablero y no puede editar nada', () => {
     const role = PRESET_ROLES.find((r) => r.id === 'ROLE_TABLERO')!;
-    const accesibles = Object.entries(role.permissions).filter(([, p]) => p.canAccess).map(([m]) => m);
+    const accesibles = Object.entries(role.permissions)
+      .filter(([, p]) => p.canAccess)
+      .map(([m]) => m);
     expect(accesibles).toEqual(['tablero']);
     expect(Object.values(role.permissions).every((p) => !p.canEdit)).toBe(true);
   });
 
   it('ROLE_INFORMES solo accede a informes y no puede editar nada', () => {
     const role = PRESET_ROLES.find((r) => r.id === 'ROLE_INFORMES')!;
-    const accesibles = Object.entries(role.permissions).filter(([, p]) => p.canAccess).map(([m]) => m);
+    const accesibles = Object.entries(role.permissions)
+      .filter(([, p]) => p.canAccess)
+      .map(([m]) => m);
     expect(accesibles).toEqual(['informes']);
     expect(Object.values(role.permissions).every((p) => !p.canEdit)).toBe(true);
   });
@@ -64,7 +78,12 @@ describe('Roles TABLERO e INFORMES (solo lectura)', () => {
 
 describe('RoleManager', () => {
   beforeEach(() => {
-    useAuthStore.setState({ roles: PRESET_ROLES, users: PRESET_USERS, currentUser: null, historial: [] });
+    useAuthStore.setState({
+      roles: PRESET_ROLES,
+      users: PRESET_USERS,
+      currentUser: null,
+      historial: [],
+    });
   });
 
   it('muestra la pestaña Matriz por defecto', () => {

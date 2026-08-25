@@ -134,7 +134,9 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               <Truck className="w-4 h-4" />
             </div>
             <h3 className="text-base font-bold text-white">
-              {editingRow ? `Editar Transporte ${editingRow.placa || editingRow.llave}` : '+ Nueva Llave'}
+              {editingRow
+                ? `Editar Transporte ${editingRow.placa || editingRow.llave}`
+                : '+ Nueva Llave'}
             </h3>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-white p-1 rounded-lg">
@@ -160,7 +162,9 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               <select
                 value={formData.vehiculoTipo}
                 disabled={locked}
-                onChange={(e) => setFormData({ ...formData, vehiculoTipo: e.target.value as TipoVehiculo | '' })}
+                onChange={(e) =>
+                  setFormData({ ...formData, vehiculoTipo: e.target.value as TipoVehiculo | '' })
+                }
                 className={`${locked ? lockedCls : inputCls} ${formData.vehiculoTipo ? '' : 'text-zinc-500'}`}
               >
                 <option value="">Seleccionar tipo</option>
@@ -186,7 +190,11 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
                     : 'bg-zinc-900 border border-zinc-700 rounded-xl text-xs font-mono text-white hover:border-blue-500/50'
                 }`}
               >
-                <span className={formData.fechaHora ? (locked ? 'text-zinc-500' : 'text-white') : 'text-zinc-500'}>
+                <span
+                  className={
+                    formData.fechaHora ? (locked ? 'text-zinc-500' : 'text-white') : 'text-zinc-500'
+                  }
+                >
                   {formData.fechaHora || 'Seleccionar fecha y hora'}
                 </span>
                 <CalendarClock className="w-4 h-4 text-zinc-500" />
@@ -204,17 +212,17 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
             </div>
           </div>
 
-<div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">Transportadora</label>
-              <input
-                type="text"
-                placeholder="Ej: TRANSPORTES ANDINA"
-                value={formData.transportadora}
-                disabled={locked}
-                onChange={(e) => setFormData({ ...formData, transportadora: e.target.value })}
-                className={locked ? lockedCls : inputCls}
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-bold text-zinc-300 mb-1">Transportadora</label>
+            <input
+              type="text"
+              placeholder="Ej: TRANSPORTES ANDINA"
+              value={formData.transportadora}
+              disabled={locked}
+              onChange={(e) => setFormData({ ...formData, transportadora: e.target.value })}
+              className={locked ? lockedCls : inputCls}
+            />
+          </div>
 
           {/* Nº Pedido y Cliente se retiraron de la UI (no aportan al control de patios).
               Sus valores siguen viajando intactos en el submit para NO borrarlos de la BD. */}

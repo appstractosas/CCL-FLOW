@@ -93,7 +93,11 @@ function routeRpc(fn: string, args: Record<string, any>): Promise<{ data: any; e
   if (fn === 'ccl_update_transporte') {
     const pId = args?.p_id;
     const row = mem.transportes.find((r) => r.id === pId);
-    if (!row) return Promise.resolve({ data: null, error: new Error('La BD no actualizó ninguna fila (id=' + pId + '). La fila no existe.') });
+    if (!row)
+      return Promise.resolve({
+        data: null,
+        error: new Error('La BD no actualizó ninguna fila (id=' + pId + '). La fila no existe.'),
+      });
     Object.assign(row, data);
     return Promise.resolve({ data: null, error: null });
   }
@@ -242,7 +246,7 @@ describe('transportesService (integración Supabase mockeado)', () => {
 
   it('updateTransporte LANZA cuando ninguna fila coincide (id inexistente o RLS)', async () => {
     await expect(mod.updateTransporte('ID-INEXISTENTE', { cajas: 5 })).rejects.toThrow(
-      /no actualizó ninguna fila/
+      /no actualizó ninguna fila/,
     );
     expect(mem.transportes[0].placa).toBe('XYZ-999');
   });

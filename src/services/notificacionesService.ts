@@ -40,10 +40,12 @@ export async function fetchNotificaciones(limit = 50): Promise<Notificacion[]> {
 }
 
 export async function createNotificacion(
-  payload: Omit<Notificacion, 'id' | 'leida' | 'createdAt'>
+  payload: Omit<Notificacion, 'id' | 'leida' | 'createdAt'>,
 ): Promise<Notificacion> {
   if (!isOnline()) throw new Error('Notificaciones deshabilitadas en MODO DEMO');
-  const { data, error } = await supabase.rpc('ccl_create_notificacion', { p_data: mapNotifToDB(payload) });
+  const { data, error } = await supabase.rpc('ccl_create_notificacion', {
+    p_data: mapNotifToDB(payload),
+  });
   if (error) throw error;
   return mapNotifFromDB(data);
 }
@@ -67,12 +69,9 @@ export function subscribeToNotificaciones(callback: RealtimeNotificacionCallback
 
   const channel = supabase
     .channel('notificaciones_realtime')
-    .on('postgres_changes',
-      { event: 'INSERT', schema: 'public', table: TABLE },
-      (payload) => {
-        callback(mapNotifFromDB(payload.new));
-      }
-    )
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLE }, (payload) => {
+      callback(mapNotifFromDB(payload.new));
+    })
     .subscribe();
 
   activeUnsubscribe = () => {

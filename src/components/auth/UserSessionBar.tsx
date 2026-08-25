@@ -32,10 +32,16 @@ export const UserSessionBar: React.FC<UserSessionBarProps> = ({ onOpenRoles, onO
           {initials || 'U'}
         </div>
         <div className="text-left min-w-0">
-          <p className="text-xs font-bold text-white leading-tight">{userTypeLabel(currentUser.tipoUsuario)}</p>
-          <p className="text-[10px] text-zinc-400 leading-tight truncate max-w-[140px]">{currentUser.name}</p>
+          <p className="text-xs font-bold text-white leading-tight">
+            {userTypeLabel(currentUser.tipoUsuario)}
+          </p>
+          <p className="text-[10px] text-zinc-400 leading-tight truncate max-w-[140px]">
+            {currentUser.name}
+          </p>
         </div>
-        <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {menuOpen && (

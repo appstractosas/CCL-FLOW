@@ -67,7 +67,10 @@ function isOnline(): boolean {
 
 export async function fetchTransportes(): Promise<UnifiedTransporte[]> {
   if (!isOnline()) return [];
-  const { data, error } = await supabase.from(TABLE).select('*').order('fecha_hora', { ascending: false });
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .order('fecha_hora', { ascending: false });
   if (error) throw error;
   return (data || []).map(mapTransporteFromDB);
 }
@@ -77,7 +80,10 @@ export async function fetchTransportes(): Promise<UnifiedTransporte[]> {
  *  "YYYY-MM-DD HH:MM" (app) y "YYYY-MM-DDTHH:MM" (sync ISO). Los límites se comparan
  *  como texto: desde = día + espacio, hasta = día + 'Z' (carácter mayor que T y
  *  que el espacio; el '~' falla en PostgREST al combinarse con gte). */
-export async function fetchTransportesByRango(fechaDesde: string, fechaHasta: string): Promise<UnifiedTransporte[]> {
+export async function fetchTransportesByRango(
+  fechaDesde: string,
+  fechaHasta: string,
+): Promise<UnifiedTransporte[]> {
   if (!isOnline()) return [];
   const desde = `${fechaDesde} `;
   const hasta = `${fechaHasta}Z`;
@@ -95,7 +101,10 @@ export async function fetchTransportesByRango(fechaDesde: string, fechaHasta: st
  *  todas las columnas existentes, sin mapear a UnifiedTransporte. La usa el
  *  export de Informes para volcar la tabla TRANSPORTES completa, sin importar
  *  qué columnas tenga ni qué datos contenga. */
-export async function fetchTransportesRawByRango(fechaDesde: string, fechaHasta: string): Promise<Record<string, any>[]> {
+export async function fetchTransportesRawByRango(
+  fechaDesde: string,
+  fechaHasta: string,
+): Promise<Record<string, any>[]> {
   if (!isOnline()) return [];
   const desde = `${fechaDesde} `;
   const hasta = `${fechaHasta}Z`;
@@ -110,7 +119,9 @@ export async function fetchTransportesRawByRango(fechaDesde: string, fechaHasta:
 }
 
 export async function createTransporte(item: UnifiedTransporte): Promise<UnifiedTransporte> {
-  const { data, error } = await supabase.rpc('ccl_create_transporte', { p_data: mapTransporteToDB(item) });
+  const { data, error } = await supabase.rpc('ccl_create_transporte', {
+    p_data: mapTransporteToDB(item),
+  });
   if (error) throw error;
   return mapTransporteFromDB(data);
 }
@@ -133,12 +144,9 @@ export function subscribeToTransportes(onChange: () => void): () => void {
 
   const channel = supabase
     .channel('transportes_realtime')
-    .on('postgres_changes',
-      { event: '*', schema: 'public', table: TABLE },
-      (payload) => {
-        void onChange();
-      }
-    )
+    .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, (payload) => {
+      void onChange();
+    })
     .subscribe();
 
   activeRealtimeUnsubscribe = () => {
@@ -149,7 +157,10 @@ export function subscribeToTransportes(onChange: () => void): () => void {
   return activeRealtimeUnsubscribe;
 }
 
-export async function updateTransporte(id: string, updates: Partial<UnifiedTransporte>): Promise<void> {
+export async function updateTransporte(
+  id: string,
+  updates: Partial<UnifiedTransporte>,
+): Promise<void> {
   const dbUpdates: Record<string, any> = {};
   if (updates.fechaHora !== undefined) dbUpdates.fecha_hora = updates.fechaHora;
   if (updates.placa !== undefined) dbUpdates.placa = updates.placa;
@@ -162,15 +173,19 @@ export async function updateTransporte(id: string, updates: Partial<UnifiedTrans
   if (updates.region !== undefined) dbUpdates.region = updates.region;
   if (updates.kg !== undefined) dbUpdates.kg = updates.kg;
   if (updates.transportadora !== undefined) dbUpdates.transportadora = updates.transportadora;
-  if (updates.estadoTransporte !== undefined) dbUpdates.estado_transporte = updates.estadoTransporte;
+  if (updates.estadoTransporte !== undefined)
+    dbUpdates.estado_transporte = updates.estadoTransporte;
   if (updates.estadoPorteria !== undefined) dbUpdates.estado_porteria = updates.estadoPorteria;
   if (updates.muelleAsignado !== undefined) dbUpdates.muelle_asignado = updates.muelleAsignado;
   if (updates.cuadrilla !== undefined) dbUpdates.cuadrilla = updates.cuadrilla;
-  if (updates.horaMuelleAsignado !== undefined) dbUpdates.hora_muelle_asignado = updates.horaMuelleAsignado;
+  if (updates.horaMuelleAsignado !== undefined)
+    dbUpdates.hora_muelle_asignado = updates.horaMuelleAsignado;
   if (updates.horaIngreso !== undefined) dbUpdates.hora_ingreso = updates.horaIngreso;
   if (updates.horaSalida !== undefined) dbUpdates.hora_salida = updates.horaSalida;
-  if (updates.horaLlegadaPorteria !== undefined) dbUpdates.hora_llegada_porteria = updates.horaLlegadaPorteria;
-  if (updates.horaInicioCargue !== undefined) dbUpdates.hora_inicio_cargue = updates.horaInicioCargue;
+  if (updates.horaLlegadaPorteria !== undefined)
+    dbUpdates.hora_llegada_porteria = updates.horaLlegadaPorteria;
+  if (updates.horaInicioCargue !== undefined)
+    dbUpdates.hora_inicio_cargue = updates.horaInicioCargue;
   if (updates.horaFinCargue !== undefined) dbUpdates.hora_fin_cargue = updates.horaFinCargue;
   if (updates.observaciones !== undefined) dbUpdates.observaciones = updates.observaciones;
   const { error } = await supabase.rpc('ccl_update_transporte', { p_id: id, p_data: dbUpdates });

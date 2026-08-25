@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useRowFilters, matchesSearch } from './useRowFilters';
-import { cumpleFiltroActivas, cumpleFiltroEstado, getFechaSalidaPorteria, FiltroEstadoId } from '../utils/porteria';
+import {
+  cumpleFiltroActivas,
+  cumpleFiltroEstado,
+  getFechaSalidaPorteria,
+  FiltroEstadoId,
+} from '../utils/porteria';
 import { UnifiedTransporte } from '../types';
 
 /**
@@ -13,11 +18,15 @@ interface UseFiltrosTransportesOptions {
   estadoInicial?: FiltroEstadoId;
 }
 
-export function useFiltrosTransportes(rows: UnifiedTransporte[], options?: UseFiltrosTransportesOptions) {
+export function useFiltrosTransportes(
+  rows: UnifiedTransporte[],
+  options?: UseFiltrosTransportesOptions,
+) {
   const estadoInicial = options?.estadoInicial ?? 'activas';
   const [estadoFiltro, setEstadoFiltro] = useState<FiltroEstadoId>(estadoInicial);
 
-  const { searchTerm, setSearchTerm, dateFrom, setDateFrom, dateTo, setDateTo, filtered } = useRowFilters(rows);
+  const { searchTerm, setSearchTerm, dateFrom, setDateFrom, dateTo, setDateTo, filtered } =
+    useRowFilters(rows);
 
   const rowsFiltradas = useMemo(() => {
     const s = searchTerm.trim().toLowerCase();

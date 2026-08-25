@@ -36,7 +36,9 @@ describe('TransportesModule', () => {
       estadoPorteria: 'Pendiente',
     };
     useLogisticsStore.setState({
-      transportes: [{ ...base, id: 'TR-TEST-1', llave: 'LL-60533', placa: 'TLX-842' }] as UnifiedTransporte[],
+      transportes: [
+        { ...base, id: 'TR-TEST-1', llave: 'LL-60533', placa: 'TLX-842' },
+      ] as UnifiedTransporte[],
     });
 
     render(<TransportesModule />);

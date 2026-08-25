@@ -118,7 +118,11 @@ export const InformesModule: React.FC = () => {
   const rowsFiltradas = useMemo(() => {
     if (!s) return rows;
     return rows.filter((r) =>
-      [r.llave, r.placa, r.transportadora].some((v) => String(v || '').toLowerCase().includes(s))
+      [r.llave, r.placa, r.transportadora].some((v) =>
+        String(v || '')
+          .toLowerCase()
+          .includes(s),
+      ),
     );
   }, [rows, s]);
 
@@ -132,7 +136,7 @@ export const InformesModule: React.FC = () => {
   const usoMuelle = useMemo(() => usoPorMuelle(rowsFiltradas), [rowsFiltradas]);
   const rentabilidad = useMemo(
     () => rentabilidadCuadrillas(rowsFiltradas, dateFrom, dateTo),
-    [rowsFiltradas, dateFrom, dateTo]
+    [rowsFiltradas, dateFrom, dateTo],
   );
   const cajasDia = useMemo(() => cajasPorDia(rowsFiltradas), [rowsFiltradas]);
   const cajasGrupo = useMemo(() => cajasPorCuadrilla(rowsFiltradas), [rowsFiltradas]);
@@ -152,8 +156,12 @@ export const InformesModule: React.FC = () => {
     const t1 = new Date(`${dateTo}T00:00:00`).getTime();
     const dias = t1 >= t0 ? Math.floor((t1 - t0) / 86_400_000) + 1 : 0;
 
-    const cajasCCL = rowsFiltradas.filter((r) => tipoGrupo(r.cuadrilla) === 'CCL').reduce((a, r) => a + (r.cajas ?? 0), 0);
-    const cajasSLA = rowsFiltradas.filter((r) => tipoGrupo(r.cuadrilla) === 'SLA').reduce((a, r) => a + (r.cajas ?? 0), 0);
+    const cajasCCL = rowsFiltradas
+      .filter((r) => tipoGrupo(r.cuadrilla) === 'CCL')
+      .reduce((a, r) => a + (r.cajas ?? 0), 0);
+    const cajasSLA = rowsFiltradas
+      .filter((r) => tipoGrupo(r.cuadrilla) === 'SLA')
+      .reduce((a, r) => a + (r.cajas ?? 0), 0);
     const cajasTodas = rowsFiltradas.reduce((a, r) => a + (r.cajas ?? 0), 0);
 
     const inversionCCL = dias * 1_432_000;
@@ -198,13 +206,13 @@ export const InformesModule: React.FC = () => {
         rawRows.reduce<Set<string>>((set, row) => {
           Object.keys(row).forEach((k) => set.add(k));
           return set;
-        }, new Set<string>())
+        }, new Set<string>()),
       );
       const data = rawRows.map((row) =>
         headers.map((h) => {
           const v = row[h];
           return v === null || v === undefined ? '' : v;
-        })
+        }),
       );
 
       const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
@@ -213,8 +221,8 @@ export const InformesModule: React.FC = () => {
           40,
           Math.max(
             headers[i].length,
-            ...data.slice(0, 200).map((row) => String(row[i] ?? '').length)
-          ) + 2
+            ...data.slice(0, 200).map((row) => String(row[i] ?? '').length),
+          ) + 2,
         ),
       }));
       const wb = XLSX.utils.book_new();
@@ -320,22 +328,36 @@ export const InformesModule: React.FC = () => {
           {/* Tags de inversión del periodo (una sola fila en PC, cascada en móvil) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="bg-[#0e1320] border border-blue-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">CCL (inversión)</p>
+              <p className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">
+                CCL (inversión)
+              </p>
               <p className="text-[10px] text-zinc-500 font-mono">{diasRango} días × $1.432.000</p>
-              <p className="text-xl font-black text-white">${inversionCCL.toLocaleString('es-CO')}</p>
+              <p className="text-xl font-black text-white">
+                ${inversionCCL.toLocaleString('es-CO')}
+              </p>
             </div>
 
             <div className="bg-[#0e1320] border border-emerald-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">SLA (inversión)</p>
-              <p className="text-[10px] text-zinc-500 font-mono">
-                {inversionSLA > 0 ? `${inversionSLA / 140} cajas SLA × $140` : 'sin cajas SLA en el rango'}
+              <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+                SLA (inversión)
               </p>
-              <p className="text-xl font-black text-white">${inversionSLA.toLocaleString('es-CO')}</p>
+              <p className="text-[10px] text-zinc-500 font-mono">
+                {inversionSLA > 0
+                  ? `${inversionSLA / 140} cajas SLA × $140`
+                  : 'sin cajas SLA en el rango'}
+              </p>
+              <p className="text-xl font-black text-white">
+                ${inversionSLA.toLocaleString('es-CO')}
+              </p>
             </div>
 
             <div className="bg-[#0e1320] border border-cyan-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">HORA/HOMBRE</p>
-              <p className="text-[10px] text-zinc-500 font-mono">Cajas por hora-hombre (CCL + SLA)</p>
+              <p className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">
+                HORA/HOMBRE
+              </p>
+              <p className="text-[10px] text-zinc-500 font-mono">
+                Cajas por hora-hombre (CCL + SLA)
+              </p>
               <p className="text-xl font-black text-white">
                 {horaHombreData.horasHombre > 0
                   ? horaHombreData.indice.toLocaleString('es-CO', { maximumFractionDigits: 1 })
@@ -344,15 +366,25 @@ export const InformesModule: React.FC = () => {
             </div>
 
             <div className="bg-[#0e1320] border border-amber-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Cajas del periodo</p>
-              <p className="text-[10px] text-zinc-500 font-mono">Suma de cajas de todas las cuadrillas</p>
-              <p className="text-xl font-black text-white">{cajasPeriodo.toLocaleString('es-CO')}</p>
+              <p className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
+                Cajas del periodo
+              </p>
+              <p className="text-[10px] text-zinc-500 font-mono">
+                Suma de cajas de todas las cuadrillas
+              </p>
+              <p className="text-xl font-black text-white">
+                {cajasPeriodo.toLocaleString('es-CO')}
+              </p>
             </div>
 
             <div className="bg-[#0e1320] border border-violet-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-violet-400 uppercase tracking-wider">Inversión total del periodo</p>
+              <p className="text-[11px] font-bold text-violet-400 uppercase tracking-wider">
+                Inversión total del periodo
+              </p>
               <p className="text-[10px] text-zinc-500 font-mono">CCL + SLA</p>
-              <p className="text-xl font-black text-white">${inversionTotal.toLocaleString('es-CO')}</p>
+              <p className="text-xl font-black text-white">
+                ${inversionTotal.toLocaleString('es-CO')}
+              </p>
             </div>
           </div>
 
@@ -364,7 +396,9 @@ export const InformesModule: React.FC = () => {
                 className="bg-[#0e1320] border border-zinc-800/80 rounded-2xl px-4 py-2 flex items-center justify-between gap-3"
               >
                 <div className="flex flex-col">
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{k.label}</p>
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                    {k.label}
+                  </p>
                   <p className="text-[9px] text-zinc-500 font-mono">{k.sub}</p>
                 </div>
                 <p className={`text-lg font-black ${k.accent}`}>{k.value}</p>

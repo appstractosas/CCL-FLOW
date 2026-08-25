@@ -50,7 +50,7 @@ describe('ModuleToolbar', () => {
         onDateFromChange={() => {}}
         onDateToChange={() => {}}
         searchPlaceholder="Buscar llave..."
-      />
+      />,
     );
     expect(screen.getByPlaceholderText('Buscar llave...')).toBeInTheDocument();
   });

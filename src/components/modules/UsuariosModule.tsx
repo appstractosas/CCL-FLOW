@@ -27,7 +27,12 @@ export const UsuariosModule: React.FC = () => {
     setModalOpen(true);
   };
 
-  const handleSave = async (data: { nombre: string; cedula: string; clave: string; tipoUsuario: UserType }) => {
+  const handleSave = async (data: {
+    nombre: string;
+    cedula: string;
+    clave: string;
+    tipoUsuario: UserType;
+  }) => {
     try {
       if (editingUser) {
         await updateUser(editingUser.id, data);
@@ -97,7 +102,9 @@ export const UsuariosModule: React.FC = () => {
                 filtered.map((u) => (
                   <tr key={u.id} className="hover:bg-zinc-900/40 transition-colors">
                     <td className="py-3 px-5 font-bold text-white whitespace-nowrap">{u.nombre}</td>
-                    <td className="py-3 px-4 font-mono text-zinc-400 whitespace-nowrap">{u.cedula}</td>
+                    <td className="py-3 px-4 font-mono text-zinc-400 whitespace-nowrap">
+                      {u.cedula}
+                    </td>
                     <td className="py-3 px-4 font-mono text-zinc-400 whitespace-nowrap">
                       <span title={u.clave} className="cursor-help select-none">
                         {'•'.repeat(Math.min(u.clave.length, 12))}
@@ -114,7 +121,9 @@ export const UsuariosModule: React.FC = () => {
                         {userTypeLabel(u.tipoUsuario)}
                       </span>
                     </td>
-                    <td className="py-3 px-4 font-mono text-zinc-300 whitespace-nowrap">{u.roleName}</td>
+                    <td className="py-3 px-4 font-mono text-zinc-300 whitespace-nowrap">
+                      {u.roleName}
+                    </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-end space-x-1.5">
                         <button
@@ -128,7 +137,11 @@ export const UsuariosModule: React.FC = () => {
                           onClick={() => handleDelete(u)}
                           disabled={u.tipoUsuario === 'admin'}
                           className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-rose-400 hover:border-rose-500/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                          title={u.tipoUsuario === 'admin' ? 'El ADMIN no puede eliminarse' : 'Eliminar usuario'}
+                          title={
+                            u.tipoUsuario === 'admin'
+                              ? 'El ADMIN no puede eliminarse'
+                              : 'Eliminar usuario'
+                          }
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -144,7 +157,9 @@ export const UsuariosModule: React.FC = () => {
 
       <p className="flex items-center space-x-1.5 text-[10px] text-zinc-500">
         <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-        <span>Cada usuario toma los permisos configurados para su tipo de usuario en el módulo ROLES.</span>
+        <span>
+          Cada usuario toma los permisos configurados para su tipo de usuario en el módulo ROLES.
+        </span>
       </p>
 
       <UserFormModal

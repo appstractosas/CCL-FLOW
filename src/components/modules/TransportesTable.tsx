@@ -156,30 +156,37 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                       {showActions && (
                         <td className="py-3.5 px-3 whitespace-nowrap">
                           <div className="flex items-center justify-end space-x-1.5">
-                            {showEdit && onEdit && !isLlaveCerrada(row) && puedeEditarOperacion(row) && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onEdit(row);
-                                }}
-                                className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-blue-400 hover:border-blue-500/40 transition-colors"
-                                title="Editar transporte"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                            {showDelete && onDelete && !isLlaveCerrada(row) && puedeEditarOperacion(row) && (!canCancel || canCancel(row)) && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onDelete(row);
-                                }}
-                                className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-rose-400 hover:border-rose-500/40 transition-colors"
-                                title="Cancelar transporte"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                            {showEdit &&
+                              onEdit &&
+                              !isLlaveCerrada(row) &&
+                              puedeEditarOperacion(row) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(row);
+                                  }}
+                                  className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-blue-400 hover:border-blue-500/40 transition-colors"
+                                  title="Editar transporte"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            {showDelete &&
+                              onDelete &&
+                              !isLlaveCerrada(row) &&
+                              puedeEditarOperacion(row) &&
+                              (!canCancel || canCancel(row)) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete(row);
+                                  }}
+                                  className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-rose-400 hover:border-rose-500/40 transition-colors"
+                                  title="Cancelar transporte"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                           </div>
                         </td>
                       )}
@@ -188,7 +195,10 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                 })}
                 {paddingBottom > 0 && (
                   <tr>
-                    <td colSpan={colCount} style={{ height: paddingBottom, padding: 0, border: 0 }} />
+                    <td
+                      colSpan={colCount}
+                      style={{ height: paddingBottom, padding: 0, border: 0 }}
+                    />
                   </tr>
                 )}
               </>

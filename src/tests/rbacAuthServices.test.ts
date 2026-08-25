@@ -50,22 +50,113 @@ const { mem, simulateRpc, supabaseMock, getConfigured, setConfigured } = vi.hois
     if (fn === 'ccl_seed_initial_data') {
       // Simulate the SECURITY DEFINER RPC that seeds roles + users
       const PRESET_ROLES_DATA = [
-        { id: 'ROLE_ADMIN', name: 'ADMIN', description: 'Acceso total al sistema y gestión de roles, usuarios e historial.', is_preset: true },
-        { id: 'ROLE_DESPACHADOR', name: 'DESPACHADOR', description: 'Gestión de despachos y planeación.', is_preset: true },
-        { id: 'ROLE_PORTERO', name: 'PORTERO', description: 'Control de puerta, muelles y estados de portería.', is_preset: true },
-        { id: 'ROLE_PLANEADOR', name: 'PLANEADOR', description: 'Planeación de transporte y vista de despachos.', is_preset: true },
-        { id: 'ROLE_SUPERVISOR', name: 'SUPERVISOR', description: 'Observación global de la operación e informes.', is_preset: true },
-        { id: 'ROLE_MONITOREO', name: 'MONITOREO', description: 'Monitoreo de la operación y registro de salida de portería.', is_preset: true },
-        { id: 'ROLE_TRANSPORTES', name: 'TRANSPORTES', description: 'Registro y edición de placas de transportes.', is_preset: true },
+        {
+          id: 'ROLE_ADMIN',
+          name: 'ADMIN',
+          description: 'Acceso total al sistema y gestión de roles, usuarios e historial.',
+          is_preset: true,
+        },
+        {
+          id: 'ROLE_DESPACHADOR',
+          name: 'DESPACHADOR',
+          description: 'Gestión de despachos y planeación.',
+          is_preset: true,
+        },
+        {
+          id: 'ROLE_PORTERO',
+          name: 'PORTERO',
+          description: 'Control de puerta, muelles y estados de portería.',
+          is_preset: true,
+        },
+        {
+          id: 'ROLE_PLANEADOR',
+          name: 'PLANEADOR',
+          description: 'Planeación de transporte y vista de despachos.',
+          is_preset: true,
+        },
+        {
+          id: 'ROLE_SUPERVISOR',
+          name: 'SUPERVISOR',
+          description: 'Observación global de la operación e informes.',
+          is_preset: true,
+        },
+        {
+          id: 'ROLE_MONITOREO',
+          name: 'MONITOREO',
+          description: 'Monitoreo de la operación y registro de salida de portería.',
+          is_preset: true,
+        },
+        {
+          id: 'ROLE_TRANSPORTES',
+          name: 'TRANSPORTES',
+          description: 'Registro y edición de placas de transportes.',
+          is_preset: true,
+        },
       ];
       const PRESET_USERS_DATA = [
-        { id: 'USER_ADMIN', nombre: 'ADMIN', cedula: '0000000000', clave: 'admin', tipo_usuario: 'admin', role_id: 'ROLE_ADMIN', role_name: 'ADMIN' },
-        { id: 'USER_DESP', nombre: 'Juan Pérez', cedula: '1000000001', clave: '1234', tipo_usuario: 'despachador', role_id: 'ROLE_DESPACHADOR', role_name: 'DESPACHADOR' },
-        { id: 'USER_PORTERO', nombre: 'Ramiro Torres', cedula: '1000000002', clave: '1234', tipo_usuario: 'portero', role_id: 'ROLE_PORTERO', role_name: 'PORTERO' },
-        { id: 'USER_PLAN', nombre: 'Ana Gómez', cedula: '1000000003', clave: '1234', tipo_usuario: 'planeador', role_id: 'ROLE_PLANEADOR', role_name: 'PLANEADOR' },
-        { id: 'USER_SUP', nombre: 'Luis Mora', cedula: '1000000004', clave: '1234', tipo_usuario: 'supervisor', role_id: 'ROLE_SUPERVISOR', role_name: 'SUPERVISOR' },
-        { id: 'USER_MONITOREO', nombre: 'Carlos Montero', cedula: '1000000005', clave: '1234', tipo_usuario: 'monitor', role_id: 'ROLE_MONITOREO', role_name: 'MONITOREO' },
-        { id: 'USER_TRANSPORTES', nombre: 'Diana Ríos', cedula: '1000000006', clave: '1234', tipo_usuario: 'transportes', role_id: 'ROLE_TRANSPORTES', role_name: 'TRANSPORTES' },
+        {
+          id: 'USER_ADMIN',
+          nombre: 'ADMIN',
+          cedula: '0000000000',
+          clave: 'admin',
+          tipo_usuario: 'admin',
+          role_id: 'ROLE_ADMIN',
+          role_name: 'ADMIN',
+        },
+        {
+          id: 'USER_DESP',
+          nombre: 'Juan Pérez',
+          cedula: '1000000001',
+          clave: '1234',
+          tipo_usuario: 'despachador',
+          role_id: 'ROLE_DESPACHADOR',
+          role_name: 'DESPACHADOR',
+        },
+        {
+          id: 'USER_PORTERO',
+          nombre: 'Ramiro Torres',
+          cedula: '1000000002',
+          clave: '1234',
+          tipo_usuario: 'portero',
+          role_id: 'ROLE_PORTERO',
+          role_name: 'PORTERO',
+        },
+        {
+          id: 'USER_PLAN',
+          nombre: 'Ana Gómez',
+          cedula: '1000000003',
+          clave: '1234',
+          tipo_usuario: 'planeador',
+          role_id: 'ROLE_PLANEADOR',
+          role_name: 'PLANEADOR',
+        },
+        {
+          id: 'USER_SUP',
+          nombre: 'Luis Mora',
+          cedula: '1000000004',
+          clave: '1234',
+          tipo_usuario: 'supervisor',
+          role_id: 'ROLE_SUPERVISOR',
+          role_name: 'SUPERVISOR',
+        },
+        {
+          id: 'USER_MONITOREO',
+          nombre: 'Carlos Montero',
+          cedula: '1000000005',
+          clave: '1234',
+          tipo_usuario: 'monitor',
+          role_id: 'ROLE_MONITOREO',
+          role_name: 'MONITOREO',
+        },
+        {
+          id: 'USER_TRANSPORTES',
+          nombre: 'Diana Ríos',
+          cedula: '1000000006',
+          clave: '1234',
+          tipo_usuario: 'transportes',
+          role_id: 'ROLE_TRANSPORTES',
+          role_name: 'TRANSPORTES',
+        },
       ];
       for (const r of PRESET_ROLES_DATA) {
         if (!mem.roles.find((x) => x.id === r.id)) mem.roles.push({ ...r, permissions: {} });
@@ -88,7 +179,9 @@ const { mem, simulateRpc, supabaseMock, getConfigured, setConfigured } = vi.hois
     simulateRpc,
     supabaseMock,
     getConfigured: () => _configured,
-    setConfigured: (v: boolean) => { _configured = v; },
+    setConfigured: (v: boolean) => {
+      _configured = v;
+    },
   };
 });
 
@@ -108,7 +201,9 @@ function makeQuery(table: string) {
         const av = a[state.orderCol];
         const bv = b[state.orderCol];
         if (av == null || bv == null) return 0;
-        return state.orderAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+        return state.orderAsc
+          ? String(av).localeCompare(String(bv))
+          : String(bv).localeCompare(String(av));
       });
     }
     return { data: state.isSingle ? rows[0] : rows, count: rows.length, error: null };
@@ -293,7 +388,17 @@ describe('authService', () => {
     setConfigured(true);
     configured = true;
     supabaseMock.rpc.mockResolvedValueOnce({
-      data: { ok: true, user: { id: 'U1', nombre: 'Ana', cedula: '1', tipo_usuario: 'planeador', role_id: 'ROLE_PLANEADOR', role_name: 'PLANEADOR' } },
+      data: {
+        ok: true,
+        user: {
+          id: 'U1',
+          nombre: 'Ana',
+          cedula: '1',
+          tipo_usuario: 'planeador',
+          role_id: 'ROLE_PLANEADOR',
+          role_name: 'PLANEADOR',
+        },
+      },
       error: null,
     });
     const r = await authMod.cclValidateSession('tok');

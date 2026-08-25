@@ -76,9 +76,7 @@ export type DemoraNivel = 'aTiempo' | 'leve' | 'critico';
 /** "HH:MM" (o "HH:MM:SS", o "YYYY-MM-DD HH:MM") → minutos desde las 00:00; null si no es hora válida. */
 export function minutosHora(hora?: string): number | null {
   if (!hora) return null;
-  const m = hora
-    .trim()
-    .match(/(?:^|\s)(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  const m = hora.trim().match(/(?:^|\s)(\d{1,2}):(\d{2})(?::\d{2})?$/);
   if (!m) return null;
   const h = Number(m[1]);
   const min = Number(m[2]);
@@ -235,9 +233,7 @@ export function filasPorRango(rows: UnifiedTransporte[], desde: string, hasta: s
 export function filasParaTabla(filas: Fila[]): FilaTabla[] {
   return filas.map((f) => {
     const demoraMin =
-      f.tiempo_muelle_minutos == null
-        ? null
-        : f.tiempo_muelle_minutos - CONSTANTES.SLA_MINUTOS;
+      f.tiempo_muelle_minutos == null ? null : f.tiempo_muelle_minutos - CONSTANTES.SLA_MINUTOS;
     return { ...f, demoraMin, nivelDemora: clasificacionDemora(demoraMin) };
   });
 }
@@ -280,7 +276,13 @@ export function determinacionHoraria(filas: Fila[]): Determinacion {
 
   const gruposMap = new Map<GrupoCuadrilla, DeterminacionGrupo>();
   for (const g of ['CCL', 'SLA', 'LTSA'] as GrupoCuadrilla[]) {
-    gruposMap.set(g, { grupo: g, unidades: 0, horas: 0, costoEstimado: 0, porTurno: TURNOS_ORDEN.map((t) => ({ turno: t, unidades: 0, horas: 0 })) });
+    gruposMap.set(g, {
+      grupo: g,
+      unidades: 0,
+      horas: 0,
+      costoEstimado: 0,
+      porTurno: TURNOS_ORDEN.map((t) => ({ turno: t, unidades: 0, horas: 0 })),
+    });
   }
 
   for (const f of atendidas) {
@@ -300,7 +302,9 @@ export function determinacionHoraria(filas: Fila[]): Determinacion {
   const redondea1 = (n: number) => Math.round(n * 10) / 10;
   for (const g of grupos) {
     g.horas = redondea1(g.horas);
-    g.porTurno.forEach((t) => { t.horas = redondea1(t.horas); });
+    g.porTurno.forEach((t) => {
+      t.horas = redondea1(t.horas);
+    });
   }
 
   return {
@@ -312,16 +316,33 @@ export function determinacionHoraria(filas: Fila[]): Determinacion {
 }
 
 /** Filas AOA listas para exportar la determinación a Excel. */
-export function filasExportDeterminacion(det: Determinacion): { headers: string[]; data: (string | number)[][] } {
+export function filasExportDeterminacion(det: Determinacion): {
+  headers: string[];
+  data: (string | number)[][];
+} {
   const headers = ['GRUPO', 'TURNO', 'UNIDADES', 'HORAS', 'COSTO ESTIMADO'];
   const data: (string | number)[][] = [];
   for (const g of det.grupos) {
     g.porTurno.forEach((t) => {
-      data.push([g.grupo, t.turno, t.unidades, `${t.horas}h`, g.grupo === 'CCL' ? formatos.moneda(g.costoEstimado / Math.max(1, g.porTurno.length)) : '$0' ]);
+      data.push([
+        g.grupo,
+        t.turno,
+        t.unidades,
+        `${t.horas}h`,
+        g.grupo === 'CCL'
+          ? formatos.moneda(g.costoEstimado / Math.max(1, g.porTurno.length))
+          : '$0',
+      ]);
     });
     data.push([g.grupo, 'TOTAL', g.unidades, `${g.horas}h`, formatos.moneda(g.costoEstimado)]);
   }
-  data.push(['TOTAL', '—', det.totalUnidades, `${det.totalHoras}h`, formatos.moneda(det.costoEstimado)]);
+  data.push([
+    'TOTAL',
+    '—',
+    det.totalUnidades,
+    `${det.totalHoras}h`,
+    formatos.moneda(det.costoEstimado),
+  ]);
   return { headers, data };
 }
 
@@ -449,7 +470,11 @@ export interface RentabilidadBucket {
  * cada día Costo CCL = COSTO_DIARIO_CCL (tarifa fija diaria de la cuadrilla interna)
  * e ingreso SLA/LTSA = cajas de terceros de ese día × INGRESO_CAJA_SLA.
  */
-export function rentabilidadCuadrillas(rows: UnifiedTransporte[], desde: string, hasta: string): RentabilidadBucket[] {
+export function rentabilidadCuadrillas(
+  rows: UnifiedTransporte[],
+  desde: string,
+  hasta: string,
+): RentabilidadBucket[] {
   const movimiento = new Set<string>();
   for (const r of rows) {
     const dia = String(r.citaCargue || '').slice(0, 10);
@@ -458,7 +483,8 @@ export function rentabilidadCuadrillas(rows: UnifiedTransporte[], desde: string,
 
   const buckets = new Map<string, RentabilidadBucket>();
   for (const dia of generarDias(desde, hasta)) {
-    if (movimiento.has(dia)) buckets.set(dia, { name: dia, costoCCL: CONSTANTES.COSTO_DIARIO_CCL, ingresoSLA: 0 });
+    if (movimiento.has(dia))
+      buckets.set(dia, { name: dia, costoCCL: CONSTANTES.COSTO_DIARIO_CCL, ingresoSLA: 0 });
   }
 
   // Ingreso de cuadrillas SLA según las cajas de cada día (LTSA no se incluye en este gráfico).
@@ -498,7 +524,10 @@ export function cajasPorCuadrilla(rows: UnifiedTransporte[]): ValorConteo[] {
     if (grupo === 'LTSA' && !String(r.cuadrilla || '').trim()) continue;
     mapa.set(grupo, (mapa.get(grupo) || 0) + (r.cajas ?? 0));
   }
-  return (['CCL', 'SLA', 'LTSA'] as GrupoCuadrilla[]).map((g) => ({ name: g, value: mapa.get(g) || 0 }));
+  return (['CCL', 'SLA', 'LTSA'] as GrupoCuadrilla[]).map((g) => ({
+    name: g,
+    value: mapa.get(g) || 0,
+  }));
 }
 
 /** Cajas cargadas por hora-hombre de las cuadrillas CCL y SLA (LTSA no cuenta).
@@ -535,7 +564,13 @@ export function horaHombre(rows: UnifiedTransporte[]): ResultadoHoraHombre {
 // ===========================================================================
 
 /** Campo de hora de inicio/fin de una etapa (existe en UnifiedTransporte). */
-type CampoHoraPorteria = 'horaLlegadaPorteria' | 'horaMuelleAsignado' | 'horaIngreso' | 'horaInicioCargue' | 'horaFinCargue' | 'horaSalida';
+type CampoHoraPorteria =
+  | 'horaLlegadaPorteria'
+  | 'horaMuelleAsignado'
+  | 'horaIngreso'
+  | 'horaInicioCargue'
+  | 'horaFinCargue'
+  | 'horaSalida';
 
 /** Definición de una etapa: transición entre dos hitos de portería. */
 export interface TiempoEtapa {
@@ -656,7 +691,7 @@ export const RANGOS_DEMORA: RangoDemora[] = [
  * etapas de cada rango inicializadas en 0.
  */
 export function distribucionRangos(
-  rows: UnifiedTransporte[]
+  rows: UnifiedTransporte[],
 ): Record<string, Record<string, number>> {
   const base = Object.fromEntries(ETAPAS_PORTERIA.map((e) => [e.id, 0]));
   const res: Record<string, Record<string, number>> = {};
@@ -679,8 +714,18 @@ export function distribucionRangos(
 
 /** Meses abreviados en español para las etiquetas de fecha del heatmap. */
 export const MESES_ABREV = [
-  'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-  'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
 ];
 
 /** Clasificación de un vehículo frente a la cita de cargue. */
@@ -710,8 +755,8 @@ export interface FechaPosicion {
 /** Resultado de agrupar las operaciones por fecha y hora del inicio de cargue. */
 export interface MapaPosicionamiento {
   celdas: Map<string, CeldaPosicion>; // clave "DD-mmm___HH:00"
-  fechas: FechaPosicion[];            // ascendente (la más antigua arriba)
-  horas: string[];                    // eje "HH:00" desde el inicio de jornada hasta las 23:00
+  fechas: FechaPosicion[]; // ascendente (la más antigua arriba)
+  horas: string[]; // eje "HH:00" desde el inicio de jornada hasta las 23:00
   totalFilas: number;
 }
 
@@ -726,7 +771,12 @@ export function mapaPosicionamiento(rows: UnifiedTransporte[]): MapaPosicionamie
   const fechasMap = new Map<string, Date>();
   const horasSet = new Set<number>();
 
-  const agregar = (fechaLabel: string, fecha: Date, horaMins: number, clasif: ClasificacionCita) => {
+  const agregar = (
+    fechaLabel: string,
+    fecha: Date,
+    horaMins: number,
+    clasif: ClasificacionCita,
+  ) => {
     const horaKey = `${String(Math.floor(horaMins / 60)).padStart(2, '0')}:00`;
     const key = `${fechaLabel}___${horaKey}`;
     const celda = celdas.get(key) ?? { count: 0, aTiempo: 0, entre1y3h: 0, masDe3h: 0 };
@@ -753,7 +803,9 @@ export function mapaPosicionamiento(rows: UnifiedTransporte[]): MapaPosicionamie
     const demoraMins =
       citaMins != null && inicioMins != null && inicioMins > citaMins ? inicioMins - citaMins : 0;
     const clasif =
-      citaMins == null || inicioMins == null || demoraMins < 60 ? 'aTiempo' : clasificarCita(demoraMins);
+      citaMins == null || inicioMins == null || demoraMins < 60
+        ? 'aTiempo'
+        : clasificarCita(demoraMins);
     agregar(fechaLabel, citaD, mins, clasif);
   }
 
@@ -764,8 +816,9 @@ export function mapaPosicionamiento(rows: UnifiedTransporte[]): MapaPosicionamie
   // La jornada inicia como mínimo a las 06:00 am; si hay cargues antes, el eje baja.
   const horasPresentes = [...horasSet];
   const minHora = horasPresentes.length ? Math.min(6, ...horasPresentes) : 6;
-  const horas = Array.from({ length: 24 - minHora }, (_, i) =>
-    `${String(minHora + i).padStart(2, '0')}:00`
+  const horas = Array.from(
+    { length: 24 - minHora },
+    (_, i) => `${String(minHora + i).padStart(2, '0')}:00`,
   );
 
   return { celdas, fechas, horas, totalFilas: rows.length };

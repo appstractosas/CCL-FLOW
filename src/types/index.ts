@@ -1,9 +1,9 @@
-export type AppModuleId = 
-  | 'despachos' 
+export type AppModuleId =
+  | 'despachos'
   | 'porteria'
   | 'monitoreo'
   | 'informes'
-  | 'planeacion' 
+  | 'planeacion'
   | 'transportes'
   | 'personal'
   | 'admin_roles'
@@ -12,7 +12,16 @@ export type AppModuleId =
   | 'tablero';
 
 /** Tipos de usuario del sistema (mapean a un rol de la matriz de permisos). */
-export type UserType = 'admin' | 'despachador' | 'portero' | 'planeador' | 'supervisor' | 'monitor' | 'transportes' | 'tablero' | 'informes';
+export type UserType =
+  | 'admin'
+  | 'despachador'
+  | 'portero'
+  | 'planeador'
+  | 'supervisor'
+  | 'monitor'
+  | 'transportes'
+  | 'tablero'
+  | 'informes';
 
 export interface ModulePermission {
   canAccess: boolean;
@@ -94,11 +103,7 @@ export type TipoVehiculo = 'SENCILLO' | 'TURBO' | 'MINIMULA' | 'LUV' | 'MULA';
 
 /** Campos de tiempo del control de portería (secuencia de registro de horas). */
 export type PorteriaTimeField =
-  | 'horaLlegadaPorteria'
-  | 'horaIngreso'
-  | 'horaInicioCargue'
-  | 'horaFinCargue'
-  | 'horaSalida';
+  'horaLlegadaPorteria' | 'horaIngreso' | 'horaInicioCargue' | 'horaFinCargue' | 'horaSalida';
 
 /**
  * Registro único de la operación: una fila por vehículo/LLAVE.

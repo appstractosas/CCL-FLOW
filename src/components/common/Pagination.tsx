@@ -22,7 +22,12 @@ function pageWindow(page: number, totalPages: number): (number | '…')[] {
 }
 
 /** Paginación compartida (20 filas por página): "Página X de Y" + anterior/siguiente + numeración. */
-export const Pagination: React.FC<PaginationProps> = ({ page, totalPages, totalItems, onPageChange }) => {
+export const Pagination: React.FC<PaginationProps> = ({
+  page,
+  totalPages,
+  totalItems,
+  onPageChange,
+}) => {
   if (totalPages <= 1) return null;
 
   return (
@@ -55,7 +60,7 @@ export const Pagination: React.FC<PaginationProps> = ({ page, totalPages, totalI
             >
               {p}
             </button>
-          )
+          ),
         )}
         <button
           onClick={() => onPageChange(page + 1)}

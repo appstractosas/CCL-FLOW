@@ -39,7 +39,11 @@ export const PlaneacionModule: React.FC = () => {
   };
 
   const handleCancel = (row: UnifiedTransporte) => {
-    if (window.confirm(`¿Cancelar el transporte ${row.placa || 'SIN PLACA'} (${row.llave})? No se elimina: quedará con estado CANCELADO.`)) {
+    if (
+      window.confirm(
+        `¿Cancelar el transporte ${row.placa || 'SIN PLACA'} (${row.llave})? No se elimina: quedará con estado CANCELADO.`,
+      )
+    ) {
       cancelTransporte(row.id);
     }
   };
@@ -60,7 +64,6 @@ export const PlaneacionModule: React.FC = () => {
         canCancel: canCancelLlave,
         onEdit: openEdit,
         onDelete: handleCancel,
-
       }}
       rightContent={
         canEdit ? (

@@ -55,7 +55,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   // Llaves aún en operación (estado diferente a SALIO DE PORTERIA).
   const activeLlaves = useMemo(
     () => transportes.filter((t) => getEstadoPorteria(t) !== 'SALIO DE PORTERIA'),
-    [transportes]
+    [transportes],
   );
   // Si no hay ninguna llave activa, el chat queda deshabilitado por completo.
   const canSend = activeLlaves.length > 0;
@@ -71,7 +71,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   const selectorLlaves = useMemo(
     () => activeLlaves.filter((t) => !llaveCompletada(t.llave)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeLlaves, messages]
+    [activeLlaves, messages],
   );
 
   // Ajusta la llave seleccionada cuando cambia el conjunto disponible.

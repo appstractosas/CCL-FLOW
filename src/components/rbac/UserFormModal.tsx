@@ -10,7 +10,12 @@ interface UserFormModalProps {
   onSave: (data: { nombre: string; cedula: string; clave: string; tipoUsuario: UserType }) => void;
 }
 
-export const UserFormModal: React.FC<UserFormModalProps> = ({ open, editingUser, onClose, onSave }) => {
+export const UserFormModal: React.FC<UserFormModalProps> = ({
+  open,
+  editingUser,
+  onClose,
+  onSave,
+}) => {
   const [nombre, setNombre] = useState('');
   const [cedula, setCedula] = useState('');
   const [clave, setClave] = useState('');

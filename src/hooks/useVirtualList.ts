@@ -26,7 +26,7 @@ export interface UseVirtualListResult {
  */
 export function useVirtualList(
   containerRef: RefObject<HTMLElement | null>,
-  options: UseVirtualListOptions
+  options: UseVirtualListOptions,
 ): UseVirtualListResult {
   const { itemsCount, itemHeight = 44, overscan = 5 } = options;
 
@@ -84,7 +84,10 @@ export function useVirtualList(
   }
 
   const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
-  const endIndex = Math.min(itemsCount - 1, Math.ceil((scrollTop + containerHeight) / itemHeight) + overscan);
+  const endIndex = Math.min(
+    itemsCount - 1,
+    Math.ceil((scrollTop + containerHeight) / itemHeight) + overscan,
+  );
 
   const virtualItems: VirtualItem[] = [];
   for (let i = startIndex; i <= endIndex; i++) {

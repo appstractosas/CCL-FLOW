@@ -60,7 +60,9 @@ describe('DespachosModule', () => {
   });
 
   it('H. Fin Cargue solo se habilita cuando hay cuadrilla seleccionada', async () => {
-    await useLogisticsStore.getState().addTransporte({ placa: 'XYZ-999', muelleAsignado: 'Muelle 1' });
+    await useLogisticsStore
+      .getState()
+      .addTransporte({ placa: 'XYZ-999', muelleAsignado: 'Muelle 1' });
     const { llave, id } = useLogisticsStore.getState().transportes[0];
     // Portería ya registró sus dos pasos y despachos inició el cargue.
     useLogisticsStore.getState().updatePorteriaHora(id, 'horaLlegadaPorteria', '2026-08-18 08:00');

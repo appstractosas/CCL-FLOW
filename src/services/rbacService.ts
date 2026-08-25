@@ -1,10 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { Role, UserRecord, UserType, AppModuleId, PermissionsMap } from '../types';
-import {
-  ALL_MODULES,
-  ROLE_ID_BY_USER_TYPE,
-  ROLE_NAME_BY_USER_TYPE,
-} from '../lib/moduleConfig';
+import { ALL_MODULES, ROLE_ID_BY_USER_TYPE, ROLE_NAME_BY_USER_TYPE } from '../lib/moduleConfig';
 
 const ROLES_TABLE = 'roles';
 const USERS_TABLE = 'users';
@@ -22,39 +18,87 @@ function permissionsAll(active: AppModuleId[], editable: AppModuleId[] = active)
 /** Roles predefinidos del sistema (ADMIN siempre tiene todo; los 4 roles operativos son editables desde la matriz). */
 export const PRESET_ROLES: Role[] = [
   {
-    id: 'ROLE_ADMIN', name: 'ADMIN', description: 'Acceso total al sistema y gestión de roles, usuarios e historial.', isPreset: true,
+    id: 'ROLE_ADMIN',
+    name: 'ADMIN',
+    description: 'Acceso total al sistema y gestión de roles, usuarios e historial.',
+    isPreset: true,
     permissions: permissionsAll(ALL_MODULES),
   },
   {
-    id: 'ROLE_DESPACHADOR', name: 'DESPACHADOR', description: 'Gestión de despachos y planeación.', isPreset: true,
-    permissions: permissionsAll(['despachos', 'planeacion', 'informes', 'monitoreo', 'tablero'], ['despachos', 'planeacion']),
+    id: 'ROLE_DESPACHADOR',
+    name: 'DESPACHADOR',
+    description: 'Gestión de despachos y planeación.',
+    isPreset: true,
+    permissions: permissionsAll(
+      ['despachos', 'planeacion', 'informes', 'monitoreo', 'tablero'],
+      ['despachos', 'planeacion'],
+    ),
   },
   {
-    id: 'ROLE_PORTERO', name: 'PORTERO', description: 'Control de puerta, muelles y estados de portería.', isPreset: true,
-    permissions: permissionsAll(['porteria', 'despachos', 'planeacion', 'monitoreo', 'chat', 'tablero'], ['porteria']),
+    id: 'ROLE_PORTERO',
+    name: 'PORTERO',
+    description: 'Control de puerta, muelles y estados de portería.',
+    isPreset: true,
+    permissions: permissionsAll(
+      ['porteria', 'despachos', 'planeacion', 'monitoreo', 'chat', 'tablero'],
+      ['porteria'],
+    ),
   },
   {
-    id: 'ROLE_PLANEADOR', name: 'PLANEADOR', description: 'Planeación de transporte y vista de despachos.', isPreset: true,
-    permissions: permissionsAll(['planeacion', 'despachos', 'informes', 'monitoreo', 'tablero'], ['planeacion', 'despachos']),
+    id: 'ROLE_PLANEADOR',
+    name: 'PLANEADOR',
+    description: 'Planeación de transporte y vista de despachos.',
+    isPreset: true,
+    permissions: permissionsAll(
+      ['planeacion', 'despachos', 'informes', 'monitoreo', 'tablero'],
+      ['planeacion', 'despachos'],
+    ),
   },
   {
-    id: 'ROLE_SUPERVISOR', name: 'SUPERVISOR', description: 'Observación global de la operación e informes.', isPreset: true,
-    permissions: permissionsAll(['despachos', 'planeacion', 'porteria', 'monitoreo', 'informes', 'personal', 'chat', 'tablero']),
+    id: 'ROLE_SUPERVISOR',
+    name: 'SUPERVISOR',
+    description: 'Observación global de la operación e informes.',
+    isPreset: true,
+    permissions: permissionsAll([
+      'despachos',
+      'planeacion',
+      'porteria',
+      'monitoreo',
+      'informes',
+      'personal',
+      'chat',
+      'tablero',
+    ]),
   },
   {
-    id: 'ROLE_MONITOREO', name: 'MONITOREO', description: 'Monitoreo de la operación y registro de salida de portería.', isPreset: true,
-    permissions: permissionsAll(['monitoreo', 'despachos', 'planeacion', 'porteria', 'informes', 'tablero'], ['monitoreo']),
+    id: 'ROLE_MONITOREO',
+    name: 'MONITOREO',
+    description: 'Monitoreo de la operación y registro de salida de portería.',
+    isPreset: true,
+    permissions: permissionsAll(
+      ['monitoreo', 'despachos', 'planeacion', 'porteria', 'informes', 'tablero'],
+      ['monitoreo'],
+    ),
   },
   {
-    id: 'ROLE_TRANSPORTES', name: 'TRANSPORTES', description: 'Registro y edición de placas de transportes.', isPreset: true,
+    id: 'ROLE_TRANSPORTES',
+    name: 'TRANSPORTES',
+    description: 'Registro y edición de placas de transportes.',
+    isPreset: true,
     permissions: permissionsAll(['transportes', 'informes', 'tablero'], ['transportes']),
   },
   {
-    id: 'ROLE_TABLERO', name: 'TABLERO', description: 'Consulta del tablero del aeropuerto (solo lectura).', isPreset: true,
+    id: 'ROLE_TABLERO',
+    name: 'TABLERO',
+    description: 'Consulta del tablero del aeropuerto (solo lectura).',
+    isPreset: true,
     permissions: permissionsAll(['tablero'], []),
   },
   {
-    id: 'ROLE_INFORMES', name: 'INFORMES', description: 'Consulta y exportación de informes (sin edición operativa).', isPreset: true,
+    id: 'ROLE_INFORMES',
+    name: 'INFORMES',
+    description: 'Consulta y exportación de informes (sin edición operativa).',
+    isPreset: true,
     permissions: permissionsAll(['informes'], []),
   },
 ];
@@ -64,13 +108,69 @@ export const ROLE_NAME_BY_TYPE: Record<UserType, string> = ROLE_NAME_BY_USER_TYP
 
 /** Usuarios semilla (offline / primer arranque). La clave por defecto del ADMIN es "admin". */
 export const PRESET_USERS: UserRecord[] = [
-  { id: 'USER_ADMIN', nombre: 'ADMIN', cedula: '0000000000', clave: 'admin', tipoUsuario: 'admin', roleId: 'ROLE_ADMIN', roleName: 'ADMIN' },
-  { id: 'USER_DESP', nombre: 'Juan Pérez', cedula: '1000000001', clave: '1234', tipoUsuario: 'despachador', roleId: 'ROLE_DESPACHADOR', roleName: 'DESPACHADOR' },
-  { id: 'USER_PORTERO', nombre: 'Ramiro Torres', cedula: '1000000002', clave: '1234', tipoUsuario: 'portero', roleId: 'ROLE_PORTERO', roleName: 'PORTERO' },
-  { id: 'USER_PLAN', nombre: 'Ana Gómez', cedula: '1000000003', clave: '1234', tipoUsuario: 'planeador', roleId: 'ROLE_PLANEADOR', roleName: 'PLANEADOR' },
-  { id: 'USER_SUP', nombre: 'Luis Mora', cedula: '1000000004', clave: '1234', tipoUsuario: 'supervisor', roleId: 'ROLE_SUPERVISOR', roleName: 'SUPERVISOR' },
-  { id: 'USER_MONITOREO', nombre: 'Carlos Montero', cedula: '1000000005', clave: '1234', tipoUsuario: 'monitor', roleId: 'ROLE_MONITOREO', roleName: 'MONITOREO' },
-  { id: 'USER_TRANSPORTES', nombre: 'Diana Ríos', cedula: '1000000006', clave: '1234', tipoUsuario: 'transportes', roleId: 'ROLE_TRANSPORTES', roleName: 'TRANSPORTES' },
+  {
+    id: 'USER_ADMIN',
+    nombre: 'ADMIN',
+    cedula: '0000000000',
+    clave: 'admin',
+    tipoUsuario: 'admin',
+    roleId: 'ROLE_ADMIN',
+    roleName: 'ADMIN',
+  },
+  {
+    id: 'USER_DESP',
+    nombre: 'Juan Pérez',
+    cedula: '1000000001',
+    clave: '1234',
+    tipoUsuario: 'despachador',
+    roleId: 'ROLE_DESPACHADOR',
+    roleName: 'DESPACHADOR',
+  },
+  {
+    id: 'USER_PORTERO',
+    nombre: 'Ramiro Torres',
+    cedula: '1000000002',
+    clave: '1234',
+    tipoUsuario: 'portero',
+    roleId: 'ROLE_PORTERO',
+    roleName: 'PORTERO',
+  },
+  {
+    id: 'USER_PLAN',
+    nombre: 'Ana Gómez',
+    cedula: '1000000003',
+    clave: '1234',
+    tipoUsuario: 'planeador',
+    roleId: 'ROLE_PLANEADOR',
+    roleName: 'PLANEADOR',
+  },
+  {
+    id: 'USER_SUP',
+    nombre: 'Luis Mora',
+    cedula: '1000000004',
+    clave: '1234',
+    tipoUsuario: 'supervisor',
+    roleId: 'ROLE_SUPERVISOR',
+    roleName: 'SUPERVISOR',
+  },
+  {
+    id: 'USER_MONITOREO',
+    nombre: 'Carlos Montero',
+    cedula: '1000000005',
+    clave: '1234',
+    tipoUsuario: 'monitor',
+    roleId: 'ROLE_MONITOREO',
+    roleName: 'MONITOREO',
+  },
+  {
+    id: 'USER_TRANSPORTES',
+    nombre: 'Diana Ríos',
+    cedula: '1000000006',
+    clave: '1234',
+    tipoUsuario: 'transportes',
+    roleId: 'ROLE_TRANSPORTES',
+    roleName: 'TRANSPORTES',
+  },
 ];
 
 export function roleForUserType(tipo: UserType): { roleId: string; roleName: string } {
@@ -130,7 +230,10 @@ function isOnline(): boolean {
 
 export async function fetchRoles(): Promise<Role[]> {
   if (!isOnline()) return PRESET_ROLES;
-  const { data, error } = await supabase.from(ROLES_TABLE).select('*').order('name', { ascending: true });
+  const { data, error } = await supabase
+    .from(ROLES_TABLE)
+    .select('*')
+    .order('name', { ascending: true });
   if (error) throw error;
   const roles = (data || []).map(mapRoleFromDB);
   return roles.length > 0 ? roles : PRESET_ROLES;
@@ -142,8 +245,18 @@ export async function createRole(item: Role): Promise<Role> {
   return mapRoleFromDB(data);
 }
 
-export async function updateRole(id: string, name: string, description: string, permissions: any): Promise<void> {
-  const { error } = await supabase.rpc('ccl_update_role', { p_id: id, p_name: name, p_description: description, p_permissions: permissions });
+export async function updateRole(
+  id: string,
+  name: string,
+  description: string,
+  permissions: any,
+): Promise<void> {
+  const { error } = await supabase.rpc('ccl_update_role', {
+    p_id: id,
+    p_name: name,
+    p_description: description,
+    p_permissions: permissions,
+  });
   if (error) throw error;
 }
 
@@ -154,7 +267,10 @@ export async function deleteRole(id: string): Promise<void> {
 
 export async function fetchUsers(): Promise<UserRecord[]> {
   if (!isOnline()) return PRESET_USERS;
-  const { data, error } = await supabase.from(USERS_TABLE).select('*').order('nombre', { ascending: true });
+  const { data, error } = await supabase
+    .from(USERS_TABLE)
+    .select('*')
+    .order('nombre', { ascending: true });
   if (error) throw error;
   const users = (data || []).map(mapUserFromDB);
   return users.length > 0 ? users : PRESET_USERS;

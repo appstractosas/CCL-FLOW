@@ -4,7 +4,12 @@ import { useFiltrosTransportes } from '../hooks/useFiltrosTransportes';
 import { addDaysStr } from '../lib/dateUtils';
 import { UnifiedTransporte } from '../types';
 
-function row(id: string, cita: string, horaSalida = '--:--', estadoPorteria?: UnifiedTransporte['estadoPorteria']): UnifiedTransporte {
+function row(
+  id: string,
+  cita: string,
+  horaSalida = '--:--',
+  estadoPorteria?: UnifiedTransporte['estadoPorteria'],
+): UnifiedTransporte {
   return {
     id,
     llave: `LL-${id}`,
@@ -24,14 +29,14 @@ function row(id: string, cita: string, horaSalida = '--:--', estadoPorteria?: Un
 
 describe('useFiltrosTransportes — vista ACTIVAS (regla de fechas)', () => {
   const rows = [
-    row('1', `${addDaysStr(-30)} 07:00`),                          // pasado → incluida
-    row('2', `${addDaysStr(0)} 07:00`),                            // hoy → incluida
-    row('3', `${addDaysStr(1)} 07:00`),                            // mañana → incluida
-    row('4', `${addDaysStr(2)} 07:00`),                            // pasado mañana → excluida
-    row('5', `${addDaysStr(10)} 07:00`),                           // futuro lejano → excluida
-    row('6', `${addDaysStr(0)} 07:00`, '09:15'),                   // SALIO DE PORTERIA → excluida
-    row('7', `${addDaysStr(0)} 07:00`, '--:--', 'CANCELADO'),      // CANCELADO → excluida
-    row('8', ''),                                                  // sin cita → excluida
+    row('1', `${addDaysStr(-30)} 07:00`), // pasado → incluida
+    row('2', `${addDaysStr(0)} 07:00`), // hoy → incluida
+    row('3', `${addDaysStr(1)} 07:00`), // mañana → incluida
+    row('4', `${addDaysStr(2)} 07:00`), // pasado mañana → excluida
+    row('5', `${addDaysStr(10)} 07:00`), // futuro lejano → excluida
+    row('6', `${addDaysStr(0)} 07:00`, '09:15'), // SALIO DE PORTERIA → excluida
+    row('7', `${addDaysStr(0)} 07:00`, '--:--', 'CANCELADO'), // CANCELADO → excluida
+    row('8', ''), // sin cita → excluida
   ];
 
   it('muestra pasado+hoy+mañana activas y excluye +2, cerradas y sin cita', () => {

@@ -50,9 +50,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   onInputChange,
   onSend,
 }) => {
-  const muelleOptions = suggestedDock && !MUELLES.includes(suggestedDock)
-    ? [suggestedDock, ...MUELLES]
-    : MUELLES;
+  const muelleOptions =
+    suggestedDock && !MUELLES.includes(suggestedDock) ? [suggestedDock, ...MUELLES] : MUELLES;
 
   return (
     <div className="pointer-events-auto bg-[#121726] rounded-2xl shadow-2xl border border-zinc-800 w-80 sm:w-96 h-[460px] flex flex-col mb-3 overflow-hidden animate-in slide-in-from-bottom-5 duration-200">
@@ -69,10 +68,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         </div>
 
         <div className="flex items-center space-x-1">
-          <button
-            onClick={onToggleOpen}
-            className="text-zinc-400 hover:text-white p-1 rounded-lg"
-          >
+          <button onClick={onToggleOpen} className="text-zinc-400 hover:text-white p-1 rounded-lg">
             <Minimize2 className="w-4 h-4" />
           </button>
         </div>
@@ -145,7 +141,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       </div>
 
       {/* Input Form */}
-      <form onSubmit={onSend} className="p-2.5 bg-[#121726] border-t border-zinc-800 flex items-center space-x-2">
+      <form
+        onSubmit={onSend}
+        className="p-2.5 bg-[#121726] border-t border-zinc-800 flex items-center space-x-2"
+      >
         <input
           type="text"
           placeholder="Escribe un mensaje de coordinación..."

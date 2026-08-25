@@ -61,7 +61,9 @@ describe('AeropuertoBoard (Tablero)', () => {
     await useLogisticsStore.getState().addTransporte({ placa: 'ABC-123' });
 
     render(<AeropuertoBoard />);
-    fireEvent.change(screen.getByPlaceholderText('Buscar llave o placa...'), { target: { value: 'LL-60534' } });
+    fireEvent.change(screen.getByPlaceholderText('Buscar llave o placa...'), {
+      target: { value: 'LL-60534' },
+    });
 
     expect(screen.getByText('LL-60534')).toBeInTheDocument();
     expect(screen.queryByText('LL-60533')).not.toBeInTheDocument();

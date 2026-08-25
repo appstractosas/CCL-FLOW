@@ -4,7 +4,14 @@ import { UnifiedTransporte, PorteriaTimeField } from '../../types';
 import { EstadoBadge, EstatusBadge, TipoBadge } from '../common/EstadoBadge';
 import { getEstadoPorteria, isLlaveCerrada, puedeEditarOperacion } from '../../utils/porteria';
 import { MUELLES, MUELLE_CERO } from '../../lib/muelles';
-import { timeSet, nowDateTime, formatSlot, horaOf, combinarFechaHora, formatFechaHora } from '../../lib/dateUtils';
+import {
+  timeSet,
+  nowDateTime,
+  formatSlot,
+  horaOf,
+  combinarFechaHora,
+  formatFechaHora,
+} from '../../lib/dateUtils';
 import { CUADRILLAS, PORTERIA_STEPS, DetailRow, TimeRow } from './TransporteDetailBits';
 
 interface TransporteDetailPanelProps {
@@ -83,13 +90,16 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
 
   const cerrada = isLlaveCerrada(row);
   const estado = getEstadoPorteria(row);
-  const setFlags = PORTERIA_STEPS.map((s) => timeSet((row as Record<string, unknown>)[s.key] as string | undefined));
+  const setFlags = PORTERIA_STEPS.map((s) =>
+    timeSet((row as Record<string, unknown>)[s.key] as string | undefined),
+  );
   const enabledIndex = setFlags.findIndex((f) => !f);
   // Matriz de control de tiempos por módulo:
   // - PORTERÍA: H. Llegada (0) y H. Ingreso (1).
   // - DESPACHOS: H. Inicio Cargue (2) y H. Fin Cargue (3).
   // - MONITOREO: H. Salida Portería (4).
-  const ownedIndexes = checklistOwner === 'despachos' ? [2, 3] : checklistOwner === 'monitoreo' ? [4] : [0, 1];
+  const ownedIndexes =
+    checklistOwner === 'despachos' ? [2, 3] : checklistOwner === 'monitoreo' ? [4] : [0, 1];
   const showCheck = Boolean(checklistOwner) && Boolean(onPorteriaHora);
   const requiresMuelle = checklistOwner === 'despachos';
   const muelleOk = !requiresMuelle || Boolean(row.muelleAsignado);
@@ -137,22 +147,35 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-zinc-800">
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">Llave</p>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">
+                Llave
+              </p>
               <h3 className="text-lg font-black text-white font-mono truncate">{row.llave}</h3>
             </div>
             <div className="flex items-baseline gap-2">
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">Placa</p>
-              <p className="text-[11px] font-semibold text-zinc-100 truncate">{row.placa || 'SIN PLACA'}</p>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">
+                Placa
+              </p>
+              <p className="text-[11px] font-semibold text-zinc-100 truncate">
+                {row.placa || 'SIN PLACA'}
+              </p>
             </div>
           </div>
           <div className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-[11px] font-semibold text-zinc-100 truncate">{row.transportadora || '—'}</span>
+              <span className="text-[11px] font-semibold text-zinc-100 truncate">
+                {row.transportadora || '—'}
+              </span>
               <TipoBadge tipo={row.vehiculoTipo} />
             </div>
-            <span className="text-[11px] font-semibold text-zinc-100 truncate">{row.region || '—'}</span>
+            <span className="text-[11px] font-semibold text-zinc-100 truncate">
+              {row.region || '—'}
+            </span>
           </div>
-          <button onClick={onClose} className="text-zinc-400 hover:text-white p-1.5 rounded-lg shrink-0">
+          <button
+            onClick={onClose}
+            className="text-zinc-400 hover:text-white p-1.5 rounded-lg shrink-0"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -162,7 +185,9 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
           {/* Control de tiempos / columnas de operación */}
           <div>
             <div className="flex items-center justify-between pb-1 gap-1.5">
-              <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Control de Tiempos</h4>
+              <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                Control de Tiempos
+              </h4>
               <div className="flex items-center gap-1.5 shrink-0">
                 {showEstatus && <EstatusBadge estado={row.estadoTransporte} />}
                 <EstadoBadge estado={getEstadoPorteria(row)} />
@@ -170,8 +195,8 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
             </div>
             {checklistOwner === 'porteria' && estado === 'Pendiente' && (
               <div className="mb-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] rounded-lg px-3 py-2 leading-relaxed">
-                Llave en <strong>PENDIENTE</strong>: el proceso de portería no se puede iniciar hasta que la
-                llave esté <strong>CONFIRMADA</strong> (placa asignada).
+                Llave en <strong>PENDIENTE</strong>: el proceso de portería no se puede iniciar
+                hasta que la llave esté <strong>CONFIRMADA</strong> (placa asignada).
               </div>
             )}
             <div className="bg-[#121726] rounded-xl border border-zinc-800 px-4">
@@ -232,7 +257,9 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                     />
                   ) : (
                     <span className="text-xs font-semibold text-zinc-100 text-right">
-                      {timeSet(row.horaMuelleAsignado) ? formatFechaHora(row.horaMuelleAsignado) : '—'}
+                      {timeSet(row.horaMuelleAsignado)
+                        ? formatFechaHora(row.horaMuelleAsignado)
+                        : '—'}
                     </span>
                   )}
                 </div>
@@ -255,9 +282,9 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 editable={stepEditable(2)}
                 value={row.horaInicioCargue}
                 onCheck={() => {
-                setConfirmIndex(2);
-                onPorteriaHora?.(row.id, 'horaInicioCargue', nowDateTime());
-              }}
+                  setConfirmIndex(2);
+                  onPorteriaHora?.(row.id, 'horaInicioCargue', nowDateTime());
+                }}
                 onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[2].key, hora)}
               />
               <div className="flex items-center justify-between gap-3 py-2.5 border-b border-zinc-800/60 last:border-0">
@@ -318,7 +345,10 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[4].key, hora)}
               />
               {/* Nº Pedido y Cliente retirados de la UI (siguen en la BD). */}
-              <DetailRow label="Kg" value={row.kg != null ? row.kg.toLocaleString('es-CO') : undefined} />
+              <DetailRow
+                label="Kg"
+                value={row.kg != null ? row.kg.toLocaleString('es-CO') : undefined}
+              />
             </div>
           </div>
         </div>

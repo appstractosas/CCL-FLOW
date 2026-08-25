@@ -119,14 +119,18 @@ export const NotificationsBell: React.FC = () => {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-[11px] font-bold text-white truncate">{n.titulo}</p>
-                          <span className="text-[9px] text-zinc-500 whitespace-nowrap">{timeAgo(n.createdAt)}</span>
+                          <span className="text-[9px] text-zinc-500 whitespace-nowrap">
+                            {timeAgo(n.createdAt)}
+                          </span>
                         </div>
                         {n.llaveRelacionada && (
                           <span className="inline-block text-[9px] bg-zinc-900 font-mono px-1 py-0.5 rounded font-bold text-zinc-300 mt-0.5 border border-zinc-800">
                             {n.llaveRelacionada}
                           </span>
                         )}
-                        <p className="text-[10px] text-zinc-400 leading-relaxed mt-0.5">{n.mensaje}</p>
+                        <p className="text-[10px] text-zinc-400 leading-relaxed mt-0.5">
+                          {n.mensaje}
+                        </p>
                       </div>
                     </div>
                   );
@@ -140,9 +144,13 @@ export const NotificationsBell: React.FC = () => {
       {/* Banner flotante (estilo WhatsApp) al llegar una notificación nueva */}
       {toast && (
         <div className="fixed top-16 right-3 left-3 z-[70] sm:right-6 sm:left-auto sm:w-96 animate-in slide-in-from-top-5 fade-in duration-200">
-          <div className={`bg-[#121726] border rounded-xl shadow-2xl overflow-hidden ${notifMeta(toast).border}`}>
+          <div
+            className={`bg-[#121726] border rounded-xl shadow-2xl overflow-hidden ${notifMeta(toast).border}`}
+          >
             <div className="flex items-start gap-2.5 p-3.5">
-              <div className={`p-2 rounded-lg shrink-0 ${notifMeta(toast).box}`}>{notifMeta(toast).icon}</div>
+              <div className={`p-2 rounded-lg shrink-0 ${notifMeta(toast).box}`}>
+                {notifMeta(toast).icon}
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-bold text-white">{toast.titulo}</p>

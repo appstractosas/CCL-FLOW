@@ -37,16 +37,23 @@ describe('getEstadoPorteria (secuencia de estados de la app)', () => {
 
   it('avanza el estado de portería por cada acción (hora) registrada', () => {
     expect(getEstadoPorteria(row({ horaLlegadaPorteria: '08:00' }))).toBe('LLEGO A PORTERIA');
+    expect(getEstadoPorteria(row({ horaLlegadaPorteria: '08:00', horaIngreso: '08:05' }))).toBe(
+      'INGRESO A MUELLE',
+    );
     expect(
-      getEstadoPorteria(row({ horaLlegadaPorteria: '08:00', horaIngreso: '08:05' }))
-    ).toBe('INGRESO A MUELLE');
-    expect(
-      getEstadoPorteria(row({ horaLlegadaPorteria: '08:00', horaIngreso: '08:05', horaInicioCargue: '08:10' }))
+      getEstadoPorteria(
+        row({ horaLlegadaPorteria: '08:00', horaIngreso: '08:05', horaInicioCargue: '08:10' }),
+      ),
     ).toBe('CARGANDO');
     expect(
       getEstadoPorteria(
-        row({ horaLlegadaPorteria: '08:00', horaIngreso: '08:05', horaInicioCargue: '08:10', horaFinCargue: '09:00' })
-      )
+        row({
+          horaLlegadaPorteria: '08:00',
+          horaIngreso: '08:05',
+          horaInicioCargue: '08:10',
+          horaFinCargue: '09:00',
+        }),
+      ),
     ).toBe('FINALIZO CARGUE');
     expect(
       getEstadoPorteria(
@@ -56,14 +63,16 @@ describe('getEstadoPorteria (secuencia de estados de la app)', () => {
           horaInicioCargue: '08:10',
           horaFinCargue: '09:00',
           horaSalida: '09:15',
-        })
-      )
+        }),
+      ),
     ).toBe('SALIO DE PORTERIA');
   });
 
   it('conserva CANCELADO aunque existan horas registradas', () => {
     expect(getEstadoPorteria(row({ estadoPorteria: 'CANCELADO' }))).toBe('CANCELADO');
-    expect(getEstadoPorteria(row({ estadoPorteria: 'CANCELADO', horaSalida: '09:15' }))).toBe('CANCELADO');
+    expect(getEstadoPorteria(row({ estadoPorteria: 'CANCELADO', horaSalida: '09:15' }))).toBe(
+      'CANCELADO',
+    );
   });
 
   it('marca la llave como cerrada solo en SALIO DE PORTERIA o CANCELADO', () => {
@@ -84,8 +93,14 @@ describe('cumpleFiltroActivas (regla de fechas de la vista ACTIVAS)', () => {
   });
 
   it('excluye SALIO DE PORTERIA y CANCELADO aunque la fecha esté en la ventana', () => {
-    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00`, horaSalida: '09:15' }))).toBe(false);
-    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00`, estadoPorteria: 'CANCELADO' }))).toBe(false);
+    expect(
+      cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00`, horaSalida: '09:15' })),
+    ).toBe(false);
+    expect(
+      cumpleFiltroActivas(
+        row({ citaCargue: `${addDaysStr(0)} 07:00`, estadoPorteria: 'CANCELADO' }),
+      ),
+    ).toBe(false);
   });
 
   it('excluye llaves activas sin fecha programada', () => {
@@ -93,9 +108,19 @@ describe('cumpleFiltroActivas (regla de fechas de la vista ACTIVAS)', () => {
   });
 
   it('incluye llaves activas en cualquier etapa dentro de la ventana', () => {
-    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00`, horaLlegadaPorteria: '08:00' }))).toBe(true);
     expect(
-      cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00`, horaIngreso: '08:05', horaInicioCargue: '08:10' }))
+      cumpleFiltroActivas(
+        row({ citaCargue: `${addDaysStr(0)} 07:00`, horaLlegadaPorteria: '08:00' }),
+      ),
+    ).toBe(true);
+    expect(
+      cumpleFiltroActivas(
+        row({
+          citaCargue: `${addDaysStr(0)} 07:00`,
+          horaIngreso: '08:05',
+          horaInicioCargue: '08:10',
+        }),
+      ),
     ).toBe(true);
   });
 });
@@ -112,7 +137,7 @@ describe('sortTransportesPorEstado (orden del Tablero vs canónico)', () => {
   it('el orden canónico mantiene Pendiente/Confirmado arriba', () => {
     const ordenado = sortTransportesPorEstado(
       [fila('LL-3', '08:00'), fila('LL-1', ''), fila('LL-2', '')],
-      ORDEN_ESTADOS
+      ORDEN_ESTADOS,
     );
     expect(ordenado.map((f) => f.llave)).toEqual(['LL-1', 'LL-2', 'LL-3']);
   });
@@ -120,7 +145,7 @@ describe('sortTransportesPorEstado (orden del Tablero vs canónico)', () => {
   it('el orden del Tablero pone arriba LLEGO A PORTERIA y abajo Pendiente/Confirmado', () => {
     const ordenado = sortTransportesPorEstado(
       [fila('LL-3', '08:00'), fila('LL-1', ''), fila('LL-2', '')],
-      ORDEN_ESTADOS_TABLERO
+      ORDEN_ESTADOS_TABLERO,
     );
     expect(ordenado.map((f) => f.llave)).toEqual(['LL-3', 'LL-1', 'LL-2']);
   });

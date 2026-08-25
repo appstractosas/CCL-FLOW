@@ -83,7 +83,12 @@ describe('Sidebar', () => {
     const setActiveModule = vi.fn();
     const onClose = vi.fn();
     render(
-      <Sidebar activeModule="planeacion" setActiveModule={setActiveModule} isOpen onClose={onClose} />
+      <Sidebar
+        activeModule="planeacion"
+        setActiveModule={setActiveModule}
+        isOpen
+        onClose={onClose}
+      />,
     );
 
     expect(screen.getByText('Planeación')).toBeInTheDocument();
@@ -105,7 +110,9 @@ describe('Sidebar', () => {
         roleName: 'DESPACHADOR',
       },
     });
-    render(<Sidebar activeModule="planeacion" setActiveModule={() => {}} isOpen onClose={() => {}} />);
+    render(
+      <Sidebar activeModule="planeacion" setActiveModule={() => {}} isOpen onClose={() => {}} />,
+    );
 
     // DESPACHADOR no ve ROLES ni USUARIOS
     expect(screen.queryByText('ROLES')).not.toBeInTheDocument();
@@ -117,7 +124,12 @@ describe('Sidebar', () => {
   it('clic en el logo navega a despachos', () => {
     const setActiveModule = vi.fn();
     render(
-      <Sidebar activeModule="planeacion" setActiveModule={setActiveModule} isOpen onClose={() => {}} />
+      <Sidebar
+        activeModule="planeacion"
+        setActiveModule={setActiveModule}
+        isOpen
+        onClose={() => {}}
+      />,
     );
     fireEvent.click(screen.getByAltText('CCL Logo'));
     expect(setActiveModule).toHaveBeenCalledWith('despachos');

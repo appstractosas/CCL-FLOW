@@ -20,7 +20,6 @@ export const MonitoreoModule: React.FC = () => {
         hideAcciones: true,
         checklistOwner: canEditRole ? 'monitoreo' : undefined,
         onPorteriaHora: canEditRole ? handlePorteriaHora : undefined,
-
       }}
     />
   );

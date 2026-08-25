@@ -53,10 +53,29 @@ function row(overrides: Partial<UnifiedTransporte> = {}): UnifiedTransporte {
 describe('utils/informes (agregaciones reales)', () => {
   it('calcularKPIs cuenta total, activas, finalizadas y cumplimiento', () => {
     const rows = [
-      row({ llave: 'LL-1', placa: 'AAA-111', fechaHora: '2026-08-12 08:00', horaLlegadaPorteria: '08:01', horaIngreso: '08:05', horaInicioCargue: '08:10', horaFinCargue: '09:00', horaSalida: '09:10' }),
-      row({ llave: 'LL-2', placa: 'BBB-222', fechaHora: '2026-08-12 09:00', horaLlegadaPorteria: '09:05' }),
+      row({
+        llave: 'LL-1',
+        placa: 'AAA-111',
+        fechaHora: '2026-08-12 08:00',
+        horaLlegadaPorteria: '08:01',
+        horaIngreso: '08:05',
+        horaInicioCargue: '08:10',
+        horaFinCargue: '09:00',
+        horaSalida: '09:10',
+      }),
+      row({
+        llave: 'LL-2',
+        placa: 'BBB-222',
+        fechaHora: '2026-08-12 09:00',
+        horaLlegadaPorteria: '09:05',
+      }),
       row({ llave: 'LL-3', placa: '', fechaHora: '2026-08-12 10:00' }),
-      row({ llave: 'LL-4', placa: 'DDD-444', fechaHora: '2026-08-12 11:00', estadoPorteria: 'CANCELADO' }),
+      row({
+        llave: 'LL-4',
+        placa: 'DDD-444',
+        fechaHora: '2026-08-12 11:00',
+        estadoPorteria: 'CANCELADO',
+      }),
     ];
 
     const k = calcularKPIs(rows);
@@ -75,7 +94,14 @@ describe('utils/informes (agregaciones reales)', () => {
 
   it('embudoEstados cuenta cada estado derivado en el orden del flujo', () => {
     const rows = [
-      row({ llave: 'LL-1', horaLlegadaPorteria: '08:01', horaIngreso: '08:05', horaInicioCargue: '08:10', horaFinCargue: '09:00', horaSalida: '09:10' }),
+      row({
+        llave: 'LL-1',
+        horaLlegadaPorteria: '08:01',
+        horaIngreso: '08:05',
+        horaInicioCargue: '08:10',
+        horaFinCargue: '09:00',
+        horaSalida: '09:10',
+      }),
       row({ llave: 'LL-2', horaLlegadaPorteria: '08:01', horaIngreso: '08:05' }),
       row({ llave: 'LL-3' }),
       row({ llave: 'LL-4', estadoPorteria: 'CANCELADO' }),
@@ -202,17 +228,46 @@ describe('utils/informes (utilidades Fase 2)', () => {
         row({ llave: 'LL-1', citaCargue: '2026-07-25 08:00' }),
         row({ llave: 'LL-2', citaCargue: '2026-01-05 09:00' }),
         row({ llave: 'LL-3', citaCargue: '' }),
-      ])
+      ]),
     ).toBe('2026-01-05');
-    expect(primeraFechaDatos([row({ llave: 'LL-1', citaCargue: '' }), row({ llave: 'LL-2', citaCargue: '' })])).toBeNull();
+    expect(
+      primeraFechaDatos([
+        row({ llave: 'LL-1', citaCargue: '' }),
+        row({ llave: 'LL-2', citaCargue: '' }),
+      ]),
+    ).toBeNull();
   });
 
   it('horaHombre calcula cajas por hora-hombre de CCL y SLA; excluye LTSA y filas sin horas', () => {
     const res = horaHombre([
-      row({ llave: 'LL-1', cuadrilla: 'CCL', cajas: 120, horaInicioCargue: '08:00', horaFinCargue: '10:00' }),
-      row({ llave: 'LL-2', cuadrilla: 'SLA', cajas: 60, horaInicioCargue: '08:00', horaFinCargue: '09:00' }),
-      row({ llave: 'LL-3', cuadrilla: 'LTSA 1', cajas: 999, horaInicioCargue: '08:00', horaFinCargue: '09:00' }),
-      row({ llave: 'LL-4', cuadrilla: 'CCL', cajas: 50, horaInicioCargue: '--:--', horaFinCargue: '--:--' }),
+      row({
+        llave: 'LL-1',
+        cuadrilla: 'CCL',
+        cajas: 120,
+        horaInicioCargue: '08:00',
+        horaFinCargue: '10:00',
+      }),
+      row({
+        llave: 'LL-2',
+        cuadrilla: 'SLA',
+        cajas: 60,
+        horaInicioCargue: '08:00',
+        horaFinCargue: '09:00',
+      }),
+      row({
+        llave: 'LL-3',
+        cuadrilla: 'LTSA 1',
+        cajas: 999,
+        horaInicioCargue: '08:00',
+        horaFinCargue: '09:00',
+      }),
+      row({
+        llave: 'LL-4',
+        cuadrilla: 'CCL',
+        cajas: 50,
+        horaInicioCargue: '--:--',
+        horaFinCargue: '--:--',
+      }),
     ]);
     // CCL: 2 h × 3 hombres = 6 h-h · SLA: 1 h × 3 = 3 h-h → 9 h-h en total; LTSA y la fila sin horas no cuentan.
     expect(res.cajas).toBe(180);
@@ -243,7 +298,7 @@ describe('utils/informes (utilidades Fase 2)', () => {
         horaLlegadaPorteria: '08:00',
         horaInicioCargue: '09:00',
         horaFinCargue: '10:30',
-      })
+      }),
     );
     expect(fila.transporte).toBe('PED-100');
     expect(fila.denominacion).toBe('CLIENTE A');
@@ -282,7 +337,9 @@ describe('utils/informes (Fase 3-4: filas y determinación)', () => {
   });
 
   it('filasParaTabla clasifica la demora contra el SLA', () => {
-    const filas = filasParaTabla(filasPorRango([base({ llave: 'LL-1' })], '2026-08-12', '2026-08-12'));
+    const filas = filasParaTabla(
+      filasPorRango([base({ llave: 'LL-1' })], '2026-08-12', '2026-08-12'),
+    );
     expect(filas[0].tiempo_muelle_minutos).toBe(60);
     expect(filas[0].demoraMin).toBe(15);
     expect(filas[0].nivelDemora).toBe('leve');
@@ -293,8 +350,8 @@ describe('utils/informes (Fase 3-4: filas y determinación)', () => {
       filasPorRango(
         [base({ llave: 'LL-1', horaInicioCargue: '09:00', horaFinCargue: '09:30' })],
         '2026-08-12',
-        '2026-08-12'
-      )
+        '2026-08-12',
+      ),
     );
     expect(filas[0].tiempo_muelle_minutos).toBe(30);
     expect(filas[0].nivelDemora).toBe('aTiempo');
@@ -303,13 +360,28 @@ describe('utils/informes (Fase 3-4: filas y determinación)', () => {
   it('determinacionHoraria agrupa por grupo de cuadrilla, turno y suma costo CCL', () => {
     const filas = filasPorRango(
       [
-        base({ llave: 'LL-1', cuadrilla: 'CCL', horaInicioCargue: '03:00', horaFinCargue: '04:00' }), // T1
-        base({ llave: 'LL-2', cuadrilla: 'CCL', horaInicioCargue: '09:00', horaFinCargue: '09:45' }), // T2
-        base({ llave: 'LL-3', cuadrilla: 'SLA 1', horaInicioCargue: '09:00', horaFinCargue: '10:00' }), // T2
+        base({
+          llave: 'LL-1',
+          cuadrilla: 'CCL',
+          horaInicioCargue: '03:00',
+          horaFinCargue: '04:00',
+        }), // T1
+        base({
+          llave: 'LL-2',
+          cuadrilla: 'CCL',
+          horaInicioCargue: '09:00',
+          horaFinCargue: '09:45',
+        }), // T2
+        base({
+          llave: 'LL-3',
+          cuadrilla: 'SLA 1',
+          horaInicioCargue: '09:00',
+          horaFinCargue: '10:00',
+        }), // T2
         base({ llave: 'LL-4', cuadrilla: 'CCL', horaInicioCargue: '', horaFinCargue: '' }), // sin inicio → no atendida
       ],
       '2026-08-12',
-      '2026-08-12'
+      '2026-08-12',
     );
     const det = determinacionHoraria(filas);
     expect(det.totalUnidades).toBe(3);
@@ -324,7 +396,7 @@ describe('utils/informes (Fase 3-4: filas y determinación)', () => {
 
   it('filasExportDeterminacion produce encabezados y cierra con TOTAL', () => {
     const det = determinacionHoraria(
-      filasPorRango([base({ llave: 'LL-1', cuadrilla: 'CCL' })], '2026-08-12', '2026-08-12')
+      filasPorRango([base({ llave: 'LL-1', cuadrilla: 'CCL' })], '2026-08-12', '2026-08-12'),
     );
     const { headers, data } = filasExportDeterminacion(det);
     expect(headers[0]).toBe('GRUPO');
@@ -362,7 +434,7 @@ describe('utils/informes (nuevos gráficos)', () => {
         g({ llave: 'LL-2', cuadrilla: 'SLV', cajas: 5, citaCargue: '2026-08-13 09:00' }),
       ],
       '2026-08-12',
-      '2026-08-13'
+      '2026-08-13',
     );
     expect(rent).toHaveLength(2);
     // Cada día cuesta la tarifa diaria fija de CCL (no depende de cajas).
@@ -381,7 +453,7 @@ describe('utils/informes (nuevos gráficos)', () => {
         g({ llave: 'LL-3', cuadrilla: 'SLA', cajas: 100, citaCargue: '2026-08-14 08:00' }),
       ],
       '2026-08-14',
-      '2026-08-16'
+      '2026-08-16',
     );
     // El rango tiene 3 días, pero 08-16 no tiene llaves: queda fuera del eje X.
     expect(rent).toHaveLength(2);
@@ -429,10 +501,25 @@ describe('utils/informes (nuevos gráficos)', () => {
 
     const tiempos = tiemposPorteria(rows);
     const porEtapa = (id: string) => tiempos.find((t) => t.id === id)!;
-    expect(porEtapa('llegada_muelle')).toMatchObject({ promedio: 15, minimo: 15, maximo: 15, conteo: 1 });
-    expect(porEtapa('muelle_ingreso')).toMatchObject({ promedio: 10, minimo: 10, maximo: 10, conteo: 1 });
+    expect(porEtapa('llegada_muelle')).toMatchObject({
+      promedio: 15,
+      minimo: 15,
+      maximo: 15,
+      conteo: 1,
+    });
+    expect(porEtapa('muelle_ingreso')).toMatchObject({
+      promedio: 10,
+      minimo: 10,
+      maximo: 10,
+      conteo: 1,
+    });
     expect(porEtapa('ingreso_cargando')).toMatchObject({ promedio: 5, conteo: 1 });
-    expect(porEtapa('cargando_fin')).toMatchObject({ promedio: 60, minimo: 60, maximo: 60, conteo: 1 });
+    expect(porEtapa('cargando_fin')).toMatchObject({
+      promedio: 60,
+      minimo: 60,
+      maximo: 60,
+      conteo: 1,
+    });
     expect(porEtapa('fin_salida')).toMatchObject({ promedio: 15, conteo: 1 });
     // LL-2 no tiene muelle asignado: la etapa 1 solo mide LL-1.
     expect(porEtapa('llegada_muelle').conteo).toBe(1);
@@ -442,7 +529,10 @@ describe('utils/informes (nuevos gráficos)', () => {
     const tiempos = tiemposPorteria([
       row({ llave: 'LL-1', horaLlegadaPorteria: '08:30', horaMuelleAsignado: '08:00' }),
     ]);
-    expect(tiempos.find((t) => t.id === 'llegada_muelle')).toMatchObject({ conteo: 0, promedio: 0 });
+    expect(tiempos.find((t) => t.id === 'llegada_muelle')).toMatchObject({
+      conteo: 0,
+      promedio: 0,
+    });
   });
 
   it('ETAPAS_PORTERIA define las 5 transiciones con sus nombres de hito', () => {
@@ -532,7 +622,9 @@ describe('utils/informes (mapa de calor de posicionamiento)', () => {
   });
 
   it('el eje de horas arranca como mínimo a las 06:00 y llega hasta las 23:00', () => {
-    const m = mapaPosicionamiento([row({ llave: 'LL-1', citaCargue: '2026-06-16 12:00', horaInicioCargue: '2026-06-16 12:00' })]);
+    const m = mapaPosicionamiento([
+      row({ llave: 'LL-1', citaCargue: '2026-06-16 12:00', horaInicioCargue: '2026-06-16 12:00' }),
+    ]);
     expect(m.horas[0]).toBe('06:00');
     expect(m.horas[m.horas.length - 1]).toBe('23:00');
     expect(m.horas).toHaveLength(18); // 06:00..23:00

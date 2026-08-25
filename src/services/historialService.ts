@@ -32,7 +32,9 @@ export async function fetchHistorial(limit = 200): Promise<HistorialMovimiento[]
   return (data || []).map(mapMovimientoFromDB);
 }
 
-export async function createMovimiento(item: HistorialMovimiento): Promise<HistorialMovimiento | null> {
+export async function createMovimiento(
+  item: HistorialMovimiento,
+): Promise<HistorialMovimiento | null> {
   if (!isOnline()) return null;
   const payload: Record<string, any> = {
     usuario: item.usuario,

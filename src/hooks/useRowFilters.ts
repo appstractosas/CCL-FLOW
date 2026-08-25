@@ -44,7 +44,13 @@ export function matchesSearch(row: object, term: string, searchKeys?: string[]):
 
 /** Filtro compartido: buscador (todas las columnas) + rango de fechas, en la misma fila. */
 export function useRowFilters<T extends object>(rows: T[], options: RowFiltersOptions<T> = {}) {
-  const { dateKey = 'citaCargue', searchKeys, enableDate = true, keepActiveLlaves = false, keepIf } = options;
+  const {
+    dateKey = 'citaCargue',
+    searchKeys,
+    enableDate = true,
+    keepActiveLlaves = false,
+    keepIf,
+  } = options;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState(enableDate ? todayStr() : '');
@@ -64,7 +70,11 @@ export function useRowFilters<T extends object>(rows: T[], options: RowFiltersOp
           const inRange = (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
           if (!inRange) {
             // Llaves activas (aún no SALIO DE PORTERIA) se conservan sin importar el día.
-            if (keepActiveLlaves && getEstadoPorteria(record as Parameters<typeof getEstadoPorteria>[0]) !== 'SALIO DE PORTERIA') {
+            if (
+              keepActiveLlaves &&
+              getEstadoPorteria(record as Parameters<typeof getEstadoPorteria>[0]) !==
+                'SALIO DE PORTERIA'
+            ) {
               // keep
             } else if (keepIf && keepIf(row)) {
               // keep (filtro de estado: FINALIZADAS/CANCELADAS de cualquier día)
@@ -77,7 +87,17 @@ export function useRowFilters<T extends object>(rows: T[], options: RowFiltersOp
 
       return true;
     });
-  }, [rows, searchTerm, dateFrom, dateTo, dateKey, searchKeys, enableDate, keepActiveLlaves, keepIf]);
+  }, [
+    rows,
+    searchTerm,
+    dateFrom,
+    dateTo,
+    dateKey,
+    searchKeys,
+    enableDate,
+    keepActiveLlaves,
+    keepIf,
+  ]);
 
   const resetFilters = () => {
     setSearchTerm('');

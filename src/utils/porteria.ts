@@ -36,7 +36,10 @@ export const ORDEN_ESTADOS_TABLERO: EstadoPorteria[] = [
   'CANCELADO',
 ];
 
-export function rankEstado(estado: EstadoPorteria, orden: EstadoPorteria[] = ORDEN_ESTADOS): number {
+export function rankEstado(
+  estado: EstadoPorteria,
+  orden: EstadoPorteria[] = ORDEN_ESTADOS,
+): number {
   const i = orden.indexOf(estado);
   return i === -1 ? orden.length : i;
 }
@@ -56,13 +59,15 @@ function llaveNum(llave?: string): number {
  */
 export function sortTransportesPorEstado<T extends PorteriaRow & { llave?: string }>(
   rows: T[],
-  orden: EstadoPorteria[] = ORDEN_ESTADOS
+  orden: EstadoPorteria[] = ORDEN_ESTADOS,
 ): T[] {
   return [...rows].sort((a, b) => {
     const d = rankEstado(getEstadoPorteria(a), orden) - rankEstado(getEstadoPorteria(b), orden);
     if (d !== 0) return d;
-    return llaveNum(a.llave) - llaveNum(b.llave) ||
-      String(a.llave || '').localeCompare(String(b.llave || ''));
+    return (
+      llaveNum(a.llave) - llaveNum(b.llave) ||
+      String(a.llave || '').localeCompare(String(b.llave || ''))
+    );
   });
 }
 
@@ -147,7 +152,9 @@ export function cumpleFiltroActivas(row: PorteriaRow & { citaCargue?: string }):
  * Si horaSalida incluye fecha (ISO o YYYY-MM-DD HH:mm), toma esa fecha.
  * Si solo contiene hora (HH:mm), usa la fecha de citaCargue o fechaHora como fallback.
  */
-export function getFechaSalidaPorteria(row: PorteriaRow & { citaCargue?: string; fechaHora?: string }): string {
+export function getFechaSalidaPorteria(
+  row: PorteriaRow & { citaCargue?: string; fechaHora?: string },
+): string {
   const hSalida = String(row.horaSalida || '').trim();
   const mFull = /^(\d{4}-\d{2}-\d{2})/.exec(hSalida);
   if (mFull) return mFull[1];
