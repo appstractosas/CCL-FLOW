@@ -136,13 +136,17 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_user public.users%ROWTYPE;
+  v_id TEXT;
+  v_nombre TEXT;
+  v_cedula TEXT;
+  v_tipo_usuario TEXT;
+  v_role_id TEXT;
+  v_role_name TEXT;
   v_created_at TIMESTAMPTZ;
-  v_expires_at TIMESTAMPTZ;
 BEGIN
-  -- Buscar sesión válida (usar alias para evitar ambigüedad de columnas duplicadas)
-  SELECT u.*, s.created_at, s.expires_at
-  INTO v_user, v_created_at, v_expires_at
+  -- Buscar sesión válida (columnas individuales para evitar ambigüedad)
+  SELECT u.id, u.nombre, u.cedula, u.tipo_usuario, u.role_id, u.role_name, s.created_at
+  INTO v_id, v_nombre, v_cedula, v_tipo_usuario, v_role_id, v_role_name, v_created_at
   FROM public.sessions s
   JOIN public.users u ON u.cedula = s.cedula
   WHERE s.token = p_token
@@ -167,12 +171,12 @@ BEGIN
   RETURN jsonb_build_object(
     'ok', TRUE,
     'user', jsonb_build_object(
-      'id', v_user.id,
-      'nombre', v_user.nombre,
-      'cedula', v_user.cedula,
-      'tipo_usuario', v_user.tipo_usuario,
-      'role_id', v_user.role_id,
-      'role_name', v_user.role_name
+      'id', v_id,
+      'nombre', v_nombre,
+      'cedula', v_cedula,
+      'tipo_usuario', v_tipo_usuario,
+      'role_id', v_role_id,
+      'role_name', v_role_name
     )
   );
 END;
