@@ -37,8 +37,8 @@ describe('useAuthStore (Usuarios, Matriz de Permisos y Sesión)', () => {
     expect(await store.login('1000000002', 'clave-incorrecta')).toBe(false);
     expect(useAuthStore.getState().currentUser?.name).toBe('ADMIN');
 
-    // PORTERO (cedula 1000000002 / clave 1234)
-    expect(await store.login('1000000002', '1234')).toBe(true);
+    // PORTERO (cedula 1000000002 / clave Porte1234)
+    expect(await store.login('1000000002', 'Porte1234')).toBe(true);
     expect(useAuthStore.getState().currentUser?.roleName).toBe('PORTERO');
     expect(useAuthStore.getState().hasModuleAccess('porteria')).toBe(true);
     expect(useAuthStore.getState().hasModuleEdit('porteria')).toBe(true);
@@ -47,15 +47,15 @@ describe('useAuthStore (Usuarios, Matriz de Permisos y Sesión)', () => {
     expect(useAuthStore.getState().hasModuleAccess('admin_roles')).toBe(false);
     expect(useAuthStore.getState().hasModuleAccess('usuarios')).toBe(false);
 
-    // PLANEADOR (cedula 1000000003 / clave 1234)
-    expect(await store.login('1000000003', '1234')).toBe(true);
+    // PLANEADOR (cedula 1000000003 / clave Plane1234)
+    expect(await store.login('1000000003', 'Plane1234')).toBe(true);
     expect(useAuthStore.getState().hasModuleAccess('planeacion')).toBe(true);
     expect(useAuthStore.getState().hasModuleEdit('planeacion')).toBe(true);
     expect(useAuthStore.getState().hasModuleAccess('porteria')).toBe(false);
 
     // El ADMIN por defecto tiene acceso a ROLES y USUARIOS
     store.logout();
-    expect(await store.login('0000000000', 'admin')).toBe(true);
+    expect(await store.login('0000000000', 'Admin1234')).toBe(true);
     expect(useAuthStore.getState().hasModuleAccess('admin_roles')).toBe(true);
     expect(useAuthStore.getState().hasModuleAccess('usuarios')).toBe(true);
   });
@@ -64,7 +64,7 @@ describe('useAuthStore (Usuarios, Matriz de Permisos y Sesión)', () => {
     const store = useAuthStore.getState();
 
     // PORTERO no tiene acceso a informes
-    await store.login('1000000002', '1234');
+    await store.login('1000000002', 'Porte1234');
     expect(useAuthStore.getState().hasModuleAccess('informes')).toBe(false);
 
     // El ADMIN activa el módulo informes para el rol PORTERO
@@ -81,7 +81,7 @@ describe('useAuthStore (Usuarios, Matriz de Permisos y Sesión)', () => {
     const created = await store.createUser({
       nombre: 'Nuevo Portero',
       cedula: '2000000001',
-      clave: '4321',
+      clave: 'Porte4321',
       tipoUsuario: 'portero',
     });
 
@@ -92,7 +92,7 @@ describe('useAuthStore (Usuarios, Matriz de Permisos y Sesión)', () => {
     // Se puede iniciar sesión con el nuevo usuario
     store.logout();
     expect(useAuthStore.getState().currentUser).toBeNull();
-    expect(await store.login('2000000001', '4321')).toBe(true);
+    expect(await store.login('2000000001', 'Porte4321')).toBe(true);
     expect(useAuthStore.getState().currentUser?.name).toBe('Nuevo Portero');
   });
 });

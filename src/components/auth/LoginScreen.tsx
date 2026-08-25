@@ -90,7 +90,7 @@ export const LoginScreen: React.FC = () => {
                 <span>
                   ADMIN por defecto: cédula{' '}
                   <strong className="text-zinc-300 font-mono">0000000000</strong> / clave{' '}
-                  <strong className="text-zinc-300 font-mono">admin</strong>
+                  <strong className="text-zinc-300 font-mono">Admin1234</strong>
                 </span>
               </div>
               <img src={logoSrc} alt="CCL" className="h-7 mx-auto mt-3 opacity-70" />

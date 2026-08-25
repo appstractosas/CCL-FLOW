@@ -106,13 +106,13 @@ export const PRESET_ROLES: Role[] = [
 export const ROLE_ID_BY_TYPE: Record<UserType, string> = ROLE_ID_BY_USER_TYPE;
 export const ROLE_NAME_BY_TYPE: Record<UserType, string> = ROLE_NAME_BY_USER_TYPE;
 
-/** Usuarios semilla (offline / primer arranque). La clave por defecto del ADMIN es "admin". */
+/** Usuarios semilla (offline / primer arranque). Claves: mínimo 8 chars, 1 mayúscula, 1 número. */
 export const PRESET_USERS: UserRecord[] = [
   {
     id: 'USER_ADMIN',
     nombre: 'ADMIN',
     cedula: '0000000000',
-    clave: 'admin',
+    clave: 'Admin1234',
     tipoUsuario: 'admin',
     roleId: 'ROLE_ADMIN',
     roleName: 'ADMIN',
@@ -121,7 +121,7 @@ export const PRESET_USERS: UserRecord[] = [
     id: 'USER_DESP',
     nombre: 'Juan Pérez',
     cedula: '1000000001',
-    clave: '1234',
+    clave: 'Despa1234',
     tipoUsuario: 'despachador',
     roleId: 'ROLE_DESPACHADOR',
     roleName: 'DESPACHADOR',
@@ -130,7 +130,7 @@ export const PRESET_USERS: UserRecord[] = [
     id: 'USER_PORTERO',
     nombre: 'Ramiro Torres',
     cedula: '1000000002',
-    clave: '1234',
+    clave: 'Porte1234',
     tipoUsuario: 'portero',
     roleId: 'ROLE_PORTERO',
     roleName: 'PORTERO',
@@ -139,7 +139,7 @@ export const PRESET_USERS: UserRecord[] = [
     id: 'USER_PLAN',
     nombre: 'Ana Gómez',
     cedula: '1000000003',
-    clave: '1234',
+    clave: 'Plane1234',
     tipoUsuario: 'planeador',
     roleId: 'ROLE_PLANEADOR',
     roleName: 'PLANEADOR',
@@ -148,7 +148,7 @@ export const PRESET_USERS: UserRecord[] = [
     id: 'USER_SUP',
     nombre: 'Luis Mora',
     cedula: '1000000004',
-    clave: '1234',
+    clave: 'Super1234',
     tipoUsuario: 'supervisor',
     roleId: 'ROLE_SUPERVISOR',
     roleName: 'SUPERVISOR',
@@ -157,7 +157,7 @@ export const PRESET_USERS: UserRecord[] = [
     id: 'USER_MONITOREO',
     nombre: 'Carlos Montero',
     cedula: '1000000005',
-    clave: '1234',
+    clave: 'Monit1234',
     tipoUsuario: 'monitor',
     roleId: 'ROLE_MONITOREO',
     roleName: 'MONITOREO',
@@ -166,7 +166,7 @@ export const PRESET_USERS: UserRecord[] = [
     id: 'USER_TRANSPORTES',
     nombre: 'Diana Ríos',
     cedula: '1000000006',
-    clave: '1234',
+    clave: 'Trans1234',
     tipoUsuario: 'transportes',
     roleId: 'ROLE_TRANSPORTES',
     roleName: 'TRANSPORTES',

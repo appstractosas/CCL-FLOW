@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { UserPlus, X, Shield } from 'lucide-react';
+import { UserPlus, X, Shield, AlertTriangle } from 'lucide-react';
 import { UserRecord, UserType } from '../../types';
 import { USER_TYPES } from '../../lib/moduleConfig';
+
+function validatePassword(p: string): string | null {
+  if (p.length < 8) return 'Mínimo 8 caracteres.';
+  if (!/[A-Z]/.test(p)) return 'Al menos 1 mayúscula.';
+  if (!/[0-9]/.test(p)) return 'Al menos 1 número.';
+  return null;
+}
 
 interface UserFormModalProps {
   open: boolean;
@@ -35,8 +42,11 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre.trim() || !cedula.trim() || !clave.trim()) return;
+    if (validatePassword(clave)) return;
     onSave({ nombre: nombre.trim(), cedula: cedula.trim(), clave, tipoUsuario });
   };
+
+  const claveError = clave ? validatePassword(clave) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
@@ -85,11 +95,22 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
             <input
               type="text"
               required
-              placeholder="Clave de acceso"
+              placeholder="Mín. 8 caracteres, 1 mayúscula, 1 número"
               value={clave}
               onChange={(e) => setClave(e.target.value)}
-              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-xl text-sm font-mono text-white focus:outline-none focus:border-indigo-500"
+              className={`w-full px-3 py-2 bg-zinc-900 border rounded-xl text-sm font-mono text-white focus:outline-none ${
+                claveError ? 'border-rose-500/60 focus:border-rose-500' : 'border-zinc-700 focus:border-indigo-500'
+              }`}
             />
+            {claveError && (
+              <p className="flex items-center space-x-1 text-[10px] text-rose-400 mt-1.5">
+                <AlertTriangle className="w-3 h-3 shrink-0" />
+                <span>{claveError}</span>
+              </p>
+            )}
+            {!claveError && clave && (
+              <p className="text-[10px] text-emerald-400 mt-1.5">✓ Contraseña válida</p>
+            )}
           </div>
 
           <div>
