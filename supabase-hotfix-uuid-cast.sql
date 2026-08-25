@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION public.ccl_update_transporte(p_id text, p_data jsonb)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_count integer;

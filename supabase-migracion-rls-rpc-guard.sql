@@ -179,7 +179,7 @@ CREATE OR REPLACE FUNCTION public.ccl_create_transporte(p_data jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_result jsonb;
@@ -234,7 +234,7 @@ CREATE OR REPLACE FUNCTION public.ccl_update_transporte(p_id text, p_data jsonb)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_updates text := '';
@@ -280,7 +280,7 @@ CREATE OR REPLACE FUNCTION public.ccl_send_message(p_data jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_id uuid;
@@ -318,7 +318,7 @@ CREATE OR REPLACE FUNCTION public.ccl_create_notificacion(p_data jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_id uuid;
@@ -347,7 +347,7 @@ CREATE OR REPLACE FUNCTION public.ccl_mark_notifs_read()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 BEGIN
   UPDATE public.notificaciones SET leida = true WHERE leida = false;
@@ -362,7 +362,7 @@ CREATE OR REPLACE FUNCTION public.ccl_create_movimiento(p_data jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_id uuid;
@@ -399,7 +399,7 @@ CREATE OR REPLACE FUNCTION public.ccl_create_role(p_data jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_result jsonb;
@@ -427,7 +427,7 @@ CREATE OR REPLACE FUNCTION public.ccl_update_role(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 BEGIN
   UPDATE public.roles
@@ -440,7 +440,7 @@ CREATE OR REPLACE FUNCTION public.ccl_delete_role(p_id text)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 BEGIN
   DELETE FROM public.roles WHERE id = p_id;
@@ -455,7 +455,7 @@ CREATE OR REPLACE FUNCTION public.ccl_create_user(p_data jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_result jsonb;
@@ -483,7 +483,7 @@ CREATE OR REPLACE FUNCTION public.ccl_update_user(p_id text, p_data jsonb)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 BEGIN
   UPDATE public.users SET
@@ -501,7 +501,7 @@ CREATE OR REPLACE FUNCTION public.ccl_delete_user(p_id text)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 BEGIN
   DELETE FROM public.users WHERE id = p_id;
@@ -516,7 +516,7 @@ CREATE OR REPLACE FUNCTION public.ccl_seed_initial_data()
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_role_count integer;

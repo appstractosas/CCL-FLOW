@@ -40,7 +40,7 @@ CREATE OR REPLACE FUNCTION public.ccl_login(p_cedula TEXT, p_clave TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_user public.users%ROWTYPE;
@@ -48,7 +48,7 @@ DECLARE
 BEGIN
   SELECT * INTO v_user
   FROM public.users
-  WHERE cedula = p_cedula AND clave = crypt(p_clave, clave)
+  WHERE cedula = p_cedula AND clave = crypt(p_clave, clave::text)
   LIMIT 1;
 
   IF NOT FOUND THEN
@@ -83,7 +83,7 @@ CREATE OR REPLACE FUNCTION public.ccl_create_user(p_data jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_result jsonb;
@@ -122,7 +122,7 @@ CREATE OR REPLACE FUNCTION public.ccl_update_user(p_id text, p_data jsonb)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_clave TEXT;
@@ -156,7 +156,7 @@ CREATE OR REPLACE FUNCTION public.ccl_seed_initial_data()
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_role_count integer;
