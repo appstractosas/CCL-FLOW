@@ -3,6 +3,7 @@ import { Truck, X, CalendarClock } from 'lucide-react';
 import { UnifiedTransporte, TipoVehiculo } from '../../types';
 import { TransporteData } from '../../types';
 import { DateTimePickerModal } from '../common/DateTimePickerModal';
+import { useCatalogosStore } from '../../store/useCatalogosStore';
 
 interface TransporteFormModalProps {
   open: boolean;
@@ -77,6 +78,7 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
 }) => {
   const [formData, setFormData] = useState<FormValues>(() => buildInitialForm(editingRow));
   const [pickerOpen, setPickerOpen] = useState(false);
+  const { transportadoras, clientes, ciudades } = useCatalogosStore();
 
   useEffect(() => {
     if (open) {
@@ -214,14 +216,19 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
 
           <div>
             <label className="block text-xs font-bold text-zinc-300 mb-1">Transportadora</label>
-            <input
-              type="text"
-              placeholder="Ej: TRANSPORTES ANDINA"
+            <select
               value={formData.transportadora}
               disabled={locked}
               onChange={(e) => setFormData({ ...formData, transportadora: e.target.value })}
-              className={locked ? lockedCls : inputCls}
-            />
+              className={`${locked ? lockedCls : inputCls} ${formData.transportadora ? '' : 'text-zinc-500'}`}
+            >
+              <option value="">Seleccionar transportadora</option>
+              {transportadoras.map((t) => (
+                <option key={t.id} value={t.nombre}>
+                  {t.nombre}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Nº Pedido y Cliente se retiraron de la UI (no aportan al control de patios).
@@ -232,14 +239,19 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-zinc-300 mb-1">Denominación</label>
-              <input
-                type="text"
-                placeholder="Ej: GLOBAL DISTR"
+              <select
                 value={formData.denominacion}
                 disabled={locked}
                 onChange={(e) => setFormData({ ...formData, denominacion: e.target.value })}
-                className={locked ? lockedCls : inputCls}
-              />
+                className={`${locked ? lockedCls : inputCls} ${formData.denominacion ? '' : 'text-zinc-500'}`}
+              >
+                <option value="">Seleccionar cliente</option>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.denominacion}>
+                    {c.denominacion}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-zinc-300 mb-1">Transporte</label>
@@ -285,24 +297,35 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-zinc-300 mb-1">Destino</label>
-              <input
-                type="text"
-                placeholder="Ej: NEIVA"
+              <select
                 value={formData.destino}
                 disabled={locked}
-                onChange={(e) => setFormData({ ...formData, destino: e.target.value })}
-                className={locked ? lockedCls : inputCls}
-              />
+                onChange={(e) => {
+                  const destino = e.target.value;
+                  const ciudad = ciudades.find((c) => c.ciudad === destino);
+                  setFormData({
+                    ...formData,
+                    destino,
+                    region: ciudad?.region || formData.region,
+                  });
+                }}
+                className={`${locked ? lockedCls : inputCls} ${formData.destino ? '' : 'text-zinc-500'}`}
+              >
+                <option value="">Seleccionar destino</option>
+                {ciudades.map((c) => (
+                  <option key={c.id} value={c.ciudad}>
+                    {c.ciudad}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-zinc-300 mb-1">Región</label>
               <input
                 type="text"
-                placeholder="Ej: SUR"
                 value={formData.region}
-                disabled={locked}
-                onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                className={locked ? lockedCls : inputCls}
+                disabled
+                className={lockedCls}
               />
             </div>
           </div>

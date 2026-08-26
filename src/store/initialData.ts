@@ -1,4 +1,4 @@
-import { UnifiedTransporte, ChatMessage, Cliente, Ciudad } from '../types';
+import { UnifiedTransporte, ChatMessage, Cliente, Ciudad, Transportadora } from '../types';
 import { INITIAL_CIUDADES } from '../data/ciudades';
 
 function dateStr(offsetDays = 0) {
@@ -188,3 +188,11 @@ export const initialCiudades: Ciudad[] = INITIAL_CIUDADES.map((ciudad, i) => ({
   id: `CI-${i}`,
   ciudad,
 }));
+
+export const initialTransportadoras: Transportadora[] = [
+  { id: 'TR-1', nombre: 'TRANSPORTES ANDINA' },
+  { id: 'TR-2', nombre: 'LOGÍSTICA DEL HUILA' },
+  { id: 'TR-3', nombre: 'RED TRACK S.A.' },
+  { id: 'TR-4', nombre: 'CARGA EXPRESA' },
+  { id: 'TR-5', nombre: 'TRANSPORTES DEL SUR' },
+];

@@ -1,8 +1,9 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { Cliente, Ciudad } from '../types';
+import type { Cliente, Ciudad, Transportadora } from '../types';
 
 const CLIENTES_TABLE = 'clientes';
 const CIUDADES_TABLE = 'ciudades';
+const TRANSPORTADORAS_TABLE = 'transportadoras';
 
 function isOnline(): boolean {
   return isSupabaseConfigured;
@@ -26,5 +27,19 @@ export async function fetchCiudades(): Promise<Ciudad[]> {
   return (data || []).map((r) => ({
     id: r.id,
     ciudad: r.ciudad,
+    region: r.region ?? undefined,
+  }));
+}
+
+export async function fetchTransportadoras(): Promise<Transportadora[]> {
+  if (!isOnline()) return [];
+  const { data, error } = await supabase
+    .from(TRANSPORTADORAS_TABLE)
+    .select('*')
+    .order('nombre');
+  if (error) throw error;
+  return (data || []).map((r) => ({
+    id: r.id,
+    nombre: r.nombre,
   }));
 }

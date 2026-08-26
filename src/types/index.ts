@@ -219,6 +219,13 @@ export interface Cliente {
 export interface Ciudad {
   id: string;
   ciudad: string;
+  region?: string;
+}
+
+/** Transportadora (tabla `transportadoras`). */
+export interface Transportadora {
+  id: string;
+  nombre: string;
 }
 
 /** Estadísticas KPI del tablero de métricas. */
