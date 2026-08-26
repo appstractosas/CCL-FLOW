@@ -547,7 +547,9 @@ BEGIN
       ('USER_PLAN', 'Ana Gómez', '1000000003', '1234', 'planeador', 'ROLE_PLANEADOR', 'PLANEADOR'),
       ('USER_SUP', 'Luis Mora', '1000000004', '1234', 'supervisor', 'ROLE_SUPERVISOR', 'SUPERVISOR'),
       ('USER_MONITOREO', 'Carlos Montero', '1000000005', '1234', 'monitor', 'ROLE_MONITOREO', 'MONITOREO'),
-      ('USER_TRANSPORTES', 'Diana Ríos', '1000000006', '1234', 'transportes', 'ROLE_TRANSPORTES', 'TRANSPORTES');
+      ('USER_TRANSPORTES', 'Diana Ríos', '1000000006', '1234', 'transportes', 'ROLE_TRANSPORTES', 'TRANSPORTES'),
+      ('USER_TABLERO', 'Consultor Tablero', '1000000007', 'Tablero1234', 'tablero', 'ROLE_TABLERO', 'TABLERO'),
+      ('USER_INFORMES', 'Consultor Informes', '1000000008', 'Inform1234', 'informes', 'ROLE_INFORMES', 'INFORMES');
   END IF;
 
   RETURN true;

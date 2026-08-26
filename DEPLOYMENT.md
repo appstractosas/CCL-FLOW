@@ -126,6 +126,8 @@ DELETE FROM public.login_attempts;
 | 1000000004 | Super1234 | SUPERVISOR |
 | 1000000005 | Monit1234 | MONITOREO |
 | 1000000006 | Trans1234 | TRANSPORTES |
+| 1000000007 | Tablero1234 | TABLERO |
+| 1000000008 | Inform1234 | INFORMES |
 
 **Importante:** Cambiar estas credenciales en producción.
 

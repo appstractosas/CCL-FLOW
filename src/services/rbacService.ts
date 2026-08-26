@@ -171,6 +171,24 @@ export const PRESET_USERS: UserRecord[] = [
     roleId: 'ROLE_TRANSPORTES',
     roleName: 'TRANSPORTES',
   },
+  {
+    id: 'USER_TABLERO',
+    nombre: 'Consultor Tablero',
+    cedula: '1000000007',
+    clave: 'Tablero1234',
+    tipoUsuario: 'tablero',
+    roleId: 'ROLE_TABLERO',
+    roleName: 'TABLERO',
+  },
+  {
+    id: 'USER_INFORMES',
+    nombre: 'Consultor Informes',
+    cedula: '1000000008',
+    clave: 'Inform1234',
+    tipoUsuario: 'informes',
+    roleId: 'ROLE_INFORMES',
+    roleName: 'INFORMES',
+  },
 ];
 
 /**

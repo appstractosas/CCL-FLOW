@@ -157,6 +157,24 @@ const { mem, simulateRpc, supabaseMock, getConfigured, setConfigured } = vi.hois
           role_id: 'ROLE_TRANSPORTES',
           role_name: 'TRANSPORTES',
         },
+        {
+          id: 'USER_TABLERO',
+          nombre: 'Consultor Tablero',
+          cedula: '1000000007',
+          clave: 'Tablero1234',
+          tipo_usuario: 'tablero',
+          role_id: 'ROLE_TABLERO',
+          role_name: 'TABLERO',
+        },
+        {
+          id: 'USER_INFORMES',
+          nombre: 'Consultor Informes',
+          cedula: '1000000008',
+          clave: 'Inform1234',
+          tipo_usuario: 'informes',
+          role_id: 'ROLE_INFORMES',
+          role_name: 'INFORMES',
+        },
       ];
       for (const r of PRESET_ROLES_DATA) {
         if (!mem.roles.find((x) => x.id === r.id)) mem.roles.push({ ...r, permissions: {} });
