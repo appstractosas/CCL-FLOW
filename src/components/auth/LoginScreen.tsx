@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Truck, Lock, LogIn, ShieldCheck, Loader2 } from 'lucide-react';
+import { Truck, Lock, LogIn, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import logoSrc from '/assets/logo.png';
 
@@ -34,7 +34,7 @@ export const LoginScreen: React.FC = () => {
               <h1 className="text-lg font-bold text-white tracking-tight">
                 Torre de Control Logística
               </h1>
-              <p className="text-xs text-zinc-400">Inicio de sesión · CCL-FLOW</p>
+              <p className="text-xs text-zinc-400">Inicio de sesión · CCL-YMS</p>
             </div>
           </div>
 
@@ -85,15 +85,7 @@ export const LoginScreen: React.FC = () => {
             </button>
 
             <div className="pt-2 text-center">
-              <div className="flex items-center justify-center space-x-1.5 text-[10px] text-zinc-500">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>
-                  ADMIN por defecto: cédula{' '}
-                  <strong className="text-zinc-300 font-mono">0000000000</strong> / clave{' '}
-                  <strong className="text-zinc-300 font-mono">Admin1234</strong>
-                </span>
-              </div>
-              <img src={logoSrc} alt="CCL" className="h-7 mx-auto mt-3 opacity-70" />
+              <img src={logoSrc} alt="CCL" className="h-14 mx-auto mt-3 opacity-70" />
             </div>
           </form>
         </div>
