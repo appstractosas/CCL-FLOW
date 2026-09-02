@@ -63,7 +63,10 @@ El repo queda así en la rama `dev`:
 > del Excel (varios transportes del mismo camión), el registro de esa placa
 > guarda la sumatoria. En cada corrida la función recalcula y actualiza ese valor
 > (ON CONFLICT (llave, placa) → `cajas` entra en el UPDATE). La suma total de una
-> llave = la suma de sus placas.
+> llave = la suma de sus placas. Cuando las cajas fueron editadas desde la app
+> (`cajas_manual = TRUE`, despachador), el sync conserva el valor capturado; la
+> marca se limpia sola cuando el Excel trae ese mismo número (ver regla 11 en el
+> `migracion-rpc-sync-transportes.sql`).
 
 > 1 solo POST por corrida, igual que el `.gs`. La **conversión de fechas, el
 > SUM por placa y el UPSERT los hace la función** en Supabase (ver script
@@ -195,6 +198,34 @@ El repo queda así en la rama `dev`:
 6. Desactivar/limpiar: quitar el temporal de Apps Script cuando Power Automate
    esté estable y documentar.
 7. Cambiar origen de OneDrive → SharePoint cuando se apruebe el acceso al sitio.
+
+## Configuración verificada y correcta (no cambiar sin motivo)
+
+> Registrado el 28-08-2026 tras resolver el error
+> `Could not find the function public.sync_transportes ... in the schema cache`.
+
+### Los 3 pasos finales y sus valores EXACTOS
+
+| Paso | Acción | Configuración correcta |
+| --- | --- | --- |
+| 1 | **Seleccionar** | Mapeo clave/valor: izquierda = campo de BD, derecha = columna del Excel (p. ej. `cita_cargue` ← `Cita de cargue`). **`Cita de cargue` SÍ debe estar en el mapeo**. |
+| 2 | **Redactar** (Compose) | `Entradas` = **la salida completa de `Seleccionar`** (el array de filas). ⚠️ Se elige la entrada que dice **`Seleccionar`** en Contenido dinámico, NO los campos sueltos. |
+| 3 | **HTTP** | `POST` → `.../rest/v1/rpc/sync_transportes` · Cuerpo = `{"_filas": @{outputs('Redactar')}}` · Headers: `apikey`, `Authorization: Bearer`, `Prefer: resolution=merge-duplicates,return=minimal`, `Content-Type: application/json`. |
+
+### Errores comunes ya solucionados
+
+- **`without parameters in the schema cache`** → el `HTTP` tenía el **Cuerpo vacío**. Solución: poner `{"_filas": @{outputs('Redactar')}}`.
+- **`sync_transportes(cajas, cita_cargue, ...) without parameters`** → el `Redactar` no entregaba el array completo (se enviaban campos sueltos). Solución: `Redactar → Entradas` = salida **`Seleccionar`** (el array), no los campos individuales.
+- **El `Cuerpo` del HTTP no acepta la expresión pegada** → probar primero en pestaña **Expresión** con `outputs('Redactar')`, o escribir el body directo y guardar; reintentar.
+- **Reset del cache de PostgREST** (si Supabase no encuentra la función tras un deploy): ejecutar en Supabase SQL Editor:
+  ```sql
+  NOTIFY pgrst, 'reload schema';
+  ```
+
+### Filtro por fecha (desde 01-ago)
+
+- **NO** usar `gt/ge/lt` en el `Query` de "Enumerar filas" (el conector de Excel solo admite `eq`, `ne`, `contains`, `startswith`, `endswith` — da error "cláusula de filtro no válida").
+- Filtrar con una **Condición** después del `Seleccionar`, comparando `Cita de cargue` (formato `DD/MM/AAAA HH:mm`) `es mayor o igual que` la fecha ISO `2026-08-01`. Rama **Sí** → HTTP; rama **No** → terminar.
 
 ## Notas importantes
 

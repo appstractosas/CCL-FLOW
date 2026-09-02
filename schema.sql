@@ -34,6 +34,7 @@ CREATE TABLE transportes (
   hora_fin_cargue       VARCHAR(19) DEFAULT '--:--',  -- H. FIN CARGUE
   hora_salida           VARCHAR(19) DEFAULT '--:--',  -- H. SALIDA PORTERÍA
   observaciones         TEXT,
+  cajas_manual          BOOLEAN NOT NULL DEFAULT FALSE, -- cajas editadas desde la app: el sync no las pisa
   created_at            TIMESTAMPTZ DEFAULT NOW(),
   updated_at            TIMESTAMPTZ DEFAULT NOW()
 );
