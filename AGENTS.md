@@ -14,7 +14,8 @@ Requisitos al tocar un desarrollo:
 Reglas de negocio del modelo (no romper):
 
 - Una LLAVE puede tener varias PLACAS (una fila por placa). Un TRANSPORTE (nº pedido) solo puede estar en UNA llave (trigger `trg_transporte_una_llave`).
-- En llaves existentes el sync **no sobreescribe** CAJAS; en filas nuevas sí las registra.
+- CAJAS se refrescan en cada corrida desde el fuente (Excel/Sheets) con la suma del par `(llave, placa)`; si el fuente no trae cajas para el par, se conserva el valor existente. Cuando una fila pasa de placa vacía a placa llena, la fila `(llave,'')` deja de incluir esas cajas (se elimina el huérfano). Las cajas editadas por el despachador en la app quedan marcadas (`cajas_manual`) y el sync no las pisa hasta que el fuente trae ese mismo valor.
+- KG es un campo OBSOLETO en la app (se quitó del formulario, el detalle y las dos sincronizaciones). La columna `kg` de la BD se conserva para compatibilidad (siempre NULL) y no debe volver a usarse en la app ni en el sync.
 - Columnas de portería/operación (`hora_*_porteria`, `cuadrilla`, `muelle_asignado`, `observaciones`) las escribe la app, no el sync.
 
 # Regla "actualiza github" (buenas prácticas de repositorio)
@@ -27,3 +28,13 @@ Reglas de negocio del modelo (no romper):
 4. **Flujo recomendado**: rama `feature/<tarea>` desde `dev` → merge a `dev` (o push directo si es dev único); `main` solo vía PR con checks (branch protection recomendado) y tag de versión (`v1.x.x`) en cada deploy.
 5. **No historia manipulada**: sin force-push ni rebase sobre ramas compartidas (dev/main); merges limpios.
 6. **Estado del repo**: reportar `git status`, rama actual y discrepancias con `origin` antes de publicar.
+
+# Regla de calidad obligatoria (aplica a CADA prompt de modificación)
+
+> En **cada** solicitud de modificación/desarrollo, NO reiterar estas reglas: son permanentes y se aplican siempre.
+
+1. **Refactorización**: al tocar un módulo, revisar y extraer lógica duplicada y eliminar wrappers/funciones redundantes (p.ej. `isOnline()`, `permissionsAllTrue`, aliases cortos obscuros), sin cambiar el comportamiento.
+2. **Paginación**: en toda lista/consulta (fetch, RPC, tablas con muchos registros) revisar y aplicar paginación/ventanas/`.limit()` cuando aplique; no devolver/serializar todo sin control.
+3. **Limpieza de código**: eliminar dead code, variables/imports sin uso y duplicados generados por la propia modificación, en el mismo paso (no como tarea separada ni opcional).
+4. **Verificación final obligatoria**: antes de dar por cerrado un cambio, correr `npm run lint` (tsc) y la suite de tests (`vitest --pool=forks --fileParallelism=false`) y **reportar el resultado** (pasa/falla y cuántos). Si algo falla, corregirlo.
+5. **Ingeniería/parámetros**: respetar convenciones del repo, no introducir comentarios salvo que aporten, no romper el contrato de sincronización (regla de arriba) ni las reglas de negocio del modelo.
