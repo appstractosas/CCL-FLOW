@@ -26,7 +26,6 @@ interface FormValues {
   cajas: string;
   destino: string;
   region: string;
-  kg: string;
 }
 
 /** Convierte el texto del input a número (vacío/inválido → undefined). */
@@ -50,7 +49,6 @@ function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
       cajas: editingRow.cajas != null ? String(editingRow.cajas) : '',
       destino: editingRow.destino || '',
       region: editingRow.region || '',
-      kg: editingRow.kg != null ? String(editingRow.kg) : '',
     };
   }
   return {
@@ -64,7 +62,6 @@ function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
     cajas: '',
     destino: '',
     region: '',
-    kg: '',
   };
 }
 
@@ -110,7 +107,6 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
       cajas: numeroDe(formData.cajas),
       destino: formData.destino.trim() || undefined,
       region: formData.region.trim() || undefined,
-      kg: numeroDe(formData.kg),
     });
   };
 
@@ -276,19 +272,6 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
                 value={formData.cajas}
                 disabled={locked}
                 onChange={(e) => setFormData({ ...formData, cajas: e.target.value })}
-                className={`${locked ? lockedCls : inputCls} font-mono text-right`}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">Kg</label>
-              <input
-                type="number"
-                min={0}
-                step="any"
-                placeholder="Ej: 8500"
-                value={formData.kg}
-                disabled={locked}
-                onChange={(e) => setFormData({ ...formData, kg: e.target.value })}
                 className={`${locked ? lockedCls : inputCls} font-mono text-right`}
               />
             </div>

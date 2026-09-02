@@ -14,26 +14,30 @@
  * CLAVE (llave, placa):
  *   El UPSERT identifica la fila por (llave, placa). Si el Sheets repite el
  *   MISMO par llave+placa (un camión/placa con varios transportes), esas filas
- *   se fusionan en UN registro: las CAJAS se SUMAN por placa y el resto de
- *   campos toma el último valor no vacío. Una placa distinta de la misma llave
+ *   se fusionan en UN registro: las CAJAS se SUMAN por placa (mismo
+ *   tratamiento: [.,] + ROUND) y el resto de campos toma el último valor no
+ *   vacío. Una placa distinta de la misma llave
  *   es UNA FILA aparte y se sincroniza sin problema.
  *   placa '' (PENDIENTE) es válida: una llave no puede tener dos filas sin
- *   placa (la BD lo rechaza con UNIQUE (llave, placa)).
+ *   placa (la BD lo rechaza con UNIQUE (llave, placa)). Cada corrida refresca
+ *   las CAJAS del par con el total del Sheets (el fuente manda), salvo cuando la fila tiene cajas_manual (editadas en la app): el
+ *   RPC conserva el valor capturado hasta que el Sheets trae ese mismo número.
+ *   Cuando el Sheets asigna la placa a una fila que venía vacía el RPC elimina
+ *   el huérfano (llave,'') de esa llave (regla de fusión sin doble conteo, ver
+ *   migracion-rpc-sync-transportes.sql).
  *
  * CAMPOS PARA INFORMES:
  *   - Transporte   → numero de pedido (col. "Transporte")
  *   - Denominación → nombre del cliente (col. "Denominación")
  *   - Cajas        → cantidad de cajas, se envía como número (col. "Cajas")
  *   - Destino      → ciudad/planta de destino (col. "Destino")
- *   - Kg           → peso en kilogramos, numérico (col. "Kg")
  *   Requieren haber creado las columnas en la BD
- *   (destino/kg: ver supabase-migracion-destino-kg.sql):
+ *   (destino: ver supabase-migracion-destino-kg.sql):
  *   ALTER TABLE transportes
  *     ADD COLUMN IF NOT EXISTS transporte TEXT,
  *     ADD COLUMN IF NOT EXISTS denominacion TEXT,
  *     ADD COLUMN IF NOT EXISTS cajas NUMERIC DEFAULT 0,
- *     ADD COLUMN IF NOT EXISTS destino TEXT,
- *     ADD COLUMN IF NOT EXISTS kg NUMERIC;
+ *     ADD COLUMN IF NOT EXISTS destino TEXT;
  *   Y el UNIQUE por (llave, placa) en lugar de llave sola:
  *     ALTER TABLE transportes DROP CONSTRAINT IF EXISTS transportes_llave_key;
  *     ALTER TABLE transportes ADD CONSTRAINT transportes_llave_placa_key
@@ -75,7 +79,6 @@ var MAPPING = {
   'Cajas': 'cajas',               // Cantidad de cajas (numérica)
   'Destino': 'destino',           // Ciudad/planta de destino del pedido
   'Region': 'region',             // Región del pedido (region en la BD)
-  'Kg': 'kg',                     // Peso en kilogramos (numérico)
   // 'Estatus' alimenta estado_transporte con DESPACHADO/ALISTADO/PENDIENTE
   // (valores del CHECK de la BD). El valor CANCELADO no entra en ese CHECK:
   // se traduce a estado_porteria='CANCELADO' (ver normalización en buildRows_).
@@ -89,41 +92,6 @@ var CANCELAR_KEYWORD = 'CANCELADO';
 
 function pad_(n) {
   return n < 10 ? '0' + n : '' + n;
-}
-
-/**
- * Convierte un número del Sheets a valor numérico CONSERVANDO DECIMALES.
- * Reglas (idénticas a _sync_numero() en migracion-rpc-sync-transportes.sql):
- *   - Ambos separadores ('1.234,56' | '1,234.56'): el más a la derecha es el
- *     decimal y el otro se elimina (miles).
- *   - Grupos completos de miles ('8.500', '1.234.567', '1,234,567'): se
- *     quitan los separadores (entero).
- *   - Un solo separador con decimales reales ('7.71', '12,5', '0.75'): es
- *     decimal ('7.71' → 7.71, ya NO se vuelve 771).
- *   - Vacío o no numérico → NaN (el llamador decide si envía null).
- */
-function parseNumero_(val) {
-  var s = String(val === null || val === undefined ? '' : val).trim();
-  if (!s) return NaN;
-  var negativo = s.charAt(0) === '-';
-  if (negativo) s = s.substring(1);
-  var ultComa = s.lastIndexOf(',');
-  var ultPunto = s.lastIndexOf('.');
-  if (ultComa >= 0 && ultPunto >= 0) {
-    if (ultComa > ultPunto) {
-      s = s.replace(/\./g, '').replace(',', '.');
-    } else {
-      s = s.replace(/,/g, '');
-    }
-  } else if (/^[0-9]{1,3}([.][0-9]{3})+$/.test(s)) {
-    s = s.replace(/\./g, '');
-  } else if (/^[0-9]{1,3}(,[0-9]{3})+$/.test(s)) {
-    s = s.replace(/,/g, '');
-  } else if (ultComa >= 0) {
-    s = s.split(',').join('.');
-  }
-  var n = Number(s);
-  return isFinite(n) ? (negativo ? -n : n) : NaN;
 }
 
 /** Índice (0-based) de un encabezado en la fila de títulos, o -1 si no existe. */
@@ -230,13 +198,6 @@ function buildRows_() {
           // NUMERIC en la BD: se envía como número (soporta "1.234" o "1234").
           var cajasNum = Number(String(raw).replace(/[.,]/g, '').trim());
           val = isFinite(cajasNum) ? Math.round(cajasNum) : null;
-        } else if (dbField === 'kg') {
-          // NUMERIC en la BD con DECIMALES: parseNumero_ conserva '7.71' como
-          // 7.71 (antes el strip de [.,] lo convertía en 771). Si el Sheets
-          // aún no tiene la columna "Kg", queda null y se elimina antes de
-          // enviar (no afecta el upsert).
-          var kgVal = parseNumero_(raw);
-          val = isNaN(kgVal) ? null : kgVal;
         } else if (dbField === 'estado_transporte') {
           // Estatus del fuente: solo DESPACHADO/ALISTADO/PENDIENTE (CHECK de la
           // BD). CANCELADO no está en el CHECK: se traduce a estado_porteria y
@@ -277,8 +238,8 @@ function buildRows_() {
 
   // DEDUPE POR (llave, placa): la clave de la fila es el par (llave, placa). Si el
   // Sheets repite el MISMO par (un camión/placa con varios transportes), se
-  // fusionan: la placa guarda la SUMA de cajas Y de kg de todas sus filas
-  // (cajas y kg por placa) y el resto de campos toma el ÚLTIMO valor no vacío.
+  // fusionan: la placa guarda la SUMA de cajas de todas sus filas
+  // (cajas por placa) y el resto de campos toma el ÚLTIMO valor no vacío.
   // Placas DISTINTAS de la misma llave son filas APARTE y se conservan tal cual.
   var dedup = {};
   var orden = [];
@@ -295,17 +256,9 @@ function buildRows_() {
       for (var k2 in filaActual) {
         var v = filaActual[k2];
         if (k2 === 'cajas') {
-          // SUMAR cajas de TODAS las filas del MISMO (llave, placa).
-          base.cajas = (base.cajas || 0) + (v || 0);
-        } else if (k2 === 'kg') {
-          // SUMAR kg de TODAS las filas del MISMO (llave, placa), igual que
-          // cajas. Con decimales vía parseNumero_ ('7.71' → 7.71; ya no 771).
-          // Una fila sin kg no aporta: no se pisa lo acumulado con 0 ni con null.
-          var kgNum = parseNumero_(v);
-          if (!isNaN(kgNum)) {
-            var kgAcum = Number(base.kg);
-            base.kg = (isFinite(kgAcum) ? kgAcum : 0) + kgNum;
-          }
+          // SUMAR cajas de TODAS las filas del MISMO (llave, placa), con el
+          // MISMO tratamiento. Una fila sin valor no aporta.
+          base[k2] = (base[k2] || 0) + (v || 0);
         } else if (v !== null && v !== undefined && v !== '') {
           // Último valor no vacío gana (no se pisan datos con filas vacías).
           base[k2] = v;

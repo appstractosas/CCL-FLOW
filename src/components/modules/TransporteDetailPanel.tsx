@@ -345,10 +345,6 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[4].key, hora)}
               />
               {/* Nº Pedido y Cliente retirados de la UI (siguen en la BD). */}
-              <DetailRow
-                label="Kg"
-                value={row.kg != null ? row.kg.toLocaleString('es-CO') : undefined}
-              />
             </div>
           </div>
         </div>

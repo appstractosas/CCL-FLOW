@@ -274,7 +274,6 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         cuadrilla: data.cuadrilla || '',
         cajas: data.cajas,
         destino: data.destino || undefined,
-        kg: data.kg,
         horaMuelleAsignado: data.horaMuelleAsignado || '',
         horaIngreso: '--:--',
         horaSalida: '--:--',
@@ -605,7 +604,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         return;
       }
 
-      const patch: Partial<UnifiedTransporte> = { cajas };
+      const patch: Partial<UnifiedTransporte> = { cajas, cajasManual: true };
       // Optimistic update
       set((s) => ({
         transportes: sortTransportesPorEstado(

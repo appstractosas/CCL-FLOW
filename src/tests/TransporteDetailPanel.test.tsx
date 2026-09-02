@@ -195,7 +195,7 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
     expect(screen.queryByText('• alistado')).not.toBeInTheDocument();
   });
 
-  it('muestra transportadora y región en el encabezado sin títulos, y Kg bajo H. Salida', () => {
+  it('muestra transportadora y región en el encabezado sin títulos', () => {
     const { container } = render(
       <TransporteDetailPanel
         row={makeRow({
@@ -203,7 +203,6 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
           denominacion: 'GLOBAL DISTR',
           destino: 'NEIVA',
           region: 'BOGOTA',
-          kg: 8500,
         })}
         onClose={onClose}
       />,
@@ -214,13 +213,6 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
     expect(screen.getByText('BOGOTA')).toBeInTheDocument();
     expect(screen.queryByText('Transportadora')).not.toBeInTheDocument();
     expect(screen.queryByText('Región')).not.toBeInTheDocument();
-
-    // Kg queda bajo H. Salida Portería.
-    const enOrden = (a: HTMLElement, b: HTMLElement) =>
-      a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
-    const salida = screen.getByText('H. Salida Portería');
-    const kg = screen.getByText('8.500');
-    expect(enOrden(salida, kg)).toBeTruthy();
     expect(screen.queryByText('Observaciones')).not.toBeInTheDocument();
     expect(container).not.toBeNull();
   });

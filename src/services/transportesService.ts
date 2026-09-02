@@ -19,7 +19,6 @@ function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
     cajas: item.cajas ?? null,
     destino: item.destino || null,
     region: item.region || null,
-    kg: item.kg ?? null,
     transportadora: item.transportadora || '',
     estado_transporte: item.estadoTransporte,
     estado_porteria: item.estadoPorteria,
@@ -47,9 +46,9 @@ function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
     transporte: item.transporte || undefined,
     denominacion: item.denominacion || undefined,
     cajas: item.cajas ?? undefined,
+    cajasManual: item.cajas_manual ?? undefined,
     destino: item.destino || undefined,
     region: item.region || undefined,
-    kg: item.kg ?? undefined,
     transportadora: item.transportadora || '',
     estadoTransporte: item.estado_transporte,
     estadoPorteria: item.estado_porteria || 'Pendiente',
@@ -66,16 +65,12 @@ function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
   };
 }
 
-function isOnline(): boolean {
-  return isSupabaseConfigured;
-}
-
 /**
  * Obtiene todos los transportes ordenados por fecha descendente.
  * En modo demo retorna array vacío.
  */
 export async function fetchTransportes(): Promise<UnifiedTransporte[]> {
-  if (!isOnline()) return [];
+  if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from(TABLE)
     .select('*')
@@ -93,7 +88,7 @@ export async function fetchTransportesByRango(
   fechaDesde: string,
   fechaHasta: string,
 ): Promise<UnifiedTransporte[]> {
-  if (!isOnline()) return [];
+  if (!isSupabaseConfigured) return [];
   const desde = `${fechaDesde} `;
   const hasta = `${fechaHasta}Z`;
   const { data, error } = await supabase
@@ -114,7 +109,7 @@ export async function fetchTransportesRawByRango(
   fechaDesde: string,
   fechaHasta: string,
 ): Promise<Record<string, any>[]> {
-  if (!isOnline()) return [];
+  if (!isSupabaseConfigured) return [];
   const desde = `${fechaDesde} `;
   const hasta = `${fechaHasta}Z`;
   const { data, error } = await supabase
@@ -143,7 +138,7 @@ let activeRealtimeUnsubscribe: (() => void) | null = null;
  * App Script del Sheets) modifique la BD.
  */
 export function subscribeToTransportes(onChange: () => void): () => void {
-  if (!isOnline()) return () => {};
+  if (!isSupabaseConfigured) return () => {};
 
   // Si ya hay una suscripción activa, se elimina primero para no volver a usar
   // el mismo canal tras subscribe() (evita el error de realtime y las duplicadas).
@@ -183,9 +178,9 @@ export async function updateTransporte(
   if (updates.transporte !== undefined) dbUpdates.transporte = updates.transporte;
   if (updates.denominacion !== undefined) dbUpdates.denominacion = updates.denominacion;
   if (updates.cajas !== undefined) dbUpdates.cajas = updates.cajas;
+  if (updates.cajasManual !== undefined) dbUpdates.cajas_manual = updates.cajasManual;
   if (updates.destino !== undefined) dbUpdates.destino = updates.destino;
   if (updates.region !== undefined) dbUpdates.region = updates.region;
-  if (updates.kg !== undefined) dbUpdates.kg = updates.kg;
   if (updates.transportadora !== undefined) dbUpdates.transportadora = updates.transportadora;
   if (updates.estadoTransporte !== undefined)
     dbUpdates.estado_transporte = updates.estadoTransporte;

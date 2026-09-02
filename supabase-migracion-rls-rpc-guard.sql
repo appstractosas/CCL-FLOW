@@ -186,7 +186,7 @@ DECLARE
 BEGIN
   INSERT INTO public.transportes (
     llave, fecha_hora, placa, vehiculo_tipo, cita_cargue,
-    transporte, denominacion, cajas, destino, region, kg,
+    transporte, denominacion, cajas, destino, region,
     transportadora, estado_transporte, estado_porteria,
     muelle_asignado, cuadrilla, hora_muelle_asignado,
     hora_llegada_porteria, hora_ingreso, hora_inicio_cargue,
@@ -202,7 +202,6 @@ BEGIN
     (p_data->>'cajas')::numeric,
     p_data->>'destino',
     p_data->>'region',
-    (p_data->>'kg')::numeric,
     COALESCE(p_data->>'transportadora', ''),
     COALESCE(p_data->>'estado_transporte', 'ALISTADO'),
     COALESCE(p_data->>'estado_porteria', 'Pendiente'),
@@ -248,9 +247,9 @@ BEGIN
     transporte = CASE WHEN p_data ? 'transporte' THEN p_data->>'transporte' ELSE transporte END,
     denominacion = CASE WHEN p_data ? 'denominacion' THEN p_data->>'denominacion' ELSE denominacion END,
     cajas = CASE WHEN p_data ? 'cajas' THEN (p_data->>'cajas')::numeric ELSE cajas END,
+    cajas_manual = CASE WHEN p_data ? 'cajas_manual' THEN COALESCE((p_data->>'cajas_manual')::boolean, TRUE) ELSE cajas_manual END,
     destino = CASE WHEN p_data ? 'destino' THEN p_data->>'destino' ELSE destino END,
     region = CASE WHEN p_data ? 'region' THEN p_data->>'region' ELSE region END,
-    kg = CASE WHEN p_data ? 'kg' THEN (p_data->>'kg')::numeric ELSE kg END,
     transportadora = COALESCE(p_data->>'transportadora', transportadora),
     estado_transporte = COALESCE(p_data->>'estado_transporte', estado_transporte),
     estado_porteria = COALESCE(p_data->>'estado_porteria', estado_porteria),

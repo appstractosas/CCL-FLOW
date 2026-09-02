@@ -152,7 +152,6 @@ const afiliado = {
   estado_transporte: 'DESPACHADO',
   estado_porteria: 'Pendiente',
   destino: 'NEIVA',
-  kg: 8500,
 };
 
 function forceFromDbError() {
@@ -179,7 +178,6 @@ describe('transportesService (integración Supabase mockeado)', () => {
     expect(rows[0].placa).toBe('XYZ-999');
     expect(rows[0].estadoPorteria).toBe('Pendiente');
     expect(rows[0].destino).toBe('NEIVA');
-    expect(rows[0].kg).toBe(8500);
   });
 
   it('fetchTransportes lanza cuando la BD devuelve error', async () => {
