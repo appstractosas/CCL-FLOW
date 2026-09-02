@@ -23,15 +23,7 @@ import {
 import { fetchHistorial, createMovimiento } from '../services/historialService';
 import { cclLogin, cclValidateSession, cclLogout } from '../services/authService';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { ALL_MODULES, userTypeLabel, moduleLabel } from '../lib/moduleConfig';
-
-function permissionsAllTrue(): PermissionsMap {
-  const map = {} as PermissionsMap;
-  for (const mod of ALL_MODULES) {
-    map[mod] = { canAccess: true, canEdit: true };
-  }
-  return map;
-}
+import { userTypeLabel, moduleLabel } from '../lib/moduleConfig';
 
 function buildSession(user: UserRecord): UserSession {
   return {

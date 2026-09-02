@@ -121,9 +121,6 @@ export function tipoGrupo(cuadrilla?: string): GrupoCuadrilla {
   return 'LTSA';
 }
 
-/** Convierte una hora a minutos desde 00:00 (alias de minutosHora, estilo BI). */
-export const _c = minutosHora;
-
 /** Diferencia en minutos entre dos horas "HH:MM" (fin − inicio); null si alguna no es válida. */
 export function diffMinutos(inicio?: string, fin?: string): number | null {
   const a = minutosHora(inicio);
@@ -201,9 +198,9 @@ export function aFila(r: UnifiedTransporte): Fila {
     hora_fin_cargue: r.horaFinCargue || '',
     muelle_asignado: r.muelleAsignado || '',
     tiempo_muelle_minutos: diffMinutos(r.horaInicioCargue, r.horaFinCargue),
-    llegada_minutos: _c(r.horaLlegadaPorteria),
-    inicio_minutos: _c(r.horaInicioCargue),
-    fin_minutos: _c(r.horaFinCargue),
+    llegada_minutos: minutosHora(r.horaLlegadaPorteria),
+    inicio_minutos: minutosHora(r.horaInicioCargue),
+    fin_minutos: minutosHora(r.horaFinCargue),
     turno: turnoDeHora(r.horaInicioCargue),
     costo_diario_ccl: CONSTANTES.COSTO_DIARIO_CCL,
   };

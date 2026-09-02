@@ -32,13 +32,9 @@ function mapMessageFromDB(item: Record<string, any>): ChatMessage {
   };
 }
 
-function isOnline(): boolean {
-  return isSupabaseConfigured;
-}
-
 /** Obtiene todos los mensajes del chat ordenados por timestamp ascendente. */
 export async function fetchMessages(): Promise<ChatMessage[]> {
-  if (!isOnline()) return [];
+  if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from(TABLE)
     .select('*')
@@ -68,7 +64,7 @@ let activeUnsubscribe: (() => void) | null = null;
  * @returns Función para desuscribirse.
  */
 export function subscribeToMessages(callback: RealtimeCallback<ChatMessage>): () => void {
-  if (!isOnline()) return () => {};
+  if (!isSupabaseConfigured) return () => {};
 
   // Si ya hay una suscripción activa, se elimina primero para no volver a usar
   // el mismo canal tras subscribe() (evita el error de realtime y las duplicadas).

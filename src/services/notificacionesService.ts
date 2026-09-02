@@ -25,16 +25,12 @@ function mapNotifToDB(item: Omit<Notificacion, 'id' | 'leida' | 'createdAt'>): R
   };
 }
 
-function isOnline(): boolean {
-  return isSupabaseConfigured;
-}
-
 /**
  * Obtiene las notificaciones más recientes.
  * @param limit - Cantidad máxima de notificaciones (default: 50).
  */
 export async function fetchNotificaciones(limit = 50): Promise<Notificacion[]> {
-  if (!isOnline()) return [];
+  if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from(TABLE)
     .select('*')
@@ -51,7 +47,7 @@ export async function fetchNotificaciones(limit = 50): Promise<Notificacion[]> {
 export async function createNotificacion(
   payload: Omit<Notificacion, 'id' | 'leida' | 'createdAt'>,
 ): Promise<Notificacion> {
-  if (!isOnline()) throw new Error('Notificaciones deshabilitadas en MODO DEMO');
+  if (!isSupabaseConfigured) throw new Error('Notificaciones deshabilitadas en MODO DEMO');
   const { data, error } = await supabase.rpc('ccl_create_notificacion', {
     p_data: mapNotifToDB(payload),
   });
@@ -61,7 +57,7 @@ export async function createNotificacion(
 
 /** Marca todas las notificaciones como leídas via RPC `ccl_mark_notifs_read`. */
 export async function markAllNotificacionesLeidas(): Promise<void> {
-  if (!isOnline()) return;
+  if (!isSupabaseConfigured) return;
   const { error } = await supabase.rpc('ccl_mark_notifs_read');
   if (error) throw error;
 }
@@ -76,7 +72,7 @@ let activeUnsubscribe: (() => void) | null = null;
  * @returns Función para desuscribirse.
  */
 export function subscribeToNotificaciones(callback: RealtimeNotificacionCallback): () => void {
-  if (!isOnline()) return () => {};
+  if (!isSupabaseConfigured) return () => {};
 
   if (activeUnsubscribe) {
     activeUnsubscribe();

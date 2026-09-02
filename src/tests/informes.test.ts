@@ -11,7 +11,6 @@ import {
   formatearFechaClave,
   esDomingo,
   tipoGrupo,
-  _c,
   diffMinutos,
   clasificacionDemora,
   generarDias,
@@ -199,8 +198,8 @@ describe('utils/informes (utilidades Fase 2)', () => {
     expect(tipoGrupo('OTRA')).toBe('LTSA');
   });
 
-  it('_c es alias de minutosHora y diffMinutos resta horas', () => {
-    expect(_c('09:00')).toBe(540);
+  it('minutosHora y diffMinutos procesan horas', () => {
+    expect(minutosHora('09:00')).toBe(540);
     expect(diffMinutos('08:00', '09:30')).toBe(90);
     expect(diffMinutos('', '09:00')).toBeNull();
   });

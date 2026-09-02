@@ -18,18 +18,13 @@ function mapMovimientoFromDB(item: Record<string, any>): HistorialMovimiento {
   };
 }
 
-function isOnline(): boolean {
-  return isSupabaseConfigured;
-}
-
 /**
  * Obtiene el historial de movimientos más recientes.
  * @param limit - Cantidad máxima de registros (default: 200).
  */
 export async function fetchHistorial(limit = 200): Promise<HistorialMovimiento[]> {
-  if (!isOnline()) return [];
-  const { data, error } = await supabase
-    .from(TABLE)
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase.from(TABLE)
     .select('*')
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -45,7 +40,7 @@ export async function fetchHistorial(limit = 200): Promise<HistorialMovimiento[]
 export async function createMovimiento(
   item: HistorialMovimiento,
 ): Promise<HistorialMovimiento | null> {
-  if (!isOnline()) return null;
+  if (!isSupabaseConfigured) return null;
   const payload: Record<string, any> = {
     usuario: item.usuario,
     tipo_usuario: item.tipoUsuario,

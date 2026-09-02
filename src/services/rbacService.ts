@@ -246,13 +246,9 @@ function mapUserFromDB(item: Record<string, any>): UserRecord {
   };
 }
 
-function isOnline(): boolean {
-  return isSupabaseConfigured;
-}
-
 /** Obtiene todos los roles de la BD. Si la BD está vacía, retorna los roles predefinidos. */
 export async function fetchRoles(): Promise<Role[]> {
-  if (!isOnline()) return PRESET_ROLES;
+  if (!isSupabaseConfigured) return PRESET_ROLES;
   const { data, error } = await supabase
     .from(ROLES_TABLE)
     .select('*')
@@ -293,7 +289,7 @@ export async function deleteRole(id: string): Promise<void> {
 
 /** Obtiene todos los usuarios de la BD. Si está vacía, retorna los usuarios predefinidos. */
 export async function fetchUsers(): Promise<UserRecord[]> {
-  if (!isOnline()) return PRESET_USERS;
+  if (!isSupabaseConfigured) return PRESET_USERS;
   const { data, error } = await supabase
     .from(USERS_TABLE)
     .select('*')
@@ -338,7 +334,7 @@ export async function deleteUser(id: string): Promise<void> {
  * Se llama al arrancar la app (initialize). Las contraseñas se hashean con bcrypt.
  */
 export async function seedInitialData(): Promise<boolean> {
-  if (!isOnline()) return false;
+  if (!isSupabaseConfigured) return false;
   const { error } = await supabase.rpc('ccl_seed_initial_data');
   if (error) throw error;
   return true;

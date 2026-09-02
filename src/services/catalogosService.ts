@@ -5,12 +5,8 @@ const CLIENTES_TABLE = 'clientes';
 const CIUDADES_TABLE = 'ciudades';
 const TRANSPORTADORAS_TABLE = 'transportadoras';
 
-function isOnline(): boolean {
-  return isSupabaseConfigured;
-}
-
 export async function fetchClientes(): Promise<Cliente[]> {
-  if (!isOnline()) return [];
+  if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase.from(CLIENTES_TABLE).select('*').order('denominacion');
   if (error) throw error;
   return (data || []).map((r) => ({
@@ -21,7 +17,7 @@ export async function fetchClientes(): Promise<Cliente[]> {
 }
 
 export async function fetchCiudades(): Promise<Ciudad[]> {
-  if (!isOnline()) return [];
+  if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase.from(CIUDADES_TABLE).select('*').order('ciudad');
   if (error) throw error;
   return (data || []).map((r) => ({
@@ -32,7 +28,7 @@ export async function fetchCiudades(): Promise<Ciudad[]> {
 }
 
 export async function fetchTransportadoras(): Promise<Transportadora[]> {
-  if (!isOnline()) return [];
+  if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from(TRANSPORTADORAS_TABLE)
     .select('*')
