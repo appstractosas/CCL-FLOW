@@ -420,11 +420,11 @@ export function porTransportadora(rows: UnifiedTransporte[], topN = 8): ValorCon
     .slice(0, topN);
 }
 
-/** Número de llaves por día (YYYY-MM-DD) según la FECHA HORA CITA, ascendente. */
+/** Número de llaves por día (YYYY-MM-DD) según la HORA DE SALIDA (despacho real), ascendente. */
 export function volumenPorDia(rows: UnifiedTransporte[]): ValorConteo[] {
   const mapa = new Map<string, number>();
   for (const r of rows) {
-    const dia = String(r.citaCargue || '').slice(0, 10);
+    const dia = formatearFechaClave(r.horaSalida);
     if (!dia) continue;
     mapa.set(dia, (mapa.get(dia) || 0) + 1);
   }
@@ -474,7 +474,7 @@ export function rentabilidadCuadrillas(
 ): RentabilidadBucket[] {
   const movimiento = new Set<string>();
   for (const r of rows) {
-    const dia = String(r.citaCargue || '').slice(0, 10);
+    const dia = formatearFechaClave(r.horaInicioCargue);
     if (dia) movimiento.add(dia);
   }
 
@@ -487,7 +487,7 @@ export function rentabilidadCuadrillas(
   // Ingreso de cuadrillas SLA según las cajas de cada día (LTSA no se incluye en este gráfico).
   // Las llaves sin cuadrilla asignada no se consideran operación de terceros.
   for (const r of rows) {
-    const dia = String(r.citaCargue || '').slice(0, 10);
+    const dia = formatearFechaClave(r.horaInicioCargue);
     const bucket = buckets.get(dia);
     if (!bucket) continue;
     if (!String(r.cuadrilla || '').trim()) continue;
@@ -500,11 +500,11 @@ export function rentabilidadCuadrillas(
   return [...buckets.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Cajas registradas por día (YYYY-MM-DD) según la FECHA HORA CITA, ascendente. */
+/** Cajas registradas por día (YYYY-MM-DD) según la HORA DE INICIO DE CARGUE (operación real), ascendente. */
 export function cajasPorDia(rows: UnifiedTransporte[]): ValorConteo[] {
   const mapa = new Map<string, number>();
   for (const r of rows) {
-    const dia = String(r.citaCargue || '').slice(0, 10);
+    const dia = formatearFechaClave(r.horaInicioCargue);
     if (!dia) continue;
     mapa.set(dia, (mapa.get(dia) || 0) + (r.cajas ?? 0));
   }
@@ -749,7 +749,7 @@ export interface FechaPosicion {
   fecha: Date;
 }
 
-/** Resultado de agrupar las operaciones por fecha y hora del inicio de cargue. */
+/** Resultado de agrupar las operaciones por fecha y hora de llegada a portería. */
 export interface MapaPosicionamiento {
   celdas: Map<string, CeldaPosicion>; // clave "DD-mmm___HH:00"
   fechas: FechaPosicion[]; // ascendente (la más antigua arriba)
@@ -759,9 +759,11 @@ export interface MapaPosicionamiento {
 
 /**
  * Agrupa las operaciones en una matriz Fecha × Hora para el mapa de calor de
- * posicionamiento. Cada fila se ubica por la hora real de inicio de cargue
- * (hora_inicio_cargue; si falta, se usa la hora de la cita) y se clasifica
- * contra la cita: <60 min a tiempo, 60-179 min leve, ≥180 min crítico.
+ * posicionamiento. Cada fila se ubica por la fecha y hora reales de llegada a
+ * portería (hora_llegada_porteria; si falta o es inválida, se usa la hora de la
+ * cita) y se clasifica contra la cita: <60 min a tiempo, 60-179 min leve,
+ * ≥180 min crítico. La demora se calcula en minutos absolutos entre fechas
+ * (soporta llegadas al día siguiente de la cita).
  */
 export function mapaPosicionamiento(rows: UnifiedTransporte[]): MapaPosicionamiento {
   const celdas = new Map<string, CeldaPosicion>();
@@ -787,23 +789,27 @@ export function mapaPosicionamiento(rows: UnifiedTransporte[]): MapaPosicionamie
   };
 
   for (const r of rows) {
-    const fechaSrc = (r.citaCargue || '').trim() ? r.citaCargue : r.createdAt;
-    const citaD = parsearFecha(fechaSrc);
+    const citaStr = String(r.citaCargue || '').trim();
+    const llegadaStr = String(r.horaLlegadaPorteria || '').trim();
+    const citaD = parsearFecha(citaStr);
     if (!citaD) continue;
-    const fechaLabel = `${String(citaD.getDate()).padStart(2, '0')}-${MESES_ABREV[citaD.getMonth()]}`;
-    const horaRaw = (r.horaInicioCargue || '').trim() ? r.horaInicioCargue : r.citaCargue;
-    const mins = minutosHora(horaRaw);
-    if (mins == null) continue; // sin hora de inicio ni de cita: no ubica en el mapa
 
-    const citaMins = minutosHora(r.citaCargue);
-    const inicioMins = minutosHora(r.horaInicioCargue);
-    const demoraMins =
-      citaMins != null && inicioMins != null && inicioMins > citaMins ? inicioMins - citaMins : 0;
-    const clasif =
-      citaMins == null || inicioMins == null || demoraMins < 60
-        ? 'aTiempo'
-        : clasificarCita(demoraMins);
-    agregar(fechaLabel, citaD, mins, clasif);
+    // Solo se posiciona una fila si hay una hora explícita: la de llegada real a
+    // portería o, en su defecto, la de la cita. Demora = llegada − cita (min).
+    let posD: Date | null = null;
+    let clasif: ClasificacionCita = 'aTiempo';
+    const llegadaD = parsearFecha(llegadaStr);
+    if (llegadaD && /\d{2}:\d{2}/.test(llegadaStr)) {
+      posD = llegadaD;
+      const demoraMins = Math.max(0, (llegadaD.getTime() - citaD.getTime()) / 60000);
+      clasif = clasificarCita(demoraMins);
+    } else if (/\d{2}:\d{2}/.test(citaStr)) {
+      posD = citaD;
+    }
+    if (!posD) continue; // sin hora explícita: no ubica en el mapa
+
+    const fechaLabel = `${String(posD.getDate()).padStart(2, '0')}-${MESES_ABREV[posD.getMonth()]}`;
+    agregar(fechaLabel, posD, posD.getHours() * 60 + posD.getMinutes(), clasif);
   }
 
   const fechas = [...fechasMap.entries()]

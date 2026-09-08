@@ -147,12 +147,12 @@ describe('utils/informes (agregaciones reales)', () => {
     expect(top).toHaveLength(2);
   });
 
-  it('volumenPorDia agrupa por fecha de cita y ordena ascendente', () => {
+  it('volumenPorDia agrupa por hora de salida y ordena ascendente', () => {
     const rows = [
-      row({ llave: 'LL-1', citaCargue: '2026-08-13 08:00' }),
-      row({ llave: 'LL-2', citaCargue: '2026-08-12 09:00' }),
-      row({ llave: 'LL-3', citaCargue: '2026-08-12 10:00' }),
-      row({ llave: 'LL-4', citaCargue: '2026-08-12T11:00:00Z' }),
+      row({ llave: 'LL-1', horaSalida: '2026-08-13 08:00' }),
+      row({ llave: 'LL-2', horaSalida: '2026-08-12 09:00' }),
+      row({ llave: 'LL-3', horaSalida: '2026-08-12 10:00' }),
+      row({ llave: 'LL-4', horaSalida: '2026-08-12T11:00:00Z' }),
     ];
 
     const volumen = volumenPorDia(rows);
@@ -429,8 +429,8 @@ describe('utils/informes (nuevos gráficos)', () => {
   it('rentabilidadCuadrillas costea CCL por día (1.432.000) e ingresa SLA según cajas del día × 140', () => {
     const rent = rentabilidadCuadrillas(
       [
-        g({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 100, citaCargue: '2026-08-12 08:00' }),
-        g({ llave: 'LL-2', cuadrilla: 'SLV', cajas: 5, citaCargue: '2026-08-13 09:00' }),
+        g({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 100, horaInicioCargue: '2026-08-12 08:00' }),
+        g({ llave: 'LL-2', cuadrilla: 'SLV', cajas: 5, horaInicioCargue: '2026-08-13 09:00' }),
       ],
       '2026-08-12',
       '2026-08-13',
@@ -447,9 +447,9 @@ describe('utils/informes (nuevos gráficos)', () => {
   it('rentabilidadCuadrillas solo incluye días con movimiento (llaves en el rango)', () => {
     const rent = rentabilidadCuadrillas(
       [
-        g({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 711, citaCargue: '2026-08-15 08:00' }),
-        g({ llave: 'LL-2', cuadrilla: '', cajas: 808, citaCargue: '2026-08-15 09:00' }),
-        g({ llave: 'LL-3', cuadrilla: 'SLA', cajas: 100, citaCargue: '2026-08-14 08:00' }),
+        g({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 711, horaInicioCargue: '2026-08-15 08:00' }),
+        g({ llave: 'LL-2', cuadrilla: '', cajas: 808, horaInicioCargue: '2026-08-15 09:00' }),
+        g({ llave: 'LL-3', cuadrilla: 'SLA', cajas: 100, horaInicioCargue: '2026-08-14 08:00' }),
       ],
       '2026-08-14',
       '2026-08-16',
@@ -462,14 +462,14 @@ describe('utils/informes (nuevos gráficos)', () => {
     expect(rent.find((b) => b.name === '2026-08-15')?.ingresoSLA).toBe(711 * 140);
   });
 
-  it('cajasPorDia suma cajas por día de cita estremente', () => {
+  it('cajasPorDia suma cajas por día de inicio de cargue', () => {
     const cajas = cajasPorDia([
-      g({ llave: 'LL-1', cajas: 10, citaCargue: '2026-08-12 08:00' }),
-      g({ llave: 'LL-2', cajas: 15, citaCargue: '2026-08-12 10:00' }),
-      g({ llave: 'LL-3', cajas: 25, citaCargue: '2026-08-13 09:00' }),
+      g({ llave: 'LL-1', cajas: 10, horaInicioCargue: '2026-08-12 08:00' }),
+      g({ llave: 'LL-2', cajas: 15, horaInicioCargue: '2026-08-12 10:00' }),
+      g({ llave: 'LL-3', cajas: 25, horaInicioCargue: '2026-08-12T09:00:00Z' }),
     ]);
-    expect(cajas.find((c) => c.name === '2026-08-12')?.value).toBe(25);
-    expect(cajas.find((c) => c.name === '2026-08-13')?.value).toBe(25);
+    expect(cajas.find((c) => c.name === '2026-08-12')?.value).toBe(50);
+    expect(cajas.find((c) => c.name === '2026-08-13')).toBeUndefined();
   });
 
   it('cajasPorCuadrilla devuelve siempre los 3 grupos en orden', () => {
@@ -587,12 +587,12 @@ describe('utils/informes (mapa de calor de posicionamiento)', () => {
     expect(clasificarCita(300)).toBe('critico');
   });
 
-  it('agrupa por fecha y hora de inicio, y guarda el conteo por clasificación', () => {
+  it('agrupa por fecha y hora de llegada a portería, y guarda el conteo por clasificación', () => {
     const rows = [
-      row({ llave: 'LL-1', citaCargue: '2026-06-16 14:00', horaInicioCargue: '2026-06-16 14:10' }), // a tiempo (<1h)
-      row({ llave: 'LL-2', citaCargue: '2026-06-16 10:00', horaInicioCargue: '2026-06-16 12:30' }), // 150 min → leve
-      row({ llave: 'LL-3', citaCargue: '2026-06-16 08:00', horaInicioCargue: '2026-06-16 13:00' }), // 300 min → critico
-      row({ llave: 'LL-4', citaCargue: '2026-06-17 09:00', horaInicioCargue: '2026-06-17 09:05' }), // a tiempo, otro día
+      row({ llave: 'LL-1', citaCargue: '2026-06-16 14:00', horaLlegadaPorteria: '2026-06-16 14:10' }), // a tiempo (<1h)
+      row({ llave: 'LL-2', citaCargue: '2026-06-16 10:00', horaLlegadaPorteria: '2026-06-16 12:30' }), // 150 min → leve
+      row({ llave: 'LL-3', citaCargue: '2026-06-16 08:00', horaLlegadaPorteria: '2026-06-16 13:00' }), // 300 min → critico
+      row({ llave: 'LL-4', citaCargue: '2026-06-17 09:00', horaLlegadaPorteria: '2026-06-17 09:05' }), // a tiempo, otro día
     ];
 
     const m = mapaPosicionamiento(rows);
@@ -607,22 +607,31 @@ describe('utils/informes (mapa de calor de posicionamiento)', () => {
     expect(m.fechas.map((f) => f.label)).toEqual(['16-jun', '17-jun']); // orden ascendente
   });
 
-  it('sin hora de inicio usa la cita; hora inválida salta la fila', () => {
+  it('demora en minutos absolutos cruza de día (llegada al día siguiente de la cita)', () => {
+    const m = mapaPosicionamiento([
+      row({ llave: 'LL-1', citaCargue: '2026-06-16 23:00', horaLlegadaPorteria: '2026-06-17 01:30' }),
+    ]);
+    // 150 min de demora (no 0): se ubica el 17-jun a la 01:00 como leve.
+    expect(m.celdas.get('17-jun___01:00')).toMatchObject({ count: 1, entre1y3h: 1 });
+  });
+
+  it('sin hora de llegada válida usa la cita; fila sin hora salta', () => {
     const rows = [
-      row({ llave: 'LL-1', citaCargue: '2026-06-16 20:30' }), // sin inicio: se ubica por cita
-      row({ llave: 'LL-2', citaCargue: '2026-06-16 09:00', horaInicioCargue: 'xx:yy' }), // hora inválida
-      row({ llave: 'LL-3', citaCargue: '2026-06-16 09:00' }), // sin hora de cita válida y sin inicio?
+      row({ llave: 'LL-1', citaCargue: '2026-06-16 20:30' }), // sin llegada: se ubica por cita
+      row({ llave: 'LL-2', citaCargue: '2026-06-16 09:00', horaLlegadaPorteria: 'xx:yy' }), // llegada inválida → cita
+      row({ llave: 'LL-3', citaCargue: '2026-06-16 09:00' }), // cita sin hora: no ubica
     ];
     rows[2].citaCargue = '2026-06-16'; // fecha sin hora
 
     const m = mapaPosicionamiento(rows);
     expect(m.celdas.get('16-jun___20:00')).toMatchObject({ count: 1, aTiempo: 1 });
-    expect(m.celdas.size).toBe(1); // LL-2 (hora inválida) y LL-3 (sin hora) no ubican
+    expect(m.celdas.get('16-jun___09:00')).toMatchObject({ count: 1, aTiempo: 1 });
+    expect(m.celdas.size).toBe(2); // LL-3 (sin hora) no ubica
   });
 
   it('el eje de horas arranca como mínimo a las 06:00 y llega hasta las 23:00', () => {
     const m = mapaPosicionamiento([
-      row({ llave: 'LL-1', citaCargue: '2026-06-16 12:00', horaInicioCargue: '2026-06-16 12:00' }),
+      row({ llave: 'LL-1', citaCargue: '2026-06-16 12:00', horaLlegadaPorteria: '2026-06-16 12:00' }),
     ]);
     expect(m.horas[0]).toBe('06:00');
     expect(m.horas[m.horas.length - 1]).toBe('23:00');
