@@ -33,7 +33,7 @@ import {
 } from '../utils/porteria';
 import { playNotificationSound, playAlertSound } from '../utils/sound';
 import { MUELLE_CERO } from '../lib/muelles';
-import { nowHHMM, nowDateTime } from '../lib/dateUtils';
+import { nowDateTime } from '../lib/dateUtils';
 
 interface LogisticsState {
   initialized: boolean;
@@ -68,9 +68,6 @@ interface LogisticsState {
   getKPIs: () => KPIStats;
 }
 
-let unsubscribeRealtime: (() => void) | null = null;
-let unsubscribeTransportesRealtime: (() => void) | null = null;
-let unsubscribeNotificacionesRealtime: (() => void) | null = null;
 let transportesRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useLogisticsStore = create<LogisticsState>()((set, get) => {
@@ -165,7 +162,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
           demoMode: false,
         });
 
-        unsubscribeRealtime = subscribeToMessages((newMsg) => {
+        subscribeToMessages((newMsg) => {
           // Aviso sonoro para todos cuando PORTERÍA o SUPERVISOR envían un chat.
           if (newMsg.senderRole === 'PORTERO' || newMsg.senderRole === 'SUPERVISOR') {
             playNotificationSound();
@@ -181,7 +178,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         // Se hace con DEBOUNCE: el sync del Sheets hace UPSERT fila por fila y
         // dispara muchos eventos seguidos; refrescar cada uno haría que las filas
         // parpadearan. Se agrupan y se refresca una sola vez por ráfaga.
-        unsubscribeTransportesRealtime = subscribeToTransportes(() => {
+        subscribeToTransportes(() => {
           if (transportesRefreshTimer) clearTimeout(transportesRefreshTimer);
           transportesRefreshTimer = setTimeout(async () => {
             try {
@@ -201,7 +198,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         // Notificaciones en vivo: cualquier INSERT (acción propia o de otro
         // usuario) enciende el sonido y actualiza la campana para todos.
         if (notificacionesOk) {
-          unsubscribeNotificacionesRealtime = subscribeToNotificaciones((newNotif) => {
+          subscribeToNotificaciones((newNotif) => {
             if (
               get().notificaciones.some(
                 (n) =>
