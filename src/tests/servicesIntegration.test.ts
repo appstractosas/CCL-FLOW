@@ -3,7 +3,8 @@ import type { UnifiedTransporte, ChatMessage, Notificacion } from '../types';
 
 // ===== Mock de Supabase: builder encadenable para SELECT + RPC para writes =====
 
-type MemoryTable = Record<string, any>[];
+type MemoryRow = Record<string, unknown>;
+type MemoryTable = MemoryRow[];
 const mem: { [table: string]: MemoryTable } = {
   transportes: [],
   chat_messages: [],
@@ -19,7 +20,18 @@ const orderBy = (rows: MemoryTable, col: string, asc: boolean) =>
     return asc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
   });
 
-function makeQuery(table: string) {
+type QueryBuilder = {
+  select: (cols?: string) => QueryBuilder;
+  order: (col: string, opts?: { ascending?: boolean }) => QueryBuilder;
+  limit: (n: number) => QueryBuilder;
+  gte: (col: string, val: string) => QueryBuilder;
+  lte: (col: string, val: string) => QueryBuilder;
+  eq: (col: string, val: string) => QueryBuilder;
+  single: () => QueryBuilder;
+  then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => Promise<unknown>;
+};
+
+function makeQuery(table: string): QueryBuilder {
   const state = {
     base: mem[table] || [],
     orderCol: '',
@@ -43,8 +55,8 @@ function makeQuery(table: string) {
     return { data: state.isSingle ? rows[0] : rows, error: null };
   };
 
-  const q = {
-    select: vi.fn(() => q),
+  const q: QueryBuilder = {
+    select: vi.fn((_cols?: string) => q),
     order: vi.fn((col: string, { ascending = true } = {}) => {
       state.orderCol = col;
       state.orderAsc = ascending;
@@ -72,18 +84,21 @@ function makeQuery(table: string) {
     }),
     then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
       Promise.resolve(materialize()).then(resolve, reject),
-  } as any;
+  };
 
   return q;
 }
 
-const chan: any = {
+const chan = {
   on: vi.fn(() => chan),
   subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
 };
 
-function routeRpc(fn: string, args: Record<string, any>): Promise<{ data: any; error: any }> {
-  const data = args?.p_data || {};
+function routeRpc(
+  fn: string,
+  args: Record<string, unknown>,
+): Promise<{ data: MemoryRow | null; error: Error | null }> {
+  const data = (args?.p_data as MemoryRow | undefined) || {};
 
   if (fn === 'ccl_create_transporte') {
     const row = { id: `T-${Date.now()}`, ...data };
@@ -128,7 +143,7 @@ const supabaseMock = {
   from: vi.fn((table: string) => makeQuery(table)),
   channel: vi.fn(() => chan),
   removeChannel: vi.fn(),
-  rpc: vi.fn((fn: string, args?: Record<string, any>) => routeRpc(fn, args || {})),
+  rpc: vi.fn((fn: string, args?: Record<string, unknown>) => routeRpc(fn, args || {})),
 };
 
 vi.mock('../lib/supabase', () => ({
@@ -155,12 +170,17 @@ const afiliado = {
 };
 
 function forceFromDbError() {
-  const brokenQuery = {
-    select: vi.fn(() => brokenQuery),
-    order: vi.fn(() => brokenQuery),
+  const brokenQuery: QueryBuilder = {
+    select: vi.fn(() => brokenQuery) as QueryBuilder['select'],
+    order: vi.fn((_col: string, _opts?: { ascending?: boolean }) => brokenQuery) as QueryBuilder['order'],
+    limit: vi.fn((_n: number) => brokenQuery) as QueryBuilder['limit'],
+    gte: vi.fn((_col: string, _val: string) => brokenQuery) as QueryBuilder['gte'],
+    lte: vi.fn((_col: string, _val: string) => brokenQuery) as QueryBuilder['lte'],
+    eq: vi.fn((_col: string, _val: string) => brokenQuery) as QueryBuilder['eq'],
+    single: vi.fn(() => brokenQuery) as QueryBuilder['single'],
     then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
       Promise.resolve({ data: null, error: new Error('db down') }).then(resolve, reject),
-  } as any;
+  };
   supabaseMock.from.mockReturnValueOnce(brokenQuery);
 }
 

@@ -64,7 +64,7 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
 
   it('should reject the duplicate pair (llave, placa) but allow the same llave with a different placa', async () => {
     const store = useLogisticsStore.getState();
-    const a = await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-50000' });
+    await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-50000' });
 
     // Misma llave + MISMA placa (aunque se escriba en minúsculas) → rechazado.
     await expect(store.addTransporte({ placa: 'xyz-999', llave: 'LL-50000' })).rejects.toThrow(
@@ -121,7 +121,7 @@ describe('useLogisticsStore (Modelo Unificado)', () => {
 
   it('debería bloquear guardar un par (llave, placa) duplicado al editar otra fila', async () => {
     const store = useLogisticsStore.getState();
-    const a = await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-60533' });
+    await store.addTransporte({ placa: 'XYZ-999', llave: 'LL-60533' });
     const b = await store.addTransporte({ placa: 'ABC-123', llave: 'LL-60534' });
 
     await store.updateTransporte(b.id, { llave: 'LL-60533', placa: 'XYZ-999' });

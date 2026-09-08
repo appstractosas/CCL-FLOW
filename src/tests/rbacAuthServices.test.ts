@@ -1,9 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Role, UserRecord } from '../types';
+import type { Role, UserRecord, PermissionsMap } from '../types';
+import { ALL_MODULES } from '../lib/moduleConfig';
 
 // ===== Mock de Supabase: builder para SELECT + RPC para writes =====
 
-type MemoryTable = Record<string, any>[];
+type MemoryRow = Record<string, unknown>;
+type MemoryTable = MemoryRow[];
+type RpcArgs = { [key: string]: unknown };
+
+function makePerms(partial: Partial<PermissionsMap> = {}): PermissionsMap {
+  return Object.fromEntries(
+    ALL_MODULES.map((mod) => [mod, partial[mod] ?? { canAccess: false, canEdit: false }]),
+  ) as PermissionsMap;
+}
 
 // vi.hoisted ensures these are available before vi.mock is hoisted
 const { mem, simulateRpc, supabaseMock, getConfigured, setConfigured } = vi.hoisted(() => {
@@ -14,14 +23,17 @@ const { mem, simulateRpc, supabaseMock, getConfigured, setConfigured } = vi.hois
 
   let _configured = true;
 
-  function simulateRpc(fn: string, args: any): Promise<{ data: any; error: any }> {
+  function simulateRpc(
+    fn: string,
+    args: RpcArgs = {},
+  ): Promise<{ data: MemoryRow | null; error: { message: string } | null }> {
     if (fn === 'ccl_create_role') {
-      const row = { ...args.p_data };
+      const row = { ...(args.p_data as MemoryRow | undefined) };
       mem.roles.push(row);
       return Promise.resolve({ data: row, error: null });
     }
     if (fn === 'ccl_update_role') {
-      const row = mem.roles.find((r) => r.id === args.p_id);
+      const row = mem.roles.find((r) => r.id === (args.p_id as string | undefined));
       if (row) {
         if (args.p_name !== undefined) row.name = args.p_name;
         if (args.p_description !== undefined) row.description = args.p_description;
@@ -30,21 +42,21 @@ const { mem, simulateRpc, supabaseMock, getConfigured, setConfigured } = vi.hois
       return Promise.resolve({ data: null, error: null });
     }
     if (fn === 'ccl_delete_role') {
-      mem.roles = mem.roles.filter((r) => r.id !== args.p_id);
+      mem.roles = mem.roles.filter((r) => r.id !== (args.p_id as string | undefined));
       return Promise.resolve({ data: null, error: null });
     }
     if (fn === 'ccl_create_user') {
-      const row = { ...args.p_data };
+      const row = { ...(args.p_data as MemoryRow | undefined) };
       mem.users.push(row);
       return Promise.resolve({ data: row, error: null });
     }
     if (fn === 'ccl_update_user') {
-      const row = mem.users.find((r) => r.id === args.p_id);
-      if (row && args.p_data) Object.assign(row, args.p_data);
+      const row = mem.users.find((r) => r.id === (args.p_id as string | undefined));
+      if (row && args.p_data) Object.assign(row, args.p_data as object);
       return Promise.resolve({ data: null, error: null });
     }
     if (fn === 'ccl_delete_user') {
-      mem.users = mem.users.filter((r) => r.id !== args.p_id);
+      mem.users = mem.users.filter((r) => r.id !== (args.p_id as string | undefined));
       return Promise.resolve({ data: null, error: null });
     }
     if (fn === 'ccl_seed_initial_data') {
@@ -188,8 +200,8 @@ const { mem, simulateRpc, supabaseMock, getConfigured, setConfigured } = vi.hois
   }
 
   const supabaseMock = {
-    from: vi.fn((_table: string) => ({ then: () => Promise.resolve({ data: [], error: null }) })),
-    rpc: vi.fn((fn: string, args?: any) => simulateRpc(fn, args)),
+    from: vi.fn((_table: string) => makeQuery(_table)),
+    rpc: vi.fn((fn: string, args?: RpcArgs) => simulateRpc(fn, args)),
   };
 
   return {
@@ -203,7 +215,15 @@ const { mem, simulateRpc, supabaseMock, getConfigured, setConfigured } = vi.hois
   };
 });
 
-function makeQuery(table: string) {
+type QueryBuilder = {
+  select: (cols?: string) => QueryBuilder;
+  order: (col: string, opts?: { ascending?: boolean }) => QueryBuilder;
+  eq: (col: string, val: string) => QueryBuilder;
+  single: () => QueryBuilder;
+  then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => Promise<unknown>;
+};
+
+function makeQuery(table: string): QueryBuilder {
   const state = {
     isSingle: false,
     filters: [] as { col: string; op: 'eq'; val: string }[],
@@ -227,8 +247,8 @@ function makeQuery(table: string) {
     return { data: state.isSingle ? rows[0] : rows, count: rows.length, error: null };
   };
 
-  const q: any = {
-    select: vi.fn(() => q),
+  const q: QueryBuilder = {
+    select: vi.fn((_cols?: string) => q),
     order: vi.fn((col: string, { ascending = true } = {}) => {
       state.orderCol = col;
       state.orderAsc = ascending;
@@ -258,48 +278,46 @@ vi.mock('../lib/supabase', () => ({
 const rbacMod = await import('../services/rbacService');
 const authMod = await import('../services/authService');
 
-let configured = true;
-
 describe('rbacService', () => {
   beforeEach(() => {
     mem.roles = [];
     mem.users = [];
-    configured = true;
+    
     setConfigured(true);
     vi.clearAllMocks();
     supabaseMock.from.mockImplementation((table: string) => makeQuery(table));
-    supabaseMock.rpc.mockImplementation((fn: string, args?: any) => simulateRpc(fn, args));
+    supabaseMock.rpc.mockImplementation((fn: string, args?: RpcArgs) => simulateRpc(fn, args));
   });
 
   it('devuelve PRESET_ROLES offline cuando no está configurado', async () => {
     setConfigured(false);
-    configured = false;
+    
     const roles = await rbacMod.fetchRoles();
     expect(roles.length).toBeGreaterThanOrEqual(5);
     expect(roles[0].name).toBe('ADMIN');
   });
 
   it('devuelve PRESET_ROLES cuando la BD está vacía', async () => {
-    configured = true;
+    
     const roles = await rbacMod.fetchRoles();
     expect(roles.length).toBeGreaterThanOrEqual(5);
   });
 
   it('crea, actualiza y elimina roles contra Supabase', async () => {
-    configured = true;
+    
     const newRole: Role = {
       id: 'ROLE_TEST',
       name: 'TEST',
       description: 'd',
       isPreset: false,
-      permissions: { chat: { canAccess: true, canEdit: true } } as any,
+      permissions: makePerms({ chat: { canAccess: true, canEdit: true } }),
     };
     const creado = await rbacMod.createRole(newRole);
     expect(creado.id).toBe('ROLE_TEST');
     expect(creado.name).toBe('TEST');
     expect(mem.roles.length).toBe(1);
 
-    await rbacMod.updateRole('ROLE_TEST', 'TEST2', 'd2', {});
+    await rbacMod.updateRole('ROLE_TEST', 'TEST2', 'd2', makePerms());
     expect(mem.roles[0].name).toBe('TEST2');
 
     await rbacMod.deleteRole('ROLE_TEST');
@@ -307,7 +325,7 @@ describe('rbacService', () => {
   });
 
   it('devuelve PRESET_USERS cuando la BD está vacía y crea usuarios', async () => {
-    configured = true;
+    
     const users = await rbacMod.fetchUsers();
     expect(users.length).toBeGreaterThanOrEqual(5);
 
@@ -339,7 +357,7 @@ describe('rbacService', () => {
 
   it('seedInitialData inserta roles y usuarios cuando las tablas están vacías', async () => {
     setConfigured(true);
-    configured = true;
+    
     const ok = await rbacMod.seedInitialData();
     expect(ok).toBe(true);
     expect(mem.roles.length).toBeGreaterThan(0);
@@ -348,7 +366,7 @@ describe('rbacService', () => {
 
   it('seedInitialData devuelve false offline', async () => {
     setConfigured(false);
-    configured = false;
+    
     const ok = await rbacMod.seedInitialData();
     expect(ok).toBe(false);
   });
@@ -356,22 +374,22 @@ describe('rbacService', () => {
 
 describe('authService', () => {
   beforeEach(() => {
-    configured = true;
+    
     setConfigured(true);
     vi.clearAllMocks();
-    supabaseMock.rpc.mockImplementation((fn: string, args?: any) => simulateRpc(fn, args));
+    supabaseMock.rpc.mockImplementation((fn: string, args?: RpcArgs) => simulateRpc(fn, args));
   });
 
   it('cclLogin devuelve ok:false offline', async () => {
     setConfigured(false);
-    configured = false;
+    
     const r = await authMod.cclLogin('0', 'x');
     expect(r.ok).toBe(false);
   });
 
   it('cclLogin resuelve una sesión válida desde rpc', async () => {
     setConfigured(true);
-    configured = true;
+    
     supabaseMock.rpc.mockResolvedValueOnce({
       data: {
         ok: true,
@@ -395,7 +413,7 @@ describe('authService', () => {
 
   it('cclLogin devuelve ok:false cuando el rpc responde con error', async () => {
     setConfigured(true);
-    configured = true;
+    
     supabaseMock.rpc.mockResolvedValueOnce({ data: null, error: { message: 'bad' } });
     const r = await authMod.cclLogin('1', 'x');
     expect(r.ok).toBe(false);
@@ -404,7 +422,7 @@ describe('authService', () => {
 
   it('cclValidateSession valida un token y devuelve el usuario', async () => {
     setConfigured(true);
-    configured = true;
+    
     supabaseMock.rpc.mockResolvedValueOnce({
       data: {
         ok: true,
@@ -426,7 +444,7 @@ describe('authService', () => {
 
   it('cclLogout no falla y es idempotente offline', async () => {
     setConfigured(false);
-    configured = false;
+    
     await expect(authMod.cclLogout('tok')).resolves.not.toThrow();
   });
 });

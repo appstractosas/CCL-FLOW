@@ -3,12 +3,13 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import { describe, it, expect, beforeEach } from 'vitest';
 import { InformesModule } from '../components/modules/InformesModule';
 import { useLogisticsStore } from '../store/useLogisticsStore';
+import type { UnifiedTransporte } from '../types';
 
 const fecha = new Date();
 const hoy = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
 const fechaHoraHoy = `${hoy} 09:00`;
 
-function makeTransporte(id: string, llave: string, over: Partial<any> = {}) {
+function makeTransporte(id: string, llave: string, over: Partial<UnifiedTransporte> = {}): UnifiedTransporte {
   return {
     id,
     llave,
@@ -22,7 +23,7 @@ function makeTransporte(id: string, llave: string, over: Partial<any> = {}) {
     cuadrilla: 'CCL',
     cajas: 10,
     ...over,
-  } as any;
+  };
 }
 
 describe('InformesModule (modo demo)', () => {
