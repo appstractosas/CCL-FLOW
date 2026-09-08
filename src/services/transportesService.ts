@@ -200,3 +200,49 @@ export async function updateTransporte(
   const { error } = await supabase.rpc('ccl_update_transporte', { p_id: id, p_data: dbUpdates });
   if (error) throw error;
 }
+
+// --- NUEVO: paginación servidor (opcional, no rompe nada) ---
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export async function fetchTransportesPaginated(
+  page: number,
+  pageSize: number,
+  filters?: {
+    fechaDesde?: string;
+    fechaHasta?: string;
+    search?: string;
+    estadoPorteria?: string;
+  }
+): Promise<PaginatedResult<UnifiedTransporte>> {
+  if (!isSupabaseConfigured) return { data: [], total: 0, page, pageSize, totalPages: 0 };
+
+  let query = supabase.from(TABLE).select('*', { count: 'exact' });
+
+  if (filters?.fechaDesde) query = query.gte('cita_cargue', `${filters.fechaDesde} `);
+  if (filters?.fechaHasta) query = query.lte('cita_cargue', `${filters.fechaHasta}Z`);
+  if (filters?.search) {
+    const term = filters.search.toUpperCase();
+    query = query.or(`llave.ilike.%${term}%,placa.ilike.%${term}%,transportadora.ilike.%${term}%`);
+  }
+
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  query = query.order('cita_cargue', { ascending: false }).range(from, to);
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+
+  return {
+    data: (data || []).map(mapTransporteFromDB),
+    total: count || 0,
+    page,
+    pageSize,
+    totalPages: Math.ceil((count || 0) / pageSize),
+  };
+}
