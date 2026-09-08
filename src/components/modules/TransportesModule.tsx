@@ -6,7 +6,7 @@ import { TransporteFormModal } from './TransporteFormModal';
 import { UnifiedTransporte, TransporteData } from '../../types';
 
 export const TransportesModule: React.FC = () => {
-  const { updateTransporte, transportes } = useLogisticsStore();
+  const { updateTransporte } = useLogisticsStore();
   const { hasModuleEdit } = useAuthStore();
   const canEdit = hasModuleEdit('transportes');
 

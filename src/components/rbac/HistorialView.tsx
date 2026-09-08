@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Inbox } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { userTypeLabel } from '../../lib/moduleConfig';

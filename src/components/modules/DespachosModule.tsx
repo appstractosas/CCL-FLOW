@@ -5,7 +5,7 @@ import { CrudModule } from '../common/CrudModule';
 import { UnifiedTransporte, PorteriaTimeField } from '../../types';
 
 export const DespachosModule: React.FC = () => {
-  const { updatePorteriaHora, updateCuadrilla, updateCajas, transportes } = useLogisticsStore();
+  const { updatePorteriaHora, updateCuadrilla, updateCajas } = useLogisticsStore();
   const { hasModuleEdit, currentUser, isAdmin } = useAuthStore();
   const canEditRole = hasModuleEdit('despachos');
   // Todos los módulos visualizan la cuadrilla y las cajas; solo el DESPACHADOR

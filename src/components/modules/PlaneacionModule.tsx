@@ -8,7 +8,7 @@ import { UnifiedTransporte, TransporteData } from '../../types';
 import { puedeEditarOperacion } from '../../utils/porteria';
 
 export const PlaneacionModule: React.FC = () => {
-  const { addTransporte, updateTransporte, cancelTransporte, transportes } = useLogisticsStore();
+  const { addTransporte, updateTransporte, cancelTransporte } = useLogisticsStore();
   const { hasModuleEdit } = useAuthStore();
   const canEdit = hasModuleEdit('planeacion');
 

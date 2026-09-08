@@ -5,7 +5,7 @@ import { CrudModule } from '../common/CrudModule';
 import { UnifiedTransporte, PorteriaTimeField } from '../../types';
 
 export const MonitoreoModule: React.FC = () => {
-  const { updatePorteriaHora, transportes } = useLogisticsStore();
+  const { updatePorteriaHora } = useLogisticsStore();
   const { hasModuleEdit } = useAuthStore();
   const canEditRole = hasModuleEdit('monitoreo');
 

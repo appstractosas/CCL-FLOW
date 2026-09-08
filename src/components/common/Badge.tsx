@@ -1,12 +1,12 @@
 import React from 'react';
-import { CheckCircle2, Clock, AlertTriangle, ArrowUpRight, Lock, Check } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, ArrowUpRight } from 'lucide-react';
 
 interface BadgeProps {
   status: string;
   type?: 'despacho' | 'porteria' | 'operador' | 'generic';
 }
 
-export const Badge: React.FC<BadgeProps> = ({ status, type = 'generic' }) => {
+export const Badge: React.FC<BadgeProps> = ({ status }) => {
   const norm = status.toUpperCase().trim();
 
   // Green states
