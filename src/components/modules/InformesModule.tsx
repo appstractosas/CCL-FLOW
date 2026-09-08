@@ -94,6 +94,7 @@ export const InformesModule: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga de métricas del rango (fetch + state async)
     void load(dateFrom, dateTo);
   }, [dateFrom, dateTo, load]);
 
@@ -187,14 +188,14 @@ export const InformesModule: React.FC = () => {
       // Export TABLA COMPLETA: filas CRUDAS de la BD (todas las columnas que
       // existan), acotadas al rango de fechas. Los encabezados se derivan de los
       // datos reales, así el export no se desactualiza si la tabla cambia.
-      let rawRows: Record<string, any>[];
+      let rawRows: Record<string, unknown>[];
       if (isSupabaseConfigured) {
         rawRows = await fetchTransportesRawByRango(dateFrom, dateTo);
       } else {
         rawRows = useLogisticsStore.getState().transportes.filter((t) => {
           const d = String(t.citaCargue || '').slice(0, 10);
           return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
-        }) as unknown as Record<string, any>[];
+        }) as unknown as Record<string, unknown>[];
       }
 
       if (rawRows.length === 0) {

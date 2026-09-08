@@ -38,6 +38,7 @@ export const AeropuertoBoard: React.FC = () => {
 
   // Resetea a página 1 solo cuando cambian los filtros, no cuando refresca time real.
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional de paginación al cambiar filtros
     setPage(1);
   }, [pageResetKey]);
 

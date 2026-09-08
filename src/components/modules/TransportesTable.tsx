@@ -54,6 +54,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   // no cuando el array `rows` se refresca por time real (misma identidad de filtros).
   const resetKey = pageResetKey ?? rows;
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional de paginación al cambiar filtros
     setPage(1);
   }, [resetKey]);
 

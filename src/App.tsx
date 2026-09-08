@@ -71,16 +71,7 @@ export default function App() {
 
   useEffect(() => {
     Promise.all([initAuth(), initLogistics(), initCatalogos()]).finally(() => setAppReady(true));
-  }, []);
-
-  // Tras el login (o si cambia el rol/permisos) se ubica al usuario en el primer
-  // módulo al que tiene acceso, en lugar de mostrar "Módulo Restringido".
-  useEffect(() => {
-    if (!currentUser) return;
-    if (!hasModuleAccess(activeModule)) {
-      setActiveModule(firstAllowedModule());
-    }
-  }, [currentUser, activeModule, hasModuleAccess]);
+  }, [initAuth, initLogistics, initCatalogos]);
 
   if (!appReady || loading) {
     return (
@@ -134,7 +125,7 @@ export default function App() {
     <div className="min-h-screen bg-[#070a12] text-zinc-100 font-sans antialiased flex selection:bg-emerald-500 selection:text-zinc-950">
       {/* Fixed Navigation Sidebar Left */}
       <Sidebar
-        activeModule={activeModule}
+        activeModule={effectiveModule}
         setActiveModule={setActiveModule}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}

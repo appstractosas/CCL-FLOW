@@ -39,6 +39,7 @@ const CajasInput: React.FC<{
   const [val, setVal] = useState<string>(row.cajas != null ? String(row.cajas) : '');
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza el input con el valor recibido de la fila
     setVal(row.cajas != null ? String(row.cajas) : '');
   }, [row.cajas]);
 

@@ -14,6 +14,7 @@ export interface PorteriaStep {
   msg: string;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- constantes de configuración compartidas con TransporteDetailPanel
 export const PORTERIA_STEPS: PorteriaStep[] = [
   {
     key: 'horaLlegadaPorteria',
@@ -38,11 +39,12 @@ export const PORTERIA_STEPS: PorteriaStep[] = [
   },
 ];
 
+// eslint-disable-next-line react-refresh/only-export-components -- constantes de configuración compartidas con TransporteDetailPanel
 export const CUADRILLAS = ['CCL', 'LTSA (Éxito)', 'SLA'] as const;
 
 // Las horas de operación no pueden ser futuras (solo anteriores o iguales a la hora actual).
 // Acepta "HH:MM" o "YYYY-MM-DD HH:MM" y compara contra el instante actual.
-export function isHoraFutura(hora: string): boolean {
+function isHoraFutura(hora: string): boolean {
   const withFecha = hora.includes('-') ? hora : combinarFechaHora(hora, todayStrBase());
   return timeSet(withFecha) && withFecha > nowDateTime();
 }

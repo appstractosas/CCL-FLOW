@@ -30,6 +30,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reseteo del formulario al abrir/editar
       setNombre(editingUser?.nombre || '');
       setCedula(editingUser?.cedula || '');
       setClave(editingUser?.clave || '');

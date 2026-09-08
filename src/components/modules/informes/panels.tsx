@@ -81,7 +81,7 @@ function tickYDestacado(destacado: number, color: string) {
 /**
  * Punto (dot) de una línea: los domingos se pintan de rojo, el resto del color base.
  */
-export function dotPorDia(base: string, esDomingoCheck: (fecha: string) => boolean = esDomingo) {
+function dotPorDia(base: string, esDomingoCheck: (fecha: string) => boolean = esDomingo) {
   return (props: { cx?: number; cy?: number; payload?: { name?: string } }) => {
     const { cx, cy, payload } = props;
     if (cx == null || cy == null) return null;
@@ -96,7 +96,7 @@ export function dotPorDia(base: string, esDomingoCheck: (fecha: string) => boole
  * costos fijos (Costo CCL) que se repiten cada día: evita repetir la misma
  * etiqueta y la sitúa sobre el punto, alineada con el eje Y.
  */
-export function dotUltimoConEtiqueta(
+function dotUltimoConEtiqueta(
   base: string,
   ultimaFecha: string,
   formatear: (n: number) => string,
@@ -261,17 +261,17 @@ export const DonutSvg: React.FC<{
   const labelDist = Math.min(OUTER + Math.max(30, OUTER * 0.35), radio - 12);
   const escala = OUTER / 95; // escala de fuentes y puntos respecto a la geometría base
 
-  let start = -Math.PI / 2;
   const partes = segments
     .filter((s) => s.value > 0)
-    .map((s) => {
-      const portion = s.value / total;
-      const angle = portion * 2 * Math.PI;
-      const end = start + angle;
-      const p = { ...s, portion, angle, start, end };
-      start = end;
-      return p;
-    });
+    .reduce(
+      (acc, s) => {
+        const start = acc.length > 0 ? acc[acc.length - 1].end : -Math.PI / 2;
+        const portion = s.value / total;
+        const angle = portion * 2 * Math.PI;
+        return [...acc, { ...s, portion, angle, start, end: start + angle }];
+      },
+      [] as Array<SegmentoDonut & { portion: number; angle: number; start: number; end: number }>,
+    );
 
   const pt = (r: number, a: number) => [CX + r * Math.cos(a), CY + r * Math.sin(a)];
 

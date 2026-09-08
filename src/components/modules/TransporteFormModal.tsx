@@ -79,6 +79,7 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reseteo del formulario al abrir/editar
       setFormData(buildInitialForm(editingRow));
       setPickerOpen(false);
     }

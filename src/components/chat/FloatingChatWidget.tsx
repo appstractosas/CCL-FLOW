@@ -77,6 +77,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   // Ajusta la llave seleccionada cuando cambia el conjunto disponible.
   useEffect(() => {
     if (selectorLlaves.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- limpieza intencional de selección
       setSelectedLlave('');
       return;
     }
@@ -88,7 +89,10 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
   // Sugiere el muelle asignado de la llave seleccionada.
   useEffect(() => {
     const row = activeLlaves.find((t) => t.llave === selectedLlave);
-    if (row?.muelleAsignado) setSuggestedDock(row.muelleAsignado);
+    if (row?.muelleAsignado) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sugerencia de muelle sincronizada con la selección
+      setSuggestedDock(row.muelleAsignado);
+    }
   }, [selectedLlave, activeLlaves]);
 
   const selectedTieneSolicitud = !!selectedLlave && tieneSolicitud(selectedLlave);
