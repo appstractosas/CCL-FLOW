@@ -3,8 +3,24 @@ import type { ChatMessage } from '../types';
 
 const TABLE = 'chat_messages';
 
+/** Fila de la tabla `chat_messages` (snake_case de la BD). */
+interface ChatMessageRow {
+  id: string;
+  sender_role: string;
+  sender_name: string;
+  sender_module: ChatMessage['senderModule'];
+  llave_relacionada: string | null;
+  muelle_sugerido: string | null;
+  content: string;
+  timestamp: string;
+  is_read: boolean;
+}
+
+/** Datos de escritura de un mensaje (sin el id autogenerado). */
+type ChatMessageToDB = Omit<ChatMessageRow, 'id'>;
+
 /** Convierte un mensaje del formato frontend al formato BD (snake_case). */
-function mapMessageToDB(item: ChatMessage): Record<string, any> {
+function mapMessageToDB(item: ChatMessage): ChatMessageToDB {
   return {
     sender_role: item.senderRole,
     sender_name: item.senderName,
@@ -18,7 +34,7 @@ function mapMessageToDB(item: ChatMessage): Record<string, any> {
 }
 
 /** Convierte un mensaje de la BD al formato frontend. */
-function mapMessageFromDB(item: Record<string, any>): ChatMessage {
+function mapMessageFromDB(item: ChatMessageRow): ChatMessage {
   return {
     id: item.id,
     senderRole: item.sender_role,
@@ -75,7 +91,7 @@ export function subscribeToMessages(callback: RealtimeCallback<ChatMessage>): ()
   const channel = supabase
     .channel('chat_messages_realtime')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLE }, (payload) => {
-      callback(mapMessageFromDB(payload.new));
+      callback(mapMessageFromDB(payload.new as unknown as ChatMessageRow));
     })
     .subscribe();
 

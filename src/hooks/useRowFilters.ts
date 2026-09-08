@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { todayStr } from '../lib/dateUtils';
 import { getEstadoPorteria } from '../utils/porteria';
 
-interface RowFiltersOptions<T extends object = Record<string, any>> {
+interface RowFiltersOptions<T extends object = object> {
   /** Nombre de la propiedad que contiene la fecha del rango (por defecto 'citaCargue' = FECHA HORA CITA). Se extrae el fragmento YYYY-MM-DD. */
   dateKey?: string;
   /** Si se especifica, busca únicamente en estas columnas; si no, busca en TODAS las columnas de la fila. */

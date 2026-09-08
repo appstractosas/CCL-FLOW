@@ -3,8 +3,19 @@ import type { Notificacion, TipoNotificacion } from '../types';
 
 const TABLE = 'notificaciones';
 
+/** Fila de la tabla `notificaciones` (snake_case de la BD). */
+interface NotificacionRow {
+  id: string;
+  tipo: string;
+  titulo: string;
+  mensaje: string;
+  llave_relacionada: string | null;
+  leida: boolean;
+  created_at: string;
+}
+
 /** Convierte una notificación de la BD al formato frontend. */
-function mapNotifFromDB(item: Record<string, any>): Notificacion {
+function mapNotifFromDB(item: NotificacionRow): Notificacion {
   return {
     id: item.id,
     tipo: item.tipo as TipoNotificacion,
@@ -16,7 +27,7 @@ function mapNotifFromDB(item: Record<string, any>): Notificacion {
   };
 }
 
-function mapNotifToDB(item: Omit<Notificacion, 'id' | 'leida' | 'createdAt'>): Record<string, any> {
+function mapNotifToDB(item: Omit<Notificacion, 'id' | 'leida' | 'createdAt'>): Record<string, string | null> {
   return {
     tipo: item.tipo,
     titulo: item.titulo,
@@ -81,7 +92,7 @@ export function subscribeToNotificaciones(callback: RealtimeNotificacionCallback
   const channel = supabase
     .channel('notificaciones_realtime')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLE }, (payload) => {
-      callback(mapNotifFromDB(payload.new));
+      callback(mapNotifFromDB(payload.new as unknown as NotificacionRow));
     })
     .subscribe();
 

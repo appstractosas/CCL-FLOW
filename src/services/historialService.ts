@@ -3,8 +3,22 @@ import type { HistorialMovimiento } from '../types';
 
 const TABLE = 'historial_movimientos';
 
+/** Fila de la tabla `historial_movimientos` (snake_case de la BD). */
+interface HistorialMovimientoRow {
+  id: string;
+  usuario: string;
+  tipo_usuario: string;
+  cedula: string | null;
+  accion: string;
+  modulo: string | null;
+  detalle: string | null;
+  llave_relacionada: string | null;
+  created_at: string;
+  createdAt?: string;
+}
+
 /** Convierte un movimiento de la BD al formato frontend. */
-function mapMovimientoFromDB(item: Record<string, any>): HistorialMovimiento {
+function mapMovimientoFromDB(item: HistorialMovimientoRow): HistorialMovimiento {
   return {
     id: item.id,
     usuario: item.usuario,
@@ -41,7 +55,7 @@ export async function createMovimiento(
   item: HistorialMovimiento,
 ): Promise<HistorialMovimiento | null> {
   if (!isSupabaseConfigured) return null;
-  const payload: Record<string, any> = {
+  const payload: Record<string, string | null> = {
     usuario: item.usuario,
     tipo_usuario: item.tipoUsuario,
     cedula: item.cedula || null,

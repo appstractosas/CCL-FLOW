@@ -199,7 +199,28 @@ export function roleForUserType(tipo: UserType): { roleId: string; roleName: str
   return { roleId: ROLE_ID_BY_USER_TYPE[tipo], roleName: ROLE_NAME_BY_USER_TYPE[tipo] };
 }
 
-function mapRoleToDB(item: Role): Record<string, any> {
+/** Fila de la tabla `roles` (snake_case de la BD). */
+interface RoleDBRow {
+  id: string;
+  name: string;
+  description: string;
+  is_preset: boolean;
+  permissions: PermissionsMap;
+}
+
+/** Fila de la tabla `users` (snake_case de la BD). */
+interface UserDBRow {
+  id: string;
+  nombre: string;
+  cedula: string;
+  clave: string;
+  tipo_usuario: string;
+  role_id: string | null;
+  role_name: string | null;
+  created_at?: string | null;
+}
+
+function mapRoleToDB(item: Role): RoleDBRow {
   return {
     id: item.id,
     name: item.name,
@@ -209,7 +230,7 @@ function mapRoleToDB(item: Role): Record<string, any> {
   };
 }
 
-function mapRoleFromDB(item: Record<string, any>): Role {
+function mapRoleFromDB(item: RoleDBRow): Role {
   return {
     id: item.id,
     name: item.name,
@@ -219,8 +240,8 @@ function mapRoleFromDB(item: Record<string, any>): Role {
   };
 }
 
-function mapUserToDB(item: UserRecord): Record<string, any> {
-  const db: Record<string, any> = {
+function mapUserToDB(item: UserRecord): UserDBRow {
+  const db: UserDBRow = {
     id: item.id,
     nombre: item.nombre,
     cedula: item.cedula,
@@ -233,13 +254,13 @@ function mapUserToDB(item: UserRecord): Record<string, any> {
   return db;
 }
 
-function mapUserFromDB(item: Record<string, any>): UserRecord {
+function mapUserFromDB(item: UserDBRow): UserRecord {
   return {
     id: item.id,
     nombre: item.nombre,
     cedula: item.cedula,
     clave: item.clave,
-    tipoUsuario: item.tipo_usuario,
+    tipoUsuario: item.tipo_usuario as UserType,
     roleId: item.role_id,
     roleName: item.role_name,
     createdAt: item.created_at || undefined,
@@ -270,7 +291,7 @@ export async function updateRole(
   id: string,
   name: string,
   description: string,
-  permissions: any,
+  permissions: PermissionsMap,
 ): Promise<void> {
   const { error } = await supabase.rpc('ccl_update_role', {
     p_id: id,
@@ -312,7 +333,7 @@ export async function createUser(item: UserRecord): Promise<UserRecord> {
 
 /** Actualiza un usuario via RPC `ccl_update_user`. Si cambia la clave, se re-hashea con bcrypt. */
 export async function updateUser(id: string, item: Partial<UserRecord>): Promise<void> {
-  const dbUpdates: Record<string, any> = {};
+  const dbUpdates: Record<string, string | undefined> = {};
   if (item.nombre !== undefined) dbUpdates.nombre = item.nombre;
   if (item.cedula !== undefined) dbUpdates.cedula = item.cedula;
   if (item.clave !== undefined) dbUpdates.clave = item.clave;

@@ -1,13 +1,47 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { UnifiedTransporte } from '../types';
+import type { UnifiedTransporte, TipoVehiculo, EstadoTransporte, EstadoPorteria } from '../types';
 
 const TABLE = 'transportes';
+
+/** Fila de escritura de `transportes` (snake_case, sin columnas auto-generadas). */
+interface TransporteDBWrite {
+  llave: string;
+  fecha_hora: string;
+  placa: string;
+  vehiculo_tipo: string;
+  cita_cargue: string | null;
+  transporte: string | null;
+  denominacion: string | null;
+  cajas: number | null;
+  destino: string | null;
+  region: string | null;
+  transportadora: string;
+  estado_transporte: string;
+  estado_porteria: string;
+  muelle_asignado: string | null;
+  cuadrilla: string | null;
+  hora_muelle_asignado: string | null;
+  hora_ingreso: string | null;
+  hora_salida: string | null;
+  hora_llegada_porteria: string | null;
+  hora_inicio_cargue: string | null;
+  hora_fin_cargue: string | null;
+  observaciones: string | null;
+}
+
+/** Fila de lectura de `transportes` (incluye columnas generadas). */
+interface TransporteDBRow extends TransporteDBWrite {
+  id: string;
+  cajas_manual?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
 
 /**
  * Convierte un registro del formato frontend (camelCase) al formato BD (snake_case).
  * Se usa para inserts y updates via RPC.
  */
-function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
+function mapTransporteToDB(item: UnifiedTransporte): TransporteDBWrite {
   return {
     llave: item.llave,
     fecha_hora: item.fechaHora,
@@ -35,13 +69,13 @@ function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
 }
 
 /** Convierte un registro de la BD (snake_case) al formato frontend (camelCase). */
-function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
+function mapTransporteFromDB(item: TransporteDBRow): UnifiedTransporte {
   return {
     id: item.id,
     llave: item.llave,
     fechaHora: item.fecha_hora,
     placa: item.placa || '',
-    vehiculoTipo: item.vehiculo_tipo,
+    vehiculoTipo: item.vehiculo_tipo as TipoVehiculo,
     citaCargue: item.cita_cargue || '',
     transporte: item.transporte || undefined,
     denominacion: item.denominacion || undefined,
@@ -50,8 +84,8 @@ function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
     destino: item.destino || undefined,
     region: item.region || undefined,
     transportadora: item.transportadora || '',
-    estadoTransporte: item.estado_transporte,
-    estadoPorteria: item.estado_porteria || 'Pendiente',
+    estadoTransporte: item.estado_transporte as EstadoTransporte,
+    estadoPorteria: (item.estado_porteria as EstadoPorteria) || 'Pendiente',
     muelleAsignado: item.muelle_asignado || undefined,
     cuadrilla: item.cuadrilla || undefined,
     horaMuelleAsignado: item.hora_muelle_asignado || undefined,
@@ -108,7 +142,7 @@ export async function fetchTransportesByRango(
 export async function fetchTransportesRawByRango(
   fechaDesde: string,
   fechaHasta: string,
-): Promise<Record<string, any>[]> {
+): Promise<Record<string, unknown>[]> {
   if (!isSupabaseConfigured) return [];
   const desde = `${fechaDesde} `;
   const hasta = `${fechaHasta}Z`;
@@ -148,7 +182,7 @@ export function subscribeToTransportes(onChange: () => void): () => void {
 
   const channel = supabase
     .channel('transportes_realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, (payload) => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, () => {
       void onChange();
     })
     .subscribe();
@@ -170,7 +204,7 @@ export async function updateTransporte(
   id: string,
   updates: Partial<UnifiedTransporte>,
 ): Promise<void> {
-  const dbUpdates: Record<string, any> = {};
+  const dbUpdates: Record<string, string | number | boolean | undefined> = {};
   if (updates.fechaHora !== undefined) dbUpdates.fecha_hora = updates.fechaHora;
   if (updates.placa !== undefined) dbUpdates.placa = updates.placa;
   if (updates.vehiculoTipo !== undefined) dbUpdates.vehiculo_tipo = updates.vehiculoTipo;
