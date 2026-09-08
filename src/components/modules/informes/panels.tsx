@@ -1052,7 +1052,7 @@ export const PosicionamientoPanel: React.FC<{
     <div className="bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 space-y-4">
       <ChartHeader
         title="Mapa de Calor de Posicionamiento"
-        subtitle="Vehículos por fecha y hora de inicio de cargue según el cumplimiento de la cita"
+        subtitle="Vehículos por fecha y hora de llegada a portería según el cumplimiento de la cita"
       />
       <div className="flex flex-wrap gap-1.5">
         {(

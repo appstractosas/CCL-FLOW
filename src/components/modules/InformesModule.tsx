@@ -146,7 +146,7 @@ export const InformesModule: React.FC = () => {
   const tiemposEtapas = useMemo(() => tiemposPorteria(rowsFiltradas), [rowsFiltradas]);
   const distribucionRangosData = useMemo(() => distribucionRangos(rowsFiltradas), [rowsFiltradas]);
 
-  // Mapa de calor de posicionamiento: matriz fecha × hora (inicio de cargue vs cita).
+  // Mapa de calor de posicionamiento: matriz fecha × hora (llegada a portería vs cita).
   const posicionamiento = useMemo(() => mapaPosicionamiento(rowsFiltradas), [rowsFiltradas]);
 
   // Inversiones del periodo según el rango de fechas.
