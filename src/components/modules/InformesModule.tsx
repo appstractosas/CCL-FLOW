@@ -436,12 +436,12 @@ export const InformesModule: React.FC = () => {
           {/* Volumen de llaves por día */}
           <VolumenPanel data={volumen} sinDatos={sinDatos} />
 
-          {/* Uso y Ocupación de Muelles (40%) + Mapa de Calor de Posicionamiento (60%) — el mapa sin scroll horizontal */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-2">
+          {/* Uso y Ocupación de Muelles (30%) + Mapa de Calor de Posicionamiento (70%) — el mapa con más ancho, sin scroll horizontal */}
+          <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+            <div className="lg:col-span-3">
               <MuellesPanel data={usoMuelle} sinDatos={sinDatos} />
             </div>
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-7">
               <PosicionamientoPanel data={posicionamiento} sinDatos={sinDatos} />
             </div>
           </div>
