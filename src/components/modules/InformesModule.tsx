@@ -427,8 +427,8 @@ export const InformesModule: React.FC = () => {
             <TransportadorasPanel data={transportadoras} sinDatos={sinDatos} />
           </div>
 
-          {/* Tiempos de portería: promedio por etapa (50%) + heatmap de distribución (50%) */}
-          <div className="grid grid-cols-2 gap-6">
+          {/* Tiempos de portería: promedio por etapa (50%) + heatmap de distribución (50%) — PC en fila, móvil apilado */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <TiemposEtapaPanel data={tiemposEtapas} sinDatos={sinDatos} />
             <TiemposHeatmapPanel data={distribucionRangosData} sinDatos={sinDatos} />
           </div>
