@@ -7,7 +7,20 @@ interface DateTimePickerModalProps {
   onClose: () => void;
 }
 
-const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const MONTHS = [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+];
 const WEEKDAYS = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa'];
 const MINUTES = [0, 15, 30, 45];
 
@@ -15,17 +28,46 @@ function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-function parseInitial(value?: string): { year: number; month: number; day: number; hour: number; minute: number } {
+function parseInitial(value?: string): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+} {
   const fallback = new Date();
-  if (!value) return { year: fallback.getFullYear(), month: fallback.getMonth(), day: fallback.getDate(), hour: 8, minute: 0 };
+  if (!value)
+    return {
+      year: fallback.getFullYear(),
+      month: fallback.getMonth(),
+      day: fallback.getDate(),
+      hour: 8,
+      minute: 0,
+    };
   const d = new Date(value.replace(' ', 'T'));
   if (Number.isNaN(d.getTime())) {
-    return { year: fallback.getFullYear(), month: fallback.getMonth(), day: fallback.getDate(), hour: 8, minute: 0 };
+    return {
+      year: fallback.getFullYear(),
+      month: fallback.getMonth(),
+      day: fallback.getDate(),
+      hour: 8,
+      minute: 0,
+    };
   }
-  return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate(), hour: d.getHours(), minute: d.getMinutes() };
+  return {
+    year: d.getFullYear(),
+    month: d.getMonth(),
+    day: d.getDate(),
+    hour: d.getHours(),
+    minute: d.getMinutes(),
+  };
 }
 
-export const DateTimePickerModal: React.FC<DateTimePickerModalProps> = ({ initialValue, onConfirm, onClose }) => {
+export const DateTimePickerModal: React.FC<DateTimePickerModalProps> = ({
+  initialValue,
+  onConfirm,
+  onClose,
+}) => {
   const [sel, setSel] = useState(() => parseInitial(initialValue));
   const [view, setView] = useState(() => {
     const s = parseInitial(initialValue);
@@ -40,14 +82,21 @@ export const DateTimePickerModal: React.FC<DateTimePickerModalProps> = ({ initia
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   const prevMonth = () =>
-    setView(({ year, month }) => (month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 }));
+    setView(({ year, month }) =>
+      month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 },
+    );
   const nextMonth = () =>
-    setView(({ year, month }) => (month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 }));
+    setView(({ year, month }) =>
+      month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 },
+    );
 
-  const isSelected = (day: number) => sel.year === view.year && sel.month === view.month && sel.day === day;
+  const isSelected = (day: number) =>
+    sel.year === view.year && sel.month === view.month && sel.day === day;
 
   const confirm = () => {
-    onConfirm(`${sel.year}-${pad(sel.month + 1)}-${pad(sel.day)} ${pad(sel.hour)}:${pad(sel.minute)}`);
+    onConfirm(
+      `${sel.year}-${pad(sel.month + 1)}-${pad(sel.day)} ${pad(sel.hour)}:${pad(sel.minute)}`,
+    );
   };
 
   return (
@@ -68,13 +117,19 @@ export const DateTimePickerModal: React.FC<DateTimePickerModalProps> = ({ initia
 
         {/* Navegación de mes */}
         <div className="flex items-center justify-between px-4 pt-3">
-          <button onClick={prevMonth} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800">
+          <button
+            onClick={prevMonth}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800"
+          >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <span className="text-xs font-bold text-white">
             {MONTHS[view.month]} {view.year}
           </span>
-          <button onClick={nextMonth} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800">
+          <button
+            onClick={nextMonth}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800"
+          >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -101,7 +156,7 @@ export const DateTimePickerModal: React.FC<DateTimePickerModalProps> = ({ initia
               >
                 {day}
               </button>
-            )
+            ),
           )}
         </div>
 

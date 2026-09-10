@@ -3,6 +3,7 @@ import { Truck, X, CalendarClock } from 'lucide-react';
 import { UnifiedTransporte, TipoVehiculo } from '../../types';
 import { TransporteData } from '../../types';
 import { DateTimePickerModal } from '../common/DateTimePickerModal';
+import { useCatalogosStore } from '../../store/useCatalogosStore';
 
 interface TransporteFormModalProps {
   open: boolean;
@@ -20,7 +21,19 @@ interface FormValues {
   fechaHora: string;
   placa: string;
   transportadora: string;
-  observaciones: string;
+  transporte: string;
+  denominacion: string;
+  cajas: string;
+  destino: string;
+  region: string;
+}
+
+/** Convierte el texto del input a número (vacío/inválido → undefined). */
+function numeroDe(valor: string): number | undefined {
+  const t = valor.trim();
+  if (!t) return undefined;
+  const n = Number(t);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
 function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
@@ -31,7 +44,11 @@ function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
       fechaHora: editingRow.fechaHora || '',
       placa: editingRow.placa,
       transportadora: editingRow.transportadora || '',
-      observaciones: editingRow.observaciones || '',
+      transporte: editingRow.transporte || '',
+      denominacion: editingRow.denominacion || '',
+      cajas: editingRow.cajas != null ? String(editingRow.cajas) : '',
+      destino: editingRow.destino || '',
+      region: editingRow.region || '',
     };
   }
   return {
@@ -40,7 +57,11 @@ function buildInitialForm(editingRow: UnifiedTransporte | null): FormValues {
     fechaHora: '',
     placa: '',
     transportadora: '',
-    observaciones: '',
+    transporte: '',
+    denominacion: '',
+    cajas: '',
+    destino: '',
+    region: '',
   };
 }
 
@@ -54,9 +75,11 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
 }) => {
   const [formData, setFormData] = useState<FormValues>(() => buildInitialForm(editingRow));
   const [pickerOpen, setPickerOpen] = useState(false);
+  const { transportadoras, clientes, ciudades } = useCatalogosStore();
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reseteo del formulario al abrir/editar
       setFormData(buildInitialForm(editingRow));
       setPickerOpen(false);
     }
@@ -80,7 +103,11 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
       citaCargue: formData.fechaHora,
       vehiculoTipo: formData.vehiculoTipo || undefined,
       transportadora: formData.transportadora,
-      observaciones: formData.observaciones,
+      transporte: formData.transporte.trim() || undefined,
+      denominacion: formData.denominacion.trim() || undefined,
+      cajas: numeroDe(formData.cajas),
+      destino: formData.destino.trim() || undefined,
+      region: formData.region.trim() || undefined,
     });
   };
 
@@ -106,7 +133,9 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               <Truck className="w-4 h-4" />
             </div>
             <h3 className="text-base font-bold text-white">
-              {editingRow ? `Editar Transporte ${editingRow.placa || editingRow.llave}` : '+ Nueva Llave'}
+              {editingRow
+                ? `Editar Transporte ${editingRow.placa || editingRow.llave}`
+                : '+ Nueva Llave'}
             </h3>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-white p-1 rounded-lg">
@@ -132,7 +161,9 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
               <select
                 value={formData.vehiculoTipo}
                 disabled={locked}
-                onChange={(e) => setFormData({ ...formData, vehiculoTipo: e.target.value as TipoVehiculo | '' })}
+                onChange={(e) =>
+                  setFormData({ ...formData, vehiculoTipo: e.target.value as TipoVehiculo | '' })
+                }
                 className={`${locked ? lockedCls : inputCls} ${formData.vehiculoTipo ? '' : 'text-zinc-500'}`}
               >
                 <option value="">Seleccionar tipo</option>
@@ -158,7 +189,11 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
                     : 'bg-zinc-900 border border-zinc-700 rounded-xl text-xs font-mono text-white hover:border-blue-500/50'
                 }`}
               >
-                <span className={formData.fechaHora ? (locked ? 'text-zinc-500' : 'text-white') : 'text-zinc-500'}>
+                <span
+                  className={
+                    formData.fechaHora ? (locked ? 'text-zinc-500' : 'text-white') : 'text-zinc-500'
+                  }
+                >
                   {formData.fechaHora || 'Seleccionar fecha y hora'}
                 </span>
                 <CalendarClock className="w-4 h-4 text-zinc-500" />
@@ -176,29 +211,108 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
             </div>
           </div>
 
-<div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">Transportadora</label>
+          <div>
+            <label className="block text-xs font-bold text-zinc-300 mb-1">Transportadora</label>
+            <select
+              value={formData.transportadora}
+              disabled={locked}
+              onChange={(e) => setFormData({ ...formData, transportadora: e.target.value })}
+              className={`${locked ? lockedCls : inputCls} ${formData.transportadora ? '' : 'text-zinc-500'}`}
+            >
+              <option value="">Seleccionar transportadora</option>
+              {transportadoras.map((t) => (
+                <option key={t.id} value={t.nombre}>
+                  {t.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Nº Pedido y Cliente se retiraron de la UI (no aportan al control de patios).
+              Sus valores siguen viajando intactos en el submit para NO borrarlos de la BD. */}
+
+          {/* Nº Pedido (transporte) y Cliente (denominación) ahora son visibles. */}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Denominación</label>
+              <select
+                value={formData.denominacion}
+                disabled={locked}
+                onChange={(e) => setFormData({ ...formData, denominacion: e.target.value })}
+                className={`${locked ? lockedCls : inputCls} ${formData.denominacion ? '' : 'text-zinc-500'}`}
+              >
+                <option value="">Seleccionar cliente</option>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.denominacion}>
+                    {c.denominacion}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Transporte</label>
               <input
                 type="text"
-                placeholder="Ej: TRANSPORTES ANDINA"
-                value={formData.transportadora}
+                placeholder="Ej: 3000214899"
+                value={formData.transporte}
                 disabled={locked}
-                onChange={(e) => setFormData({ ...formData, transportadora: e.target.value })}
-                className={locked ? lockedCls : inputCls}
+                onChange={(e) => setFormData({ ...formData, transporte: e.target.value })}
+                className={`${locked ? lockedCls : inputCls} font-mono`}
               />
             </div>
+          </div>
 
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-zinc-300 mb-1">Observaciones</label>
-              <textarea
-                value={formData.observaciones}
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Cajas</label>
+              <input
+                type="number"
+                min={0}
+                placeholder="Ej: 579"
+                value={formData.cajas}
                 disabled={locked}
-                onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                rows={2}
-                placeholder="Notas, instrucciones o novedades (opcional)"
-                className={`${locked ? lockedCls : inputCls} resize-none`}
+                onChange={(e) => setFormData({ ...formData, cajas: e.target.value })}
+                className={`${locked ? lockedCls : inputCls} font-mono text-right`}
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Destino</label>
+              <select
+                value={formData.destino}
+                disabled={locked}
+                onChange={(e) => {
+                  const destino = e.target.value;
+                  const ciudad = ciudades.find((c) => c.ciudad === destino);
+                  setFormData({
+                    ...formData,
+                    destino,
+                    region: ciudad?.region || formData.region,
+                  });
+                }}
+                className={`${locked ? lockedCls : inputCls} ${formData.destino ? '' : 'text-zinc-500'}`}
+              >
+                <option value="">Seleccionar destino</option>
+                {ciudades.map((c) => (
+                  <option key={c.id} value={c.ciudad}>
+                    {c.ciudad}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 mb-1">Región</label>
+              <input
+                type="text"
+                value={formData.region}
+                disabled
+                className={lockedCls}
+              />
+            </div>
+          </div>
 
           <div className="flex items-center justify-end space-x-2 pt-4 border-t border-zinc-800">
             <button

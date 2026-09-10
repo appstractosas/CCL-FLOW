@@ -1,27 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, CheckCircle2, Clock, FileDown, Loader2, Truck } from 'lucide-react';
 import { ModuleToolbar } from '../common/ModuleToolbar';
-import { todayStr } from '../../lib/dateUtils';
+import { todayStr, inicioSemanaStr, inicioMesStr, inicioAnioStr } from '../../lib/dateUtils';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { useLogisticsStore } from '../../store/useLogisticsStore';
-import { fetchTransportesByRango } from '../../services/transportesService';
+import { fetchTransportesRawByRango } from '../../services/transportesService';
 import { fetchInformesRango } from '../../services/informesService';
 import { subscribeToTransportes } from '../../services/transportesService';
-import { getEstadoPorteria } from '../../utils/porteria';
 import {
   calcularKPIs,
   embudoEstados,
   porTipo,
   porTransportadora,
   volumenPorDia,
-  filasPorRango,
-  filasParaTabla,
   tipoGrupo,
   usoPorMuelle,
-  operacionesPorCliente,
   rentabilidadCuadrillas,
   cajasPorDia,
   cajasPorCuadrilla,
+  tiemposPorteria,
+  distribucionRangos,
+  mapaPosicionamiento,
+  primeraFechaDatos,
+  horaHombre,
 } from '../../utils/informes';
 import type { UnifiedTransporte } from '../../types';
 import {
@@ -30,11 +31,12 @@ import {
   TransportadorasPanel,
   VolumenPanel,
   MuellesPanel,
-  ClientesPanel,
   RentabilidadPanel,
   CajasDiariasPanel,
   CajasGrupoPanel,
-  DetalleTabla,
+  TiemposEtapaPanel,
+  TiemposHeatmapPanel,
+  PosicionamientoPanel,
 } from './informes/panels';
 
 export const InformesModule: React.FC = () => {
@@ -47,43 +49,38 @@ export const InformesModule: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<UnifiedTransporte[]>([]);
   const refreshTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rangoPresetRef = React.useRef<'dia' | 'semana' | 'mes' | 'anio'>('dia');
 
-  /** Fecha local "YYYY-MM-DD" desplazada n días desde hoy. */
-  const shiftDate = useCallback((days: number): string => {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+  /** Aplica el rango del botón: día hoy→hoy; semana desde el lunes; mes desde el día 1;
+   *  año desde el 1-ene (luego se ajusta al primer día con datos). Siempre termina en hoy. */
+  const aplicarRango = useCallback((preset: 'dia' | 'semana' | 'mes' | 'anio') => {
+    rangoPresetRef.current = preset;
+    setRangoPreset(preset);
+    const hoy = todayStr();
+    if (preset === 'dia') {
+      setDateFrom(hoy);
+      setDateTo(hoy);
+    } else if (preset === 'semana') {
+      setDateFrom(inicioSemanaStr());
+      setDateTo(hoy);
+    } else if (preset === 'mes') {
+      setDateFrom(inicioMesStr());
+      setDateTo(hoy);
+    } else {
+      setDateFrom(inicioAnioStr());
+      setDateTo(hoy);
+    }
   }, []);
-
-  /** Aplica el rango del botón: semana/mes/año (siempre terminando en hoy). */
-  const aplicarRango = useCallback(
-    (preset: 'dia' | 'semana' | 'mes' | 'anio') => {
-      setRangoPreset(preset);
-      const hoy = todayStr();
-      if (preset === 'dia') {
-        setDateFrom(hoy);
-        setDateTo(hoy);
-      } else if (preset === 'semana') {
-        setDateFrom(shiftDate(-6));
-        setDateTo(hoy);
-      } else if (preset === 'mes') {
-        setDateFrom(shiftDate(-29));
-        setDateTo(hoy);
-      } else {
-        setDateFrom(shiftDate(-364));
-        setDateTo(hoy);
-      }
-    },
-    [shiftDate]
-  );
 
   const load = useCallback(async (fs: string, ft: string) => {
     setError(null);
     try {
       const data = await fetchInformesRango(fs, ft);
+      // Año: el rango inicia el día más antiguo con datos (p. ej. 25-jul si no hay en enero).
+      if (rangoPresetRef.current === 'anio') {
+        const primera = primeraFechaDatos(data);
+        if (primera && primera > fs) setDateFrom(primera);
+      }
       setRows(data);
     } catch (err) {
       console.error('Error cargando informes:', err);
@@ -97,6 +94,7 @@ export const InformesModule: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga de métricas del rango (fetch + state async)
     void load(dateFrom, dateTo);
   }, [dateFrom, dateTo, load]);
 
@@ -121,7 +119,11 @@ export const InformesModule: React.FC = () => {
   const rowsFiltradas = useMemo(() => {
     if (!s) return rows;
     return rows.filter((r) =>
-      [r.llave, r.placa, r.transportadora].some((v) => String(v || '').toLowerCase().includes(s))
+      [r.llave, r.placa, r.transportadora].some((v) =>
+        String(v || '')
+          .toLowerCase()
+          .includes(s),
+      ),
     );
   }, [rows, s]);
 
@@ -131,21 +133,22 @@ export const InformesModule: React.FC = () => {
   const transportadoras = useMemo(() => porTransportadora(rowsFiltradas, 8), [rowsFiltradas]);
   const volumen = useMemo(() => volumenPorDia(rowsFiltradas), [rowsFiltradas]);
 
-  // Fase 3: filas detalle del rango (demora contra SLA).
-  const filasTabla = useMemo(
-    () => filasParaTabla(filasPorRango(rowsFiltradas, dateFrom, dateTo)),
-    [rowsFiltradas, dateFrom, dateTo]
-  );
-
   // Nuevos gráficos (según el rango seleccionado).
   const usoMuelle = useMemo(() => usoPorMuelle(rowsFiltradas), [rowsFiltradas]);
-  const clientes = useMemo(() => operacionesPorCliente(rowsFiltradas, 10), [rowsFiltradas]);
   const rentabilidad = useMemo(
     () => rentabilidadCuadrillas(rowsFiltradas, dateFrom, dateTo),
-    [rowsFiltradas, dateFrom, dateTo]
+    [rowsFiltradas, dateFrom, dateTo],
   );
   const cajasDia = useMemo(() => cajasPorDia(rowsFiltradas), [rowsFiltradas]);
   const cajasGrupo = useMemo(() => cajasPorCuadrilla(rowsFiltradas), [rowsFiltradas]);
+  const horaHombreData = useMemo(() => horaHombre(rowsFiltradas), [rowsFiltradas]);
+
+  // Tiempos de portería: promedio por etapa + distribución por rango de demora.
+  const tiemposEtapas = useMemo(() => tiemposPorteria(rowsFiltradas), [rowsFiltradas]);
+  const distribucionRangosData = useMemo(() => distribucionRangos(rowsFiltradas), [rowsFiltradas]);
+
+  // Mapa de calor de posicionamiento: matriz fecha × hora (llegada a portería vs cita).
+  const posicionamiento = useMemo(() => mapaPosicionamiento(rowsFiltradas), [rowsFiltradas]);
 
   // Inversiones del periodo según el rango de fechas.
   const { diasRango, inversionCCL, inversionSLA, cajasPeriodo, inversionTotal } = useMemo(() => {
@@ -154,8 +157,12 @@ export const InformesModule: React.FC = () => {
     const t1 = new Date(`${dateTo}T00:00:00`).getTime();
     const dias = t1 >= t0 ? Math.floor((t1 - t0) / 86_400_000) + 1 : 0;
 
-    const cajasCCL = rowsFiltradas.filter((r) => tipoGrupo(r.cuadrilla) === 'CCL').reduce((a, r) => a + (r.cajas ?? 0), 0);
-    const cajasSLA = rowsFiltradas.filter((r) => tipoGrupo(r.cuadrilla) === 'SLA').reduce((a, r) => a + (r.cajas ?? 0), 0);
+    const cajasCCL = rowsFiltradas
+      .filter((r) => tipoGrupo(r.cuadrilla) === 'CCL')
+      .reduce((a, r) => a + (r.cajas ?? 0), 0);
+    const cajasSLA = rowsFiltradas
+      .filter((r) => tipoGrupo(r.cuadrilla) === 'SLA')
+      .reduce((a, r) => a + (r.cajas ?? 0), 0);
     const cajasTodas = rowsFiltradas.reduce((a, r) => a + (r.cajas ?? 0), 0);
 
     const inversionCCL = dias * 1_432_000;
@@ -178,33 +185,36 @@ export const InformesModule: React.FC = () => {
     try {
       const XLSX = await import('xlsx');
 
-      let dataRows: UnifiedTransporte[];
+      // Export TABLA COMPLETA: filas CRUDAS de la BD (todas las columnas que
+      // existan), acotadas al rango de fechas. Los encabezados se derivan de los
+      // datos reales, así el export no se desactualiza si la tabla cambia.
+      let rawRows: Record<string, unknown>[];
       if (isSupabaseConfigured) {
-        dataRows = await fetchTransportesByRango(dateFrom, dateTo);
+        rawRows = await fetchTransportesRawByRango(dateFrom, dateTo);
       } else {
-        dataRows = useLogisticsStore.getState().transportes.filter((t) => {
+        rawRows = useLogisticsStore.getState().transportes.filter((t) => {
           const d = String(t.citaCargue || '').slice(0, 10);
           return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
-        });
+        }) as unknown as Record<string, unknown>[];
       }
 
-      if (dataRows.length === 0) {
+      if (rawRows.length === 0) {
         alert('No hay transportes registrados en el rango de fechas seleccionado.');
         return;
       }
 
-      const headers = [
-        'LLAVE', 'FECHA', 'PLACA REMOLQUE', 'TIPO VEHÍCULO', 'CITA CARGUE', 'TRANSPORTE', 'DENOMINACIÓN', 'CAJAS',
-        'TRANSPORTADORA', 'ESTADO TRANSPORTE', 'ESTADO', 'MUELLE', 'CUADRILLA', 'H. ASIGNACIÓN MUELLE',
-        'H. LLEGADA PORTERÍA', 'H. INGRESO', 'H. INICIO CARGUE', 'H. FIN CARGUE', 'H. SALIDA',
-        'OBSERVACIONES',
-      ];
-      const data = dataRows.map((r) => [
-        r.llave, r.fechaHora, r.placa, r.vehiculoTipo, r.citaCargue, r.transporte || '', r.denominacion || '', r.cajas ?? '',
-        r.transportadora, r.estadoTransporte, getEstadoPorteria(r), r.muelleAsignado || '', r.cuadrilla || '',
-        r.horaMuelleAsignado || '', r.horaLlegadaPorteria || '', r.horaIngreso || '',
-        r.horaInicioCargue || '', r.horaFinCargue || '', r.horaSalida || '', r.observaciones || '',
-      ]);
+      const headers = Array.from(
+        rawRows.reduce<Set<string>>((set, row) => {
+          Object.keys(row).forEach((k) => set.add(k));
+          return set;
+        }, new Set<string>()),
+      );
+      const data = rawRows.map((row) =>
+        headers.map((h) => {
+          const v = row[h];
+          return v === null || v === undefined ? '' : v;
+        }),
+      );
 
       const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
       ws['!cols'] = headers.map((_, i) => ({
@@ -212,8 +222,8 @@ export const InformesModule: React.FC = () => {
           40,
           Math.max(
             headers[i].length,
-            ...data.slice(0, 200).map((row) => String(row[i] ?? '').length)
-          ) + 2
+            ...data.slice(0, 200).map((row) => String(row[i] ?? '').length),
+          ) + 2,
         ),
       }));
       const wb = XLSX.utils.book_new();
@@ -259,7 +269,7 @@ export const InformesModule: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mt-[-6px] sm:mt-[-14px] lg:mt-[-22px]">
       <ModuleToolbar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
@@ -317,31 +327,65 @@ export const InformesModule: React.FC = () => {
       ) : (
         <>
           {/* Tags de inversión del periodo (una sola fila en PC, cascada en móvil) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="bg-[#0e1320] border border-blue-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">CCL (inversión)</p>
+              <p className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">
+                CCL (inversión)
+              </p>
               <p className="text-[10px] text-zinc-500 font-mono">{diasRango} días × $1.432.000</p>
-              <p className="text-xl font-black text-white">${inversionCCL.toLocaleString('es-CO')}</p>
+              <p className="text-xl font-black text-white">
+                ${inversionCCL.toLocaleString('es-CO')}
+              </p>
             </div>
 
             <div className="bg-[#0e1320] border border-emerald-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">SLA (inversión)</p>
-              <p className="text-[10px] text-zinc-500 font-mono">
-                {inversionSLA > 0 ? `${inversionSLA / 140} cajas SLA × $140` : 'sin cajas SLA en el rango'}
+              <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+                SLA (inversión)
               </p>
-              <p className="text-xl font-black text-white">${inversionSLA.toLocaleString('es-CO')}</p>
+              <p className="text-[10px] text-zinc-500 font-mono">
+                {inversionSLA > 0
+                  ? `${inversionSLA / 140} cajas SLA × $140`
+                  : 'sin cajas SLA en el rango'}
+              </p>
+              <p className="text-xl font-black text-white">
+                ${inversionSLA.toLocaleString('es-CO')}
+              </p>
+            </div>
+
+            <div className="bg-[#0e1320] border border-cyan-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
+              <p className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">
+                HORA/HOMBRE
+              </p>
+              <p className="text-[10px] text-zinc-500 font-mono">
+                Cajas por hora-hombre (CCL + SLA)
+              </p>
+              <p className="text-xl font-black text-white">
+                {horaHombreData.horasHombre > 0
+                  ? horaHombreData.indice.toLocaleString('es-CO', { maximumFractionDigits: 1 })
+                  : '—'}
+              </p>
             </div>
 
             <div className="bg-[#0e1320] border border-amber-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Cajas del periodo</p>
-              <p className="text-[10px] text-zinc-500 font-mono">Suma de cajas de todas las cuadrillas</p>
-              <p className="text-xl font-black text-white">{cajasPeriodo.toLocaleString('es-CO')}</p>
+              <p className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
+                Cajas del periodo
+              </p>
+              <p className="text-[10px] text-zinc-500 font-mono">
+                Suma de cajas de todas las cuadrillas
+              </p>
+              <p className="text-xl font-black text-white">
+                {cajasPeriodo.toLocaleString('es-CO')}
+              </p>
             </div>
 
             <div className="bg-[#0e1320] border border-violet-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-violet-400 uppercase tracking-wider">Inversión total del periodo</p>
+              <p className="text-[11px] font-bold text-violet-400 uppercase tracking-wider">
+                Inversión total del periodo
+              </p>
               <p className="text-[10px] text-zinc-500 font-mono">CCL + SLA</p>
-              <p className="text-xl font-black text-white">${inversionTotal.toLocaleString('es-CO')}</p>
+              <p className="text-xl font-black text-white">
+                ${inversionTotal.toLocaleString('es-CO')}
+              </p>
             </div>
           </div>
 
@@ -353,13 +397,28 @@ export const InformesModule: React.FC = () => {
                 className="bg-[#0e1320] border border-zinc-800/80 rounded-2xl px-4 py-2 flex items-center justify-between gap-3"
               >
                 <div className="flex flex-col">
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{k.label}</p>
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                    {k.label}
+                  </p>
                   <p className="text-[9px] text-zinc-500 font-mono">{k.sub}</p>
                 </div>
                 <p className={`text-lg font-black ${k.accent}`}>{k.value}</p>
               </div>
             ))}
           </div>
+
+          {/* Cajas diarias (60%) + Cajas cargadas por cuadrilla (40%) — PC en fila, móvil apilado */}
+          <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+            <div className="lg:col-span-6">
+              <CajasDiariasPanel data={cajasDia} sinDatos={sinDatos} />
+            </div>
+            <div className="lg:col-span-4">
+              <CajasGrupoPanel data={cajasGrupo} sinDatos={sinDatos} />
+            </div>
+          </div>
+
+          {/* Rentabilidad cuadrillas */}
+          <RentabilidadPanel data={rentabilidad} sinDatos={sinDatos} />
 
           {/* Embudo de estados + Flota donut + Transportadoras */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -368,26 +427,24 @@ export const InformesModule: React.FC = () => {
             <TransportadorasPanel data={transportadoras} sinDatos={sinDatos} />
           </div>
 
+          {/* Tiempos de portería: promedio por etapa (50%) + heatmap de distribución (50%) — PC en fila, móvil apilado */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TiemposEtapaPanel data={tiemposEtapas} sinDatos={sinDatos} />
+            <TiemposHeatmapPanel data={distribucionRangosData} sinDatos={sinDatos} />
+          </div>
+
           {/* Volumen de llaves por día */}
           <VolumenPanel data={volumen} sinDatos={sinDatos} />
 
-          {/* Cajas diarias */}
-          <CajasDiariasPanel data={cajasDia} sinDatos={sinDatos} />
-
-          {/* Uso y Ocupación de Muelles + Cajas cargadas por cuadrilla */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <MuellesPanel data={usoMuelle} sinDatos={sinDatos} />
-            <CajasGrupoPanel data={cajasGrupo} sinDatos={sinDatos} />
+          {/* Uso y Ocupación de Muelles (30%) + Mapa de Calor de Posicionamiento (70%) — el mapa con más ancho, sin scroll horizontal */}
+          <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
+            <div className="lg:col-span-3">
+              <MuellesPanel data={usoMuelle} sinDatos={sinDatos} />
+            </div>
+            <div className="lg:col-span-7">
+              <PosicionamientoPanel data={posicionamiento} sinDatos={sinDatos} />
+            </div>
           </div>
-
-          {/* Operaciones por cliente + Rentabilidad cuadrillas */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <ClientesPanel data={clientes} sinDatos={sinDatos} />
-            <RentabilidadPanel data={rentabilidad} sinDatos={sinDatos} />
-          </div>
-
-          {/* Fase 3+5: Tabla detalle del rango */}
-          <DetalleTabla filas={filasTabla} />
         </>
       )}
     </div>

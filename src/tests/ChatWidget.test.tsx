@@ -35,15 +35,6 @@ const portero = {
   roleName: 'PORTERO',
 };
 
-const admin = {
-  id: 'USER_ADMIN',
-  name: 'ADMIN',
-  cedula: '0000000000',
-  tipoUsuario: 'admin' as const,
-  roleId: 'ROLE_ADMIN',
-  roleName: 'ADMIN',
-};
-
 const supervisor = {
   id: 'USER_SUP',
   name: 'Luis',

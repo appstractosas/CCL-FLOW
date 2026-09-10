@@ -1,5 +1,5 @@
 import { EstadoPorteria, UnifiedTransporte } from '../types';
-import { timeSet } from '../lib/dateUtils';
+import { timeSet, addDaysStr } from '../lib/dateUtils';
 
 type PorteriaRow = Pick<
   UnifiedTransporte,
@@ -23,9 +23,25 @@ export const ORDEN_ESTADOS: EstadoPorteria[] = [
   'CANCELADO',
 ];
 
-export function rankEstado(estado: EstadoPorteria): number {
-  const i = ORDEN_ESTADOS.indexOf(estado);
-  return i === -1 ? ORDEN_ESTADOS.length : i;
+/** Orden del Tablero: primero los que ya llegaron a portería/patio (arriba LLEGO A PORTERIA),
+ *  luego PENDIENTE y CONFIRMADO abajo; cerradas al final. */
+export const ORDEN_ESTADOS_TABLERO: EstadoPorteria[] = [
+  'LLEGO A PORTERIA',
+  'INGRESO A MUELLE',
+  'CARGANDO',
+  'FINALIZO CARGUE',
+  'Pendiente',
+  'Confirmado',
+  'SALIO DE PORTERIA',
+  'CANCELADO',
+];
+
+export function rankEstado(
+  estado: EstadoPorteria,
+  orden: EstadoPorteria[] = ORDEN_ESTADOS,
+): number {
+  const i = orden.indexOf(estado);
+  return i === -1 ? orden.length : i;
 }
 
 function llaveNum(llave?: string): number {
@@ -34,17 +50,24 @@ function llaveNum(llave?: string): number {
 }
 
 /**
- * Ordena por estado de portería (Pendiente → Confirmado → LLEGO A PORTERIA →
- * … → SALIO DE PORTERIA → CANCELADO) con desempate estable por número de llave.
+ * Ordena por estado de portería según el orden dado (por defecto el canónico:
+ * Pendiente → Confirmado → LLEGO A PORTERIA → … → SALIO DE PORTERIA → CANCELADO)
+ * con desempate estable por número de llave.
  * Es determinístico: la misma BD siempre produce el mismo orden, así las filas
- * no saltan de posición al refrescarse por tiempo real.
+ * no saltan de posición al refrescarse por tiempo real. El Tablero pasa su
+ * propio orden (ORDEN_ESTADOS_TABLERO) sin afectar a los demás módulos.
  */
-export function sortTransportesPorEstado<T extends PorteriaRow & { llave?: string }>(rows: T[]): T[] {
+export function sortTransportesPorEstado<T extends PorteriaRow & { llave?: string }>(
+  rows: T[],
+  orden: EstadoPorteria[] = ORDEN_ESTADOS,
+): T[] {
   return [...rows].sort((a, b) => {
-    const d = rankEstado(getEstadoPorteria(a)) - rankEstado(getEstadoPorteria(b));
+    const d = rankEstado(getEstadoPorteria(a), orden) - rankEstado(getEstadoPorteria(b), orden);
     if (d !== 0) return d;
-    return llaveNum(a.llave) - llaveNum(b.llave) ||
-      String(a.llave || '').localeCompare(String(b.llave || ''));
+    return (
+      llaveNum(a.llave) - llaveNum(b.llave) ||
+      String(a.llave || '').localeCompare(String(b.llave || ''))
+    );
   });
 }
 
@@ -72,6 +95,16 @@ export function isLlaveCerrada(row: PorteriaRow): boolean {
   return estado === 'SALIO DE PORTERIA' || estado === 'CANCELADO';
 }
 
+/**
+ * Los módulos PLANEACIÓN y TRANSPORTES solo pueden editar/cancelar llaves en
+ * estado PENDIENTE o CONFIRMADO. En cuanto la llave pasa a LLEGO A PORTERIA
+ * (o cualquier estado posterior) ya no se puede editar ni cancelar.
+ */
+export function puedeEditarOperacion(row: PorteriaRow): boolean {
+  const estado = getEstadoPorteria(row);
+  return estado === 'Pendiente' || estado === 'Confirmado';
+}
+
 /** Filtros de estado disponibles en los módulos de operación (mismo estilo INFORMES). */
 export type FiltroEstadoId = 'todas' | 'activas' | 'finalizadas' | 'canceladas';
 
@@ -95,4 +128,38 @@ export function cumpleFiltroEstado(row: PorteriaRow, filtro: FiltroEstadoId): bo
     default:
       return true;
   }
+}
+
+/**
+ * Regla de la vista ACTIVAS: estado NO cerrado (diferente de SALIO DE PORTERIA
+ * y CANCELADO) con fecha programada (cita) hasta HOY + 1 día inclusive.
+ * - Pasado (cualquier día anterior a hoy): incluido automáticamente.
+ * - Hoy y mañana: incluidos.
+ * - Pasado mañana (HOY + 2) en adelante: EXCLUIDO, sin importar el estado.
+ * - Sin fecha programada (cita_cargue vacío): EXCLUIDA.
+ * El rango manual del toolbar de fechas NO limita esta vista: la regla define
+ * su propia ventana.
+ */
+export function cumpleFiltroActivas(row: PorteriaRow & { citaCargue?: string }): boolean {
+  if (!cumpleFiltroEstado(row, 'activas')) return false;
+  const dia = String(row.citaCargue || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) return false;
+  return dia <= addDaysStr(1);
+}
+
+/**
+ * Extrae la fecha YYYY-MM-DD del estado 'SALIO DE PORTERIA' (horaSalida).
+ * Si horaSalida incluye fecha (ISO o YYYY-MM-DD HH:mm), toma esa fecha.
+ * Si solo contiene hora (HH:mm), usa la fecha de citaCargue o fechaHora como fallback.
+ */
+export function getFechaSalidaPorteria(
+  row: PorteriaRow & { citaCargue?: string; fechaHora?: string },
+): string {
+  const hSalida = String(row.horaSalida || '').trim();
+  const mFull = /^(\d{4}-\d{2}-\d{2})/.exec(hSalida);
+  if (mFull) return mFull[1];
+
+  const fallback = String(row.citaCargue || row.fechaHora || '').trim();
+  const mFallback = /^(\d{4}-\d{2}-\d{2})/.exec(fallback);
+  return mFallback ? mFallback[1] : '';
 }

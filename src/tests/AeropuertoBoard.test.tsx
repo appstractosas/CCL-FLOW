@@ -28,10 +28,10 @@ describe('AeropuertoBoard (Tablero)', () => {
 
     expect(screen.getByText('LL-60533')).toBeInTheDocument();
     expect(screen.getByText('LL-60534')).toBeInTheDocument();
-    expect(screen.getAllByText(/• Confirmado/)).toHaveLength(2);
+    expect(screen.getAllByText(/• CONFIRMADO/i)).toHaveLength(2);
   });
 
-  it('muestra TODAS las llaves por defecto (filtro inicial TODAS)', async () => {
+  it('muestra las llaves ACTIVAS por defecto (filtro inicial ACTIVAS)', async () => {
     await useLogisticsStore.getState().addTransporte({ placa: 'XYZ-999' });
     await useLogisticsStore.getState().addTransporte({ placa: 'ABC-123' });
     const cancelada = useLogisticsStore.getState().transportes.find((t) => t.placa === 'XYZ-999')!;
@@ -39,8 +39,8 @@ describe('AeropuertoBoard (Tablero)', () => {
 
     render(<AeropuertoBoard />);
 
-    expect(screen.getByText(/• CANCELADO/)).toBeInTheDocument();
-    expect(screen.getByText(/• Confirmado/)).toBeInTheDocument();
+    expect(screen.queryByText(/• CANCELADO/)).not.toBeInTheDocument();
+    expect(screen.getByText(/• CONFIRMADO/i)).toBeInTheDocument();
   });
 
   it('permite filtrar por estado desde el selector', async () => {
@@ -53,7 +53,7 @@ describe('AeropuertoBoard (Tablero)', () => {
     fireEvent.click(screen.getByText('Canceladas'));
 
     expect(screen.getByText(/• CANCELADO/)).toBeInTheDocument();
-    expect(screen.queryByText(/• Confirmado/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/• CONFIRMADO/i)).not.toBeInTheDocument();
   });
 
   it('permite buscar por llave', async () => {
@@ -61,7 +61,9 @@ describe('AeropuertoBoard (Tablero)', () => {
     await useLogisticsStore.getState().addTransporte({ placa: 'ABC-123' });
 
     render(<AeropuertoBoard />);
-    fireEvent.change(screen.getByPlaceholderText('Buscar llave o placa...'), { target: { value: 'LL-60534' } });
+    fireEvent.change(screen.getByPlaceholderText('Buscar llave o placa...'), {
+      target: { value: 'LL-60534' },
+    });
 
     expect(screen.getByText('LL-60534')).toBeInTheDocument();
     expect(screen.queryByText('LL-60533')).not.toBeInTheDocument();

@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Edit2, XCircle } from 'lucide-react';
 import { UnifiedTransporte, PorteriaTimeField } from '../../types';
-import { TipoBadge, EstadoBadge } from '../common/EstadoBadge';
+import { TipoBadge, EstadoBadge, EstatusBadge } from '../common/EstadoBadge';
 import { TransporteDetailPanel } from './TransporteDetailPanel';
 import { Pagination } from '../common/Pagination';
-import { getEstadoPorteria, isLlaveCerrada } from '../../utils/porteria';
-import { formatFechaHora } from '../../lib/dateUtils';
+import { getEstadoPorteria, isLlaveCerrada, puedeEditarOperacion } from '../../utils/porteria';
+import { formatFecha, formatFechaHora } from '../../lib/dateUtils';
+import { useVirtualList } from '../../hooks/useVirtualList';
 
 export interface TransportesTableProps {
   rows: UnifiedTransporte[];
@@ -18,11 +19,12 @@ export interface TransportesTableProps {
   onAsignarMuelle?: (row: UnifiedTransporte, muelle: string) => void;
   onMuelleHora?: (row: UnifiedTransporte, hora: string) => void;
   onCuadrilla?: (row: UnifiedTransporte, cuadrilla: string) => void;
+  onCajas?: (row: UnifiedTransporte, cajas: number) => void;
   checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
   showCajas?: boolean;
-  /** Llave que cambia solo cuando los FILTROS cambian (no cuando refrescan los datos por time real).
-   *  Al cambiar, se vuelve a la página 1. Si no se pasa, se usa la identidad de `rows`. */
+  /** Muestra la columna ESTATUS (estado_transporte de la BD) entre CAJAS y ESTADO. */
+  showEstatus?: boolean;
   pageResetKey?: string;
 }
 
@@ -37,9 +39,11 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   onAsignarMuelle,
   onMuelleHora,
   onCuadrilla,
+  onCajas,
   checklistOwner,
   onPorteriaHora,
   showCajas = false,
+  showEstatus = false,
   pageResetKey,
 }) => {
   const [selected, setSelected] = useState<UnifiedTransporte | null>(null);
@@ -50,6 +54,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   // no cuando el array `rows` se refresca por time real (misma identidad de filtros).
   const resetKey = pageResetKey ?? rows;
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional de paginación al cambiar filtros
     setPage(1);
   }, [resetKey]);
 
@@ -58,24 +63,32 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const showActions = (showEdit || showDelete) && !hideAcciones;
-  const colCount = 7 + (showCajas ? 1 : 0) + (showActions ? 1 : 0);
+  const colCount = 7 + (showCajas ? 1 : 0) + (showEstatus ? 1 : 0) + (showActions ? 1 : 0);
 
   const displayedRow = selected ? rows.find((r) => r.id === selected.id) || null : null;
+
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const { virtualItems, paddingTop, paddingBottom } = useVirtualList(tableContainerRef, {
+    itemsCount: pageRows.length,
+    itemHeight: 48,
+    overscan: 5,
+  });
 
   return (
     <div className="bg-[#0b0f19] rounded-2xl border border-zinc-800/90 overflow-hidden">
       {/* Cabecera inmovilizada: se mantiene fija al hacer scroll vertical del cuerpo. */}
-      <div className="overflow-x-auto max-h-[calc(100vh-260px)]">
+      <div className="overflow-x-auto max-h-[calc(100vh-160px)]" ref={tableContainerRef}>
         <table className="w-full text-left border-collapse text-xs">
           <thead className="sticky top-0 z-10">
             <tr className="bg-[#121726] border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider">
               <th className="py-3.5 px-3">FECHA</th>
               <th className="py-3.5 px-3">FECHA HORA CITA</th>
               <th className="py-3.5 px-3">LLAVE</th>
-              <th className="py-3.5 px-3">PLACA REMOLQUE</th>
+              <th className="py-3.5 px-3">PLACA</th>
               <th className="py-3.5 px-3">TIPO</th>
               <th className="py-3.5 px-3">MUELLE</th>
               {showCajas && <th className="py-3.5 px-3">CAJAS</th>}
+              {showEstatus && <th className="py-3.5 px-3">ESTATUS</th>}
               <th className="py-3.5 px-3">ESTADO</th>
               {showActions && <th className="py-3.5 px-3 text-right">ACCIONES</th>}
             </tr>
@@ -88,77 +101,108 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                 </td>
               </tr>
             ) : (
-              pageRows.map((row) => (
-                <tr
-                  key={row.id}
-                  onClick={() => setSelected(row)}
-                  className="hover:bg-zinc-900/60 transition-colors cursor-pointer"
-                  title="Clic para ver detalle"
-                >
-                  <td className="py-3.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
-                    {formatFechaHora(row.fechaHora)}
-                  </td>
-                  <td className="py-3.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
-                    {formatFechaHora(row.citaCargue)}
-                  </td>
-                  <td className="py-3.5 px-3 font-mono font-bold text-blue-400 whitespace-nowrap">
-                    {row.llave}
-                  </td>
-                  <td className="py-3.5 px-3 font-mono whitespace-nowrap">
-                    {row.placa ? (
-                      <span className="bg-zinc-800/80 text-zinc-100 font-bold px-2 py-0.5 rounded border border-zinc-700">
-                        {row.placa}
-                      </span>
-                    ) : (
-                      <span className="text-zinc-600 font-semibold">—</span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-3 whitespace-nowrap">
-                    <TipoBadge tipo={row.vehiculoTipo} />
-                  </td>
-                  <td className="py-3.5 px-3 font-bold text-emerald-400 whitespace-nowrap">
-                    {row.muelleAsignado || '—'}
-                  </td>
-                  {showCajas && (
-                    <td className="py-3.5 px-3 font-mono font-bold text-amber-400 whitespace-nowrap">
-                      {row.cajas ? row.cajas.toLocaleString('es-CO') : '—'}
-                    </td>
-                  )}
-                  <td className="py-3.5 px-3 whitespace-nowrap">
-                    <EstadoBadge estado={getEstadoPorteria(row)} />
-                  </td>
-                  {showActions && (
-                    <td className="py-3.5 px-3 whitespace-nowrap">
-                      <div className="flex items-center justify-end space-x-1.5">
-                        {showEdit && onEdit && !isLlaveCerrada(row) && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEdit(row);
-                            }}
-                            className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-blue-400 hover:border-blue-500/40 transition-colors"
-                            title="Editar transporte"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
+              <>
+                {paddingTop > 0 && (
+                  <tr>
+                    <td colSpan={colCount} style={{ height: paddingTop, padding: 0, border: 0 }} />
+                  </tr>
+                )}
+                {virtualItems.map((vItem) => {
+                  const row = pageRows[vItem.index];
+                  if (!row) return null;
+                  return (
+                    <tr
+                      key={row.id}
+                      onClick={() => setSelected(row)}
+                      className="hover:bg-zinc-900/60 transition-colors cursor-pointer"
+                      title="Clic para ver detalle"
+                    >
+                      <td className="py-3.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
+                        {formatFecha(row.fechaHora)}
+                      </td>
+                      <td className="py-3.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
+                        {formatFechaHora(row.citaCargue)}
+                      </td>
+                      <td className="py-3.5 px-3 font-mono font-bold text-blue-400 whitespace-nowrap">
+                        {row.llave}
+                      </td>
+                      <td className="py-3.5 px-3 font-mono whitespace-nowrap">
+                        {row.placa ? (
+                          <span className="bg-zinc-800/80 text-zinc-100 font-bold px-2 py-0.5 rounded border border-zinc-700">
+                            {row.placa}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-600 font-semibold">—</span>
                         )}
-                        {showDelete && onDelete && !isLlaveCerrada(row) && (!canCancel || canCancel(row)) && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDelete(row);
-                            }}
-                            className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-rose-400 hover:border-rose-500/40 transition-colors"
-                            title="Cancelar transporte"
-                          >
-                            <XCircle className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))
+                      </td>
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <TipoBadge tipo={row.vehiculoTipo} />
+                      </td>
+                      <td className="py-3.5 px-3 font-bold text-emerald-400 whitespace-nowrap">
+                        {row.muelleAsignado || '—'}
+                      </td>
+                      {showCajas && (
+                        <td className="py-3.5 px-3 font-mono font-bold text-amber-400 whitespace-nowrap">
+                          {row.cajas ? row.cajas.toLocaleString('es-CO') : '—'}
+                        </td>
+                      )}
+                      {showEstatus && (
+                        <td className="py-3.5 px-3 whitespace-nowrap">
+                          <EstatusBadge estado={row.estadoTransporte} />
+                        </td>
+                      )}
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <EstadoBadge estado={getEstadoPorteria(row)} />
+                      </td>
+                      {showActions && (
+                        <td className="py-3.5 px-3 whitespace-nowrap">
+                          <div className="flex items-center justify-end space-x-1.5">
+                            {showEdit &&
+                              onEdit &&
+                              !isLlaveCerrada(row) &&
+                              puedeEditarOperacion(row) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(row);
+                                  }}
+                                  className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-blue-400 hover:border-blue-500/40 transition-colors"
+                                  title="Editar transporte"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            {showDelete &&
+                              onDelete &&
+                              !isLlaveCerrada(row) &&
+                              puedeEditarOperacion(row) &&
+                              (!canCancel || canCancel(row)) && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete(row);
+                                  }}
+                                  className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-rose-400 hover:border-rose-500/40 transition-colors"
+                                  title="Cancelar transporte"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+                {paddingBottom > 0 && (
+                  <tr>
+                    <td
+                      colSpan={colCount}
+                      style={{ height: paddingBottom, padding: 0, border: 0 }}
+                    />
+                  </tr>
+                )}
+              </>
             )}
           </tbody>
         </table>
@@ -178,6 +222,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
         showEdit={showEdit}
         showDelete={showDelete}
         canCancel={canCancel}
+        showEstatus={showEstatus}
         onEdit={(row) => {
           setSelected(null);
           onEdit?.(row);
@@ -189,6 +234,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
         onAsignarMuelle={onAsignarMuelle}
         onMuelleHora={onMuelleHora}
         onCuadrilla={onCuadrilla}
+        onCajas={onCajas}
         checklistOwner={checklistOwner}
         onPorteriaHora={onPorteriaHora}
       />

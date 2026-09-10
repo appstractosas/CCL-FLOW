@@ -18,14 +18,14 @@ El repo queda así en la rama `dev`:
 1. Leer la pestaña de operaciones del libro (antes Sheets, ahora Excel 365).
 2. Mapear columnas → campos de la tabla `transportes` de Supabase.
 3. Convertir fechas → ISO; `llave`/`placa` en mayúsculas; `cajas` a número.
-4. Regla de conflicto: una llave no puede repetirse con placas reales distintas
-   (esas filas NO se envían).
-5. Estatus `CANCELADO` → la llave pasa a `estado_porteria = 'CANCELADO'`.
-6. Consolidar: UN registro por llave; las `cajas` de todas las filas de la misma
-   llave se suman; el resto de campos toma el último valor no vacío.
-7. UPSERT a Supabase (PostgREST) usando `llave` como clave única con
-   `on_conflict=llave` y `Prefer: resolution=merge-duplicates`.
-8. Frecuencia: el script corría con un trigger temporal cada 1 minuto.
+4. Estatus `CANCELADO` → la fila pasa a `estado_porteria = 'CANCELADO'`.
+5. Actualizar la tabla por líneas donde **cada registro es el par `(llave,
+   placa)`**: una llave puede repetirse con varias placas (cada placa = UNA
+   FILA). Las `cajas` se SUMAN POR PLACA (filas del mismo par), nunca por llave.
+6. UPSERT a Supabase (PostgREST) usando `on_conflict=llave,placa` con
+   `Prefer: resolution=merge-duplicates` (o el RPC `sync_transportes`, que ya
+   codifica el mismo upsert).
+7. Frecuencia: el script corría con un trigger temporal cada 1 minuto.
 
 ## Estado actual del flujo de Power Automate
 
@@ -40,7 +40,13 @@ El repo queda así en la rama `dev`:
 
 ### Flujo definitivo (3 pasos, sin bucle)
 
-1. **Seleccionar** (Salida: array con todas las filas, incluida la clave `estatus` ← columna Estatus).
+1. **Seleccionar** (Salida: array con todas las filas, incluidas las claves `estatus` ← columna Estatus, `destino` ← columna Destino y `kg` ← columna Kg).
+   > ⚠️ Si agregas columnas nuevas al Excel (p. ej. `Destino`, `Kg`), hay que
+   > AGREGARLAS al mapeo clave/valor del **Seleccionar**: el RPC solo lee las
+   > claves que llegan en el JSON. Sin ese cambio, `destino`/`kg` quedan `null`
+   > en la BD aunque la migración y el RPC ya estén aplicados. Las claves
+   > numéricas van EXACTAS y en minúscula (`cajas`, `kg`); las de texto son
+   > tolerantes (`Destino`, `DESTINO`, etc.).
 2. **Redactar** (la acción Compose aparece como "Redactar" en el diseñador en español) → Entradas (Expresión): `json(concat('{''_filas'':', string(body('Seleccionar')), '}'))` — envuelve el array como parámetro del RPC.
 3. **HTTP** → `POST https://gklcxnlseghdqylvnkdb.supabase.co/rest/v1/rpc/sync_transportes`, Cuerpo = `outputs('Redactar')`, mismos 4 headers (`apikey`, `Authorization: Bearer`, `Prefer: resolution=merge-duplicates,return=minimal`, `Content-Type: application/json`).
 
@@ -48,7 +54,24 @@ El repo queda así en la rama `dev`:
 > renombras (p. ej. a "Redactar"), el Cuerpo del HTTP debe usar `outputs('Redactar')`
 > — siempre con el nombre EXACTO que muestra la pestaña de contenido dinámico.
 
-> 1 solo POST por corrida, igual que el `.gs`. La **suma de cajas y la conversión de fechas las hace la función** en Supabase (ver script `migracion-rpc-sync-transportes.sql`). El antiguo POST row-by-row con `Apply to each` se descartó: no puede sumar `cajas` entre llaves repetidas.
+> ⚠️ El `Select` puede enviar cada fila tanto con los nombres de campo de la BD
+> (`transportadora`) como con los encabezados del Excel (`Olt Inicial`). La función
+> `sync_transportes` ya tolera ambas (normaliza claves sin espacios/guiones), de modo
+> que `transportadora` se llena con `Olt Inicial` aunque el `Select` mande el encabezado.
+
+> 📌 `cajas`: se SUMAN POR PLACA — si una misma placa aparece en varias filas
+> del Excel (varios transportes del mismo camión), el registro de esa placa
+> guarda la sumatoria. En cada corrida la función recalcula y actualiza ese valor
+> (ON CONFLICT (llave, placa) → `cajas` entra en el UPDATE). La suma total de una
+> llave = la suma de sus placas. Cuando las cajas fueron editadas desde la app
+> (`cajas_manual = TRUE`, despachador), el sync conserva el valor capturado; la
+> marca se limpia sola cuando el Excel trae ese mismo número (ver regla 11 en el
+> `migracion-rpc-sync-transportes.sql`).
+
+> 1 solo POST por corrida, igual que el `.gs`. La **conversión de fechas, el
+> SUM por placa y el UPSERT los hace la función** en Supabase (ver script
+> `migracion-rpc-sync-transportes.sql`). El antiguo POST row-by-row con
+> `Apply to each` se descartó: no podía normalizar cada corrida completa.
 
 > Nota de permisos: SharePoint requiere ser MIEMBRO del sitio (no basta con
 > compartir la carpeta). Una vez aprobado el acceso al sitio `AVERIASMONDELEZ`,
@@ -69,7 +92,7 @@ El repo queda así en la rama `dev`:
 
 | Dato | Valor |
 | --- | --- |
-| Endpoint (POST) | `https://gklcxnlseghdqylvnkdb.supabase.co/rest/v1/rpc/sync_transportes` (RPC; ya no se usa `/rest/v1/transportes?on_conflict=llave` directo — ahora la consolidación/suma de cajas vive en la función) |
+| Endpoint (POST) | `https://gklcxnlseghdqylvnkdb.supabase.co/rest/v1/rpc/sync_transportes` (RPC; ya no se usa `/rest/v1/transportes?on_conflict=llave,placa` directo — la normalización/upsert vive en la función) |
 | Cabecera `apikey` | Service Role key (propiedad `SUPABASE_SERVICE_KEY` del script) |
 | Cabecera `Authorization` | `Bearer <Service Role key>` |
 | Cabecera `Prefer` | `resolution=merge-duplicates,return=minimal` |
@@ -102,27 +125,38 @@ El repo queda así en la rama `dev`:
 | transporte | SÍ | null |
 | denominacion | SÍ | null |
 | cajas | SÍ | 0 |
+| destino | SÍ | null |
+| kg | SÍ | null |
 
 ## Mapeo de columnas (encabezado Excel → campo de la BD)
 
 | Encabezado del Excel | Campo de la BD | Nota |
 | --- | --- | --- |
 | `Fecha` | `fecha_hora` | dd/mm/aaaa → ISO `YYYY-MM-DDT00:00:00` |
-| `Llave 2` | `llave` | clave única, mayúsculas |
+| `Llave 2` | `llave` | mayúsculas; parte de la clave `(llave, placa)` — una llave puede repetirse con varias placas |
 | `Vehículo` | `vehiculo_tipo` | |
 | `Cita de cargue` | `cita_cargue` | dd/mm/aaaa hh:mm → ISO |
 | `Olt Inicial` | `transportadora` | |
 | `Transporte` | `transporte` | nº de pedido |
 | `Denominación` | `denominacion` | cliente |
 | `Placa` | `placa` | mayúsculas; si está vacía se envía `''` |
-| `Cajas` | `cajas` | número |
-| `Estatus` | (no se envía) | solo señal: si dice `CANCELADO`, setear `estado_porteria='CANCELADO'` |
+| `Cajas` | `cajas` | número; en el **Seleccionar** la clave va exacta: `cajas` |
+| `Destino` | `destino` | ciudad/planta de destino del pedido |
+| `Kg` | `kg` | peso en kilogramos; en el **Seleccionar** la clave va exacta: `kg` (igual convención que `cajas`) |
+| `Estatus` | `estado_transporte` | DESPACHADO/ALISTADO/PENDIENTE (valores del CHECK de la BD). Vacío o desconocido → `'ALISTADO'`. Si dice `CANCELADO`, no entra al CHECK: pasa a `estado_porteria='CANCELADO'` |
+
+### Orden de despliegue para DESTINO/KG (nuevo)
+
+1. Ejecutar `supabase-migracion-destino-kg.sql` en Supabase (crea las columnas `destino` y `kg`).
+2. Re-ejecutar `power-automate/migracion-rpc-sync-transportes.sql` (el RPC nuevo ya lee `destino`/`kg`; `kg = COALESCE(EXCLUDED.kg, …)` no pisa lo capturado en la app).
+3. En el flujo de Power Automate, agregar al **Seleccionar** los pares clave/valor: `destino` ← columna Destino, `kg` ← columna Kg.
+4. Probar end-to-end con una fila del Excel y verificar en la app/BD que destino y kg quedaron registrados.
 
 ## Servicios/acciones de Power Automate a usar (lo que falta)
 
 - **HTTP → "HTTP"**: el POST batch a Supabase (única escritura).
 - **Compose / Initialize variable**: para construir el array de filas mapeadas y
-  hacer la consolidación por llave.
+  normalizar valores (fechas, mayúsculas, cajas).
 - **Data Operations → Select / Filter array**: para normalizar fechas y valores.
 - **Control → Apply to each**: solo para armar/agrupar filas (NO uno por POST).
 - **Control → Do until** (si hiciera falta paginar el Excel).
@@ -155,11 +189,43 @@ El repo queda así en la rama `dev`:
 4. **Ejecutar `power-automate/migracion-rpc-sync-transportes.sql` en Supabase** y
    convertir el flujo a los 3 pasos: Select (con `estatus`) → Compose (envuelve
    `{"_filas":[...]}`) → HTTP a `/rest/v1/rpc/sync_transportes`. **1 solo POST**.
-5. **Probar con 1 fila de ejemplo** (llave `LL-TEST-001`) verificando suma de cajas,
-   fechas ISO y `estado_porteria='CANCELADO'` cuando `estatus` diga CANCELADO.
+5. **Probar con 1 fila de ejemplo** (llave `LL-TEST-001`) verificando el UPSERT
+   por `(llave, placa)`: si el Excel repite la misma llave con otra placa, deben
+   crearse DOS filas en la BD; y si repite la MISMA (llave, placa), la BD guarda
+   la SUMA de cajas de esas filas. Además fechas ISO,
+   `estado_transporte` = valor de la columna Estatus (DESPACHADO/ALISTADO/
+   PENDIENTE) y `estado_porteria='CANCELADO'` cuando `estatus` diga CANCELADO.
 6. Desactivar/limpiar: quitar el temporal de Apps Script cuando Power Automate
    esté estable y documentar.
 7. Cambiar origen de OneDrive → SharePoint cuando se apruebe el acceso al sitio.
+
+## Configuración verificada y correcta (no cambiar sin motivo)
+
+> Registrado el 28-08-2026 tras resolver el error
+> `Could not find the function public.sync_transportes ... in the schema cache`.
+
+### Los 3 pasos finales y sus valores EXACTOS
+
+| Paso | Acción | Configuración correcta |
+| --- | --- | --- |
+| 1 | **Seleccionar** | Mapeo clave/valor: izquierda = campo de BD, derecha = columna del Excel (p. ej. `cita_cargue` ← `Cita de cargue`). **`Cita de cargue` SÍ debe estar en el mapeo**. |
+| 2 | **Redactar** (Compose) | `Entradas` = **la salida completa de `Seleccionar`** (el array de filas). ⚠️ Se elige la entrada que dice **`Seleccionar`** en Contenido dinámico, NO los campos sueltos. |
+| 3 | **HTTP** | `POST` → `.../rest/v1/rpc/sync_transportes` · Cuerpo = `{"_filas": @{outputs('Redactar')}}` · Headers: `apikey`, `Authorization: Bearer`, `Prefer: resolution=merge-duplicates,return=minimal`, `Content-Type: application/json`. |
+
+### Errores comunes ya solucionados
+
+- **`without parameters in the schema cache`** → el `HTTP` tenía el **Cuerpo vacío**. Solución: poner `{"_filas": @{outputs('Redactar')}}`.
+- **`sync_transportes(cajas, cita_cargue, ...) without parameters`** → el `Redactar` no entregaba el array completo (se enviaban campos sueltos). Solución: `Redactar → Entradas` = salida **`Seleccionar`** (el array), no los campos individuales.
+- **El `Cuerpo` del HTTP no acepta la expresión pegada** → probar primero en pestaña **Expresión** con `outputs('Redactar')`, o escribir el body directo y guardar; reintentar.
+- **Reset del cache de PostgREST** (si Supabase no encuentra la función tras un deploy): ejecutar en Supabase SQL Editor:
+  ```sql
+  NOTIFY pgrst, 'reload schema';
+  ```
+
+### Filtro por fecha (desde 01-ago)
+
+- **NO** usar `gt/ge/lt` en el `Query` de "Enumerar filas" (el conector de Excel solo admite `eq`, `ne`, `contains`, `startswith`, `endswith` — da error "cláusula de filtro no válida").
+- Filtrar con una **Condición** después del `Seleccionar`, comparando `Cita de cargue` (formato `DD/MM/AAAA HH:mm`) `es mayor o igual que` la fecha ISO `2026-08-01`. Rama **Sí** → HTTP; rama **No** → terminar.
 
 ## Notas importantes
 
@@ -168,6 +234,7 @@ El repo queda así en la rama `dev`:
 - `transportes` aún NO está en el publication de Realtime de la BD (solo
   `notificaciones`). Si se desea actualización en vivo junto con Excel, ejecutar
   en Supabase: `ALTER PUBLICATION supabase_realtime ADD TABLE public.transportes;`.
-- Las filas con llaves en conflicto (misma llave, 2+ placas reales) deben
-  omitirse igual que en el .gs.
+- Las filas se identifican por el par `(llave, placa)`: una llave con 2+ placas
+  genera 2+ filas en la BD; el par duplicado exacto se fusiona y gana la última
+  fila de la corrida (igual que en el .gs).
 - Mantener `main` con `sheets-sync` intacto: toda esta migración vive en `dev`.

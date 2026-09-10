@@ -37,7 +37,9 @@ describe('PersonalModule (módulo Supervisor)', () => {
     expect(screen.getByRole('combobox')).toHaveDisplayValue('Muelle 5');
     expect(useLogisticsStore.getState().transportes[0].muelleAsignado).toBe('Muelle 5');
 
-    const inputHora = screen.getByTitle('Editar hora de asignación del muelle (permite horas programadas)');
+    const inputHora = screen.getByTitle(
+      'Editar hora de asignación del muelle (permite horas programadas)',
+    );
     expect(inputHora).toBeEnabled();
   });
 
@@ -85,7 +87,9 @@ describe('PersonalModule (módulo Supervisor)', () => {
     expect(screen.getByRole('combobox')).toHaveDisplayValue('MUELLE CERO');
     expect(useLogisticsStore.getState().transportes[0].muelleAsignado).toBe('MUELLE CERO');
 
-    const inputHora = screen.getByTitle('Editar hora de asignación del muelle (permite horas programadas)');
+    const inputHora = screen.getByTitle(
+      'Editar hora de asignación del muelle (permite horas programadas)',
+    );
     expect(inputHora).toBeEnabled();
   });
 });

@@ -1,13 +1,14 @@
 import { create } from 'zustand';
-import { fetchClientes, fetchCiudades } from '../services/catalogosService';
+import { fetchClientes, fetchCiudades, fetchTransportadoras } from '../services/catalogosService';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { initialClientes, initialCiudades } from './initialData';
-import type { Cliente, Ciudad } from '../types';
+import { initialClientes, initialCiudades, initialTransportadoras } from './initialData';
+import type { Cliente, Ciudad, Transportadora } from '../types';
 
 interface CatalogosState {
   initialized: boolean;
   clientes: Cliente[];
   ciudades: Ciudad[];
+  transportadoras: Transportadora[];
   initialize: () => Promise<void>;
 }
 
@@ -15,6 +16,7 @@ export const useCatalogosStore = create<CatalogosState>((set, get) => ({
   initialized: false,
   clientes: initialClientes,
   ciudades: initialCiudades,
+  transportadoras: initialTransportadoras,
 
   initialize: async () => {
     if (get().initialized) return;
@@ -23,8 +25,12 @@ export const useCatalogosStore = create<CatalogosState>((set, get) => ({
       return;
     }
     try {
-      const [clientes, ciudades] = await Promise.all([fetchClientes(), fetchCiudades()]);
-      set({ clientes, ciudades, initialized: true });
+      const [clientes, ciudades, transportadoras] = await Promise.all([
+        fetchClientes(),
+        fetchCiudades(),
+        fetchTransportadoras(),
+      ]);
+      set({ clientes, ciudades, transportadoras, initialized: true });
     } catch (err) {
       console.error('Error loading catalogos:', err);
       set({ initialized: true });

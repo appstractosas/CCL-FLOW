@@ -3,7 +3,22 @@ import type { HistorialMovimiento } from '../types';
 
 const TABLE = 'historial_movimientos';
 
-function mapMovimientoFromDB(item: Record<string, any>): HistorialMovimiento {
+/** Fila de la tabla `historial_movimientos` (snake_case de la BD). */
+interface HistorialMovimientoRow {
+  id: string;
+  usuario: string;
+  tipo_usuario: string;
+  cedula: string | null;
+  accion: string;
+  modulo: string | null;
+  detalle: string | null;
+  llave_relacionada: string | null;
+  created_at: string;
+  createdAt?: string;
+}
+
+/** Convierte un movimiento de la BD al formato frontend. */
+function mapMovimientoFromDB(item: HistorialMovimientoRow): HistorialMovimiento {
   return {
     id: item.id,
     usuario: item.usuario,
@@ -17,14 +32,13 @@ function mapMovimientoFromDB(item: Record<string, any>): HistorialMovimiento {
   };
 }
 
-function isOnline(): boolean {
-  return isSupabaseConfigured;
-}
-
+/**
+ * Obtiene el historial de movimientos más recientes.
+ * @param limit - Cantidad máxima de registros (default: 200).
+ */
 export async function fetchHistorial(limit = 200): Promise<HistorialMovimiento[]> {
-  if (!isOnline()) return [];
-  const { data, error } = await supabase
-    .from(TABLE)
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase.from(TABLE)
     .select('*')
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -32,23 +46,26 @@ export async function fetchHistorial(limit = 200): Promise<HistorialMovimiento[]
   return (data || []).map(mapMovimientoFromDB);
 }
 
-export async function createMovimiento(item: HistorialMovimiento): Promise<HistorialMovimiento | null> {
-  if (!isOnline()) return null;
-  // Nota: NO se envía `id` de cliente; la columna es UUID y el insert fallaba con ids tipo "HIS-...".
-  const { data, error } = await supabase
-    .from(TABLE)
-    .insert({
-      usuario: item.usuario,
-      tipo_usuario: item.tipoUsuario,
-      cedula: item.cedula || null,
-      accion: item.accion,
-      modulo: item.modulo,
-      detalle: item.detalle || null,
-      llave_relacionada: item.llaveRelacionada || null,
-      created_at: item.createdAt,
-    })
-    .select()
-    .single();
+/**
+ * Registra un movimiento de auditoría via RPC `ccl_create_movimiento`.
+ * Se llama automáticamente al crear/editar/eliminar transportes, usuarios, etc.
+ * @returns El movimiento creado, o null si está en modo demo.
+ */
+export async function createMovimiento(
+  item: HistorialMovimiento,
+): Promise<HistorialMovimiento | null> {
+  if (!isSupabaseConfigured) return null;
+  const payload: Record<string, string | null> = {
+    usuario: item.usuario,
+    tipo_usuario: item.tipoUsuario,
+    cedula: item.cedula || null,
+    accion: item.accion,
+    modulo: item.modulo,
+    detalle: item.detalle || null,
+    llave_relacionada: item.llaveRelacionada || null,
+    created_at: item.createdAt,
+  };
+  const { data, error } = await supabase.rpc('ccl_create_movimiento', { p_data: payload });
   if (error) throw error;
   return mapMovimientoFromDB(data);
 }

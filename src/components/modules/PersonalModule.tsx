@@ -29,6 +29,7 @@ export const PersonalModule: React.FC = () => {
         onAsignarMuelle: canModifyMuelle ? handleAsignarMuelle : undefined,
         onMuelleHora: canModifyMuelle ? handleMuelleHora : undefined,
         showCajas: true,
+        showEstatus: true,
       }}
     />
   );

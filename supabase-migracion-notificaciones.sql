@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.notificaciones (
                     CHECK (tipo IN ('LLEGO_PORTERIA', 'MUELLE_ASIGNADO')),
   titulo            VARCHAR(200) NOT NULL,
   mensaje           TEXT NOT NULL,
-  llave_relacionada VARCHAR(20) REFERENCES public.transportes(llave),
+  llave_relacionada VARCHAR(20), -- sin FK: llave ya no es única (una llave = varias placas)
   leida             BOOLEAN NOT NULL DEFAULT FALSE,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

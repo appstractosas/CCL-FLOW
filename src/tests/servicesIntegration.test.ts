@@ -1,12 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { UnifiedTransporte, ChatMessage, Notificacion } from '../types';
 
-// ===== Mock de Supabase: builder encadenable sobre memoria =====
-// `supabase.from(table)` devuelve un builder con select/order/limit/gte/lte/eq/
-// insert/update/single. Cada encadenamiento acumula la consulta y el `await`
-// final materializa el resultado. No toca la BD real.
+// ===== Mock de Supabase: builder encadenable para SELECT + RPC para writes =====
 
-type MemoryTable = Record<string, any>[];
+type MemoryRow = Record<string, unknown>;
+type MemoryTable = MemoryRow[];
 const mem: { [table: string]: MemoryTable } = {
   transportes: [],
   chat_messages: [],
@@ -22,14 +20,24 @@ const orderBy = (rows: MemoryTable, col: string, asc: boolean) =>
     return asc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
   });
 
-function makeQuery(table: string) {
+type QueryBuilder = {
+  select: (cols?: string) => QueryBuilder;
+  order: (col: string, opts?: { ascending?: boolean }) => QueryBuilder;
+  limit: (n: number) => QueryBuilder;
+  gte: (col: string, val: string) => QueryBuilder;
+  lte: (col: string, val: string) => QueryBuilder;
+  eq: (col: string, val: string) => QueryBuilder;
+  single: () => QueryBuilder;
+  then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => Promise<unknown>;
+};
+
+function makeQuery(table: string): QueryBuilder {
   const state = {
     base: mem[table] || [],
     orderCol: '',
     orderAsc: true,
     isSingle: false,
     limitVal: Infinity,
-    patch: null as Record<string, any> | null,
     filters: [] as { col: string; op: 'gte' | 'lte' | 'eq'; val: string }[],
     error: null as Error | null,
   };
@@ -44,16 +52,11 @@ function makeQuery(table: string) {
       else if (f.op === 'gte') rows = rows.filter((r) => (r[f.col] ?? '') >= f.val);
       else if (f.op === 'lte') rows = rows.filter((r) => (r[f.col] ?? '') <= f.val);
     }
-    if (state.patch) {
-      for (const r of rows) Object.assign(r, state.patch);
-      state.patch = null;
-      return { data: null, error: null };
-    }
     return { data: state.isSingle ? rows[0] : rows, error: null };
   };
 
-  const q = {
-    select: vi.fn(() => q),
+  const q: QueryBuilder = {
+    select: vi.fn((_cols?: string) => q),
     order: vi.fn((col: string, { ascending = true } = {}) => {
       state.orderCol = col;
       state.orderAsc = ascending;
@@ -79,31 +82,68 @@ function makeQuery(table: string) {
       state.isSingle = true;
       return q;
     }),
-    insert: vi.fn((row: any) => {
-      mem[table] = mem[table] || [];
-      mem[table].push({ ...row });
-      return q;
-    }),
-    update: vi.fn((patch: any) => {
-      state.patch = patch;
-      return q;
-    }),
     then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
       Promise.resolve(materialize()).then(resolve, reject),
-  } as any;
+  };
 
   return q;
 }
 
-const chan: any = {
+const chan = {
   on: vi.fn(() => chan),
   subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
 };
+
+function routeRpc(
+  fn: string,
+  args: Record<string, unknown>,
+): Promise<{ data: MemoryRow | null; error: Error | null }> {
+  const data = (args?.p_data as MemoryRow | undefined) || {};
+
+  if (fn === 'ccl_create_transporte') {
+    const row = { id: `T-${Date.now()}`, ...data };
+    mem.transportes.push(row);
+    return Promise.resolve({ data: row, error: null });
+  }
+  if (fn === 'ccl_update_transporte') {
+    const pId = args?.p_id;
+    const row = mem.transportes.find((r) => r.id === pId);
+    if (!row)
+      return Promise.resolve({
+        data: null,
+        error: new Error('La BD no actualizó ninguna fila (id=' + pId + '). La fila no existe.'),
+      });
+    Object.assign(row, data);
+    return Promise.resolve({ data: null, error: null });
+  }
+  if (fn === 'ccl_send_message') {
+    const row = { id: `MSG-${Date.now()}`, ...data };
+    mem.chat_messages.push(row);
+    return Promise.resolve({ data: row, error: null });
+  }
+  if (fn === 'ccl_create_notificacion') {
+    const row = { id: `N-${Date.now()}`, ...data };
+    mem.notificaciones.push(row);
+    return Promise.resolve({ data: row, error: null });
+  }
+  if (fn === 'ccl_mark_notifs_read') {
+    for (const r of mem.notificaciones) r.leida = true;
+    return Promise.resolve({ data: null, error: null });
+  }
+  if (fn === 'ccl_create_movimiento') {
+    const row = { id: `H-${Date.now()}`, ...data };
+    mem.historial_movimientos.push(row);
+    return Promise.resolve({ data: row, error: null });
+  }
+
+  return Promise.resolve({ data: null, error: null });
+}
 
 const supabaseMock = {
   from: vi.fn((table: string) => makeQuery(table)),
   channel: vi.fn(() => chan),
   removeChannel: vi.fn(),
+  rpc: vi.fn((fn: string, args?: Record<string, unknown>) => routeRpc(fn, args || {})),
 };
 
 vi.mock('../lib/supabase', () => ({
@@ -126,15 +166,22 @@ const afiliado = {
   vehiculo_tipo: 'TURBO',
   estado_transporte: 'DESPACHADO',
   estado_porteria: 'Pendiente',
+  destino: 'NEIVA',
 };
 
-function forceDbError() {
-  const q = makeQuery('transportes');
-  q.select = vi.fn(() => q);
-  q.order = vi.fn(() => q);
-  (q as any).then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
-    Promise.resolve({ data: null, error: new Error('db down') }).then(resolve, reject);
-  supabaseMock.from.mockReturnValue(q);
+function forceFromDbError() {
+  const brokenQuery: QueryBuilder = {
+    select: vi.fn(() => brokenQuery) as QueryBuilder['select'],
+    order: vi.fn((_col: string, _opts?: { ascending?: boolean }) => brokenQuery) as QueryBuilder['order'],
+    limit: vi.fn((_n: number) => brokenQuery) as QueryBuilder['limit'],
+    gte: vi.fn((_col: string, _val: string) => brokenQuery) as QueryBuilder['gte'],
+    lte: vi.fn((_col: string, _val: string) => brokenQuery) as QueryBuilder['lte'],
+    eq: vi.fn((_col: string, _val: string) => brokenQuery) as QueryBuilder['eq'],
+    single: vi.fn(() => brokenQuery) as QueryBuilder['single'],
+    then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
+      Promise.resolve({ data: null, error: new Error('db down') }).then(resolve, reject),
+  };
+  supabaseMock.from.mockReturnValueOnce(brokenQuery);
 }
 
 describe('transportesService (integración Supabase mockeado)', () => {
@@ -150,20 +197,18 @@ describe('transportesService (integración Supabase mockeado)', () => {
     expect(rows[0].llave).toBe('LL-60533');
     expect(rows[0].placa).toBe('XYZ-999');
     expect(rows[0].estadoPorteria).toBe('Pendiente');
+    expect(rows[0].destino).toBe('NEIVA');
   });
 
   it('fetchTransportes lanza cuando la BD devuelve error', async () => {
-    forceDbError();
+    forceFromDbError();
     await expect(mod.fetchTransportes()).rejects.toThrow('db down');
   });
 
   it('fetchTransportesByRango acota con gte/lte usando Z como límite superior', async () => {
     const rows = await mod.fetchTransportesByRango('2026-08-13', '2026-08-13');
     expect(rows.length).toBe(1);
-    const gteCalls = supabaseMock.from.mock.calls.length;
-    expect(gteCalls).toBeGreaterThan(0);
-    // Verifica que el límite superior es 'YYYY-MM-DDZ' (no '~') para que PostgREST no falle.
-    const builder = supabaseMock.from('transportes');
+    expect(supabaseMock.from).toHaveBeenCalled();
     expect(mem.transportes.length).toBeGreaterThan(0);
   });
 
@@ -175,6 +220,20 @@ describe('transportesService (integración Supabase mockeado)', () => {
     const rows = await mod.fetchTransportesByRango('2026-08-13', '2026-08-13');
     expect(rows.length).toBe(1);
     expect(rows[0].llave).toBe('LL-60533');
+  });
+
+  it('fetchTransportesRawByRango devuelve filas CRUDAS con TODAS las columnas de la BD', async () => {
+    mem.transportes = [
+      { ...afiliado, created_at: '2026-08-13T08:00:00Z', updated_at: '2026-08-13T10:00:00Z' },
+      { ...afiliado, id: 'T-2', cita_cargue: '2026-08-14T09:00:00' },
+    ];
+    const rows = await mod.fetchTransportesRawByRango('2026-08-13', '2026-08-13');
+    expect(rows.length).toBe(1);
+    expect(rows[0].created_at).toBe('2026-08-13T08:00:00Z');
+    expect(rows[0].updated_at).toBe('2026-08-13T10:00:00Z');
+    expect(rows[0].estado_transporte).toBe('DESPACHADO');
+    const todas = await mod.fetchTransportesRawByRango('2026-08-01', '2026-08-31');
+    expect(todas.length).toBe(2);
   });
 
   it('createTransporte inserta y devuelve la fila mapeada', async () => {
@@ -195,7 +254,18 @@ describe('transportesService (integración Supabase mockeado)', () => {
   it('updateTransporte aplica solo los campos provistos', async () => {
     await mod.updateTransporte('T-1', { muelleAsignado: 'Muelle 3' });
     expect(mem.transportes[0].muelle_asignado).toBe('Muelle 3');
-    // Los campos no actualizados se conservan.
+    expect(mem.transportes[0].placa).toBe('XYZ-999');
+  });
+
+  it('updateTransporte persiste cajas en la columna cajas de la BD', async () => {
+    await mod.updateTransporte('T-1', { cajas: 721 });
+    expect(mem.transportes[0].cajas).toBe(721);
+  });
+
+  it('updateTransporte LANZA cuando ninguna fila coincide (id inexistente o RLS)', async () => {
+    await expect(mod.updateTransporte('ID-INEXISTENTE', { cajas: 5 })).rejects.toThrow(
+      /no actualizó ninguna fila/,
+    );
     expect(mem.transportes[0].placa).toBe('XYZ-999');
   });
 });
@@ -245,7 +315,6 @@ describe('notificacionesService (integración)', () => {
 
   it('markAllNotificacionesLeidas actualiza con eq', async () => {
     await notifMod.createNotificacion({ tipo: 'LLEGO_PORTERIA', titulo: 't', mensaje: 'm' });
-    // El insert no incluye `leida`; se establece explícitamente para que eq('leida', false) lo alcance.
     mem.notificaciones[0].leida = false;
     await notifMod.markAllNotificacionesLeidas();
     const items: Notificacion[] = await notifMod.fetchNotificaciones();

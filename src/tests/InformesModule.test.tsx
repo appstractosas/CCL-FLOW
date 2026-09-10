@@ -1,14 +1,15 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { InformesModule } from '../components/modules/InformesModule';
 import { useLogisticsStore } from '../store/useLogisticsStore';
+import type { UnifiedTransporte } from '../types';
 
 const fecha = new Date();
 const hoy = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
 const fechaHoraHoy = `${hoy} 09:00`;
 
-function makeTransporte(id: string, llave: string, over: Partial<any> = {}) {
+function makeTransporte(id: string, llave: string, over: Partial<UnifiedTransporte> = {}): UnifiedTransporte {
   return {
     id,
     llave,
@@ -22,7 +23,7 @@ function makeTransporte(id: string, llave: string, over: Partial<any> = {}) {
     cuadrilla: 'CCL',
     cajas: 10,
     ...over,
-  } as any;
+  };
 }
 
 describe('InformesModule (modo demo)', () => {
@@ -65,13 +66,19 @@ describe('InformesModule (modo demo)', () => {
     expect(screen.getByText('Semana')).toBeInTheDocument();
   });
 
-  it('filtra por buscador', async () => {
+  it('filtra por buscador y reduce la métrica de total de llaves', async () => {
     render(<InformesModule />);
     await screen.findByText('TOTAL LLAVES');
+
+    // Sin filtro hay 2 llaves.
+    const totalCard = screen.getByText('TOTAL LLAVES').closest('div')!.parentElement!;
+    expect(within(totalCard).getByText('2')).toBeInTheDocument();
+
     fireEvent.change(screen.getByPlaceholderText('Buscar llave, placa o transportadora...'), {
       target: { value: 'LL-60534' },
     });
-    expect(await screen.findByText('LL-60534')).toBeInTheDocument();
-    expect(screen.queryByText('LL-60533')).not.toBeInTheDocument();
+
+    // Tras filtrar solo queda la llave buscada → total = 1.
+    await waitFor(() => expect(within(totalCard).getByText('1')).toBeInTheDocument());
   });
 });

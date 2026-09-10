@@ -1,10 +1,41 @@
-/** Fecha de hoy en formato YYYY-MM-DD (hora local, no UTC). */
-export function todayStr(): string {
+/** Fecha desplazada N días desde hoy en formato YYYY-MM-DD (hora local, no UTC). */
+export function addDaysStr(days: number): string {
   const d = new Date();
+  d.setDate(d.getDate() + days);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+/** Fecha de hoy en formato YYYY-MM-DD (hora local, no UTC). */
+export function todayStr(): string {
+  return addDaysStr(0);
+}
+
+/** Fecha YYYY-MM-DD del último lunes (hoy si es lunes).
+ *  Base del preset "Semana" de informes: desde el lunes de esta semana hasta hoy. */
+export function inicioSemanaStr(): string {
+  const d = new Date();
+  const diasDesdeLunes = (d.getDay() + 6) % 7; // 0 = lunes ... 6 = domingo
+  d.setDate(d.getDate() - diasDesdeLunes);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Fecha YYYY-MM-DD del primer día del mes actual.
+ *  Base del preset "Mes" de informes: desde el día 1 hasta hoy. */
+export function inicioMesStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+/** Fecha YYYY-MM-DD del primer día del año actual (1 de enero).
+ *  Punto de partida del preset "Año"; luego se ajusta al primer día con datos. */
+export function inicioAnioStr(): string {
+  return `${new Date().getFullYear()}-01-01`;
 }
 
 /** True si el valor es una hora registrada (no vacío ni '--:--'). */
@@ -45,6 +76,13 @@ export function formatFechaHora(value?: string): string {
   const m = value.match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})/);
   if (!m) return value.split('T')[0];
   return `${m[1]} ${m[2]}:${m[3]}`;
+}
+
+/** Formatea "YYYY-MM-DD[T ]HH:MM..." a solo "YYYY-MM-DD" (sin hora). */
+export function formatFecha(value?: string): string {
+  if (!value) return '—';
+  const m = value.match(/(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : value;
 }
 
 /** Formatea un slot de cita ("YYYY-MM-DD[T ]HH:MM[:SS][Z|offset]") a "YYYY-MM-DD HH:MM". */

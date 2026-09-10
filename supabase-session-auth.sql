@@ -33,7 +33,7 @@ CREATE OR REPLACE FUNCTION public.ccl_login(p_cedula TEXT, p_clave TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_user public.users%ROWTYPE;
@@ -73,7 +73,7 @@ CREATE OR REPLACE FUNCTION public.ccl_validate_session(p_token TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_user public.users%ROWTYPE;
@@ -107,7 +107,7 @@ CREATE OR REPLACE FUNCTION public.ccl_logout(p_token TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 BEGIN
   DELETE FROM public.sessions WHERE token = p_token;

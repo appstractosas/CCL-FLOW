@@ -7,7 +7,9 @@ export const ChatBubble: React.FC<{ msg: ChatMessage }> = ({ msg }) => {
   const isPorteroMsg = msg.senderModule === 'Portería';
 
   return (
-    <div className={`flex flex-col max-w-[85%] ${isPorteroMsg ? 'mr-auto items-start' : 'ml-auto items-end'}`}>
+    <div
+      className={`flex flex-col max-w-[85%] ${isPorteroMsg ? 'mr-auto items-start' : 'ml-auto items-end'}`}
+    >
       <div className="flex items-center space-x-1 text-[10px] text-zinc-400 mb-0.5">
         <span className="font-bold text-zinc-200">{msg.senderName}</span>
         <span>• {formatTimestamp(msg.timestamp)}</span>

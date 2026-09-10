@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Inbox } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { userTypeLabel } from '../../lib/moduleConfig';
@@ -36,10 +36,8 @@ const ACCION_STYLES: Record<string, string> = {
 export const HistorialView: React.FC = () => {
   const { historial } = useAuthStore();
 
-  const { searchTerm, setSearchTerm, dateFrom, setDateFrom, dateTo, setDateTo, filtered } = useRowFilters(
-    historial,
-    { dateKey: 'createdAt' }
-  );
+  const { searchTerm, setSearchTerm, dateFrom, setDateFrom, dateTo, setDateTo, filtered } =
+    useRowFilters(historial, { dateKey: 'createdAt' });
 
   return (
     <div className="space-y-4">
@@ -77,9 +75,15 @@ export const HistorialView: React.FC = () => {
               <tbody className="divide-y divide-zinc-800/60">
                 {filtered.map((m) => (
                   <tr key={m.id} className="hover:bg-zinc-900/40 transition-colors">
-                    <td className="py-2.5 px-5 font-mono text-zinc-400 whitespace-nowrap">{formatDate(m.createdAt)}</td>
-                    <td className="py-2.5 px-4 font-bold text-zinc-100 whitespace-nowrap">{m.usuario}</td>
-                    <td className="py-2.5 px-4 whitespace-nowrap">{userTypeLabel(m.tipoUsuario)}</td>
+                    <td className="py-2.5 px-5 font-mono text-zinc-400 whitespace-nowrap">
+                      {formatDate(m.createdAt)}
+                    </td>
+                    <td className="py-2.5 px-4 font-bold text-zinc-100 whitespace-nowrap">
+                      {m.usuario}
+                    </td>
+                    <td className="py-2.5 px-4 whitespace-nowrap">
+                      {userTypeLabel(m.tipoUsuario)}
+                    </td>
                     <td className="py-2.5 px-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-0.5 rounded-full font-bold text-[10px] border ${ACCION_STYLES[m.accion] || 'bg-zinc-800 text-zinc-300 border-zinc-700'}`}
@@ -87,9 +91,16 @@ export const HistorialView: React.FC = () => {
                         {String(m.accion).replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="py-2.5 px-4 text-zinc-300 whitespace-nowrap">{moduleLabel(m.modulo)}</td>
-                    <td className="py-2.5 px-4 font-mono text-blue-400 whitespace-nowrap">{m.llaveRelacionada || '—'}</td>
-                    <td className="py-2.5 px-4 text-zinc-400 max-w-[260px] truncate" title={m.detalle}>
+                    <td className="py-2.5 px-4 text-zinc-300 whitespace-nowrap">
+                      {moduleLabel(m.modulo)}
+                    </td>
+                    <td className="py-2.5 px-4 font-mono text-blue-400 whitespace-nowrap">
+                      {m.llaveRelacionada || '—'}
+                    </td>
+                    <td
+                      className="py-2.5 px-4 text-zinc-400 max-w-[260px] truncate"
+                      title={m.detalle}
+                    >
                       {m.detalle || '—'}
                     </td>
                   </tr>

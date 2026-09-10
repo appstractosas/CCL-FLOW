@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
 import { X, Edit2, XCircle } from 'lucide-react';
 import { UnifiedTransporte, PorteriaTimeField } from '../../types';
-import { EstadoBadge, TipoBadge } from '../common/EstadoBadge';
-import { getEstadoPorteria, isLlaveCerrada } from '../../utils/porteria';
+import { EstadoBadge, EstatusBadge, TipoBadge } from '../common/EstadoBadge';
+import { getEstadoPorteria, isLlaveCerrada, puedeEditarOperacion } from '../../utils/porteria';
 import { MUELLES, MUELLE_CERO } from '../../lib/muelles';
-import { timeSet, nowDateTime, formatSlot, horaOf, combinarFechaHora, formatFechaHora } from '../../lib/dateUtils';
-import { CUADRILLAS, PORTERIA_STEPS, DetailRow, SectionTitle, TimeRow } from './TransporteDetailBits';
+import {
+  timeSet,
+  nowDateTime,
+  formatSlot,
+  horaOf,
+  combinarFechaHora,
+  formatFechaHora,
+} from '../../lib/dateUtils';
+import { CUADRILLAS, PORTERIA_STEPS, DetailRow, TimeRow } from './TransporteDetailBits';
 
 interface TransporteDetailPanelProps {
   row: UnifiedTransporte | null;
@@ -18,9 +25,49 @@ interface TransporteDetailPanelProps {
   onAsignarMuelle?: (row: UnifiedTransporte, muelle: string) => void;
   onMuelleHora?: (row: UnifiedTransporte, hora: string) => void;
   onCuadrilla?: (row: UnifiedTransporte, cuadrilla: string) => void;
+  onCajas?: (row: UnifiedTransporte, cajas: number) => void;
   checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
+  /** Muestra el badge ESTATUS (estado_transporte) junto al estado de portería. */
+  showEstatus?: boolean;
 }
+
+const CajasInput: React.FC<{
+  row: UnifiedTransporte;
+  onCajas: (row: UnifiedTransporte, cajas: number) => void;
+}> = ({ row, onCajas }) => {
+  const [val, setVal] = useState<string>(row.cajas != null ? String(row.cajas) : '');
+
+  React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza el input con el valor recibido de la fila
+    setVal(row.cajas != null ? String(row.cajas) : '');
+  }, [row.cajas]);
+
+  const commit = () => {
+    const num = Number(val);
+    if (Number.isFinite(num) && num >= 0 && num !== row.cajas) {
+      onCajas(row, num);
+    }
+  };
+
+  return (
+    <input
+      type="number"
+      min={0}
+      value={val}
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          commit();
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+      title="Editar número de cajas"
+      className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2.5 py-1.5 rounded-lg font-bold focus:outline-none text-xs text-right w-24 focus:border-emerald-500"
+    />
+  );
+};
 
 export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   row,
@@ -33,8 +80,10 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   onAsignarMuelle,
   onMuelleHora,
   onCuadrilla,
+  onCajas,
   checklistOwner,
   onPorteriaHora,
+  showEstatus = false,
 }) => {
   const [confirmIndex, setConfirmIndex] = useState<number | null>(null);
 
@@ -42,16 +91,22 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
 
   const cerrada = isLlaveCerrada(row);
   const estado = getEstadoPorteria(row);
-  const setFlags = PORTERIA_STEPS.map((s) => timeSet((row as Record<string, unknown>)[s.key] as string | undefined));
+  const setFlags = PORTERIA_STEPS.map((s) =>
+    timeSet((row as Record<string, unknown>)[s.key] as string | undefined),
+  );
   const enabledIndex = setFlags.findIndex((f) => !f);
   // Matriz de control de tiempos por módulo:
   // - PORTERÍA: H. Llegada (0) y H. Ingreso (1).
   // - DESPACHOS: H. Inicio Cargue (2) y H. Fin Cargue (3).
   // - MONITOREO: H. Salida Portería (4).
-  const ownedIndexes = checklistOwner === 'despachos' ? [2, 3] : checklistOwner === 'monitoreo' ? [4] : [0, 1];
+  const ownedIndexes =
+    checklistOwner === 'despachos' ? [2, 3] : checklistOwner === 'monitoreo' ? [4] : [0, 1];
   const showCheck = Boolean(checklistOwner) && Boolean(onPorteriaHora);
   const requiresMuelle = checklistOwner === 'despachos';
   const muelleOk = !requiresMuelle || Boolean(row.muelleAsignado);
+  // Regla: H. INGRESO A MUELLE solo se activa si ya hay un muelle asignado,
+  // en TODOS los módulos (portería, despachos, monitoreo).
+  const ingresoRequiereMuelle = Boolean(row.muelleAsignado);
   // PORTERÍA solo puede iniciar el proceso (H. Llegada Portería) si la llave
   // está CONFIRMADA; una llave en PENDIENTE (sin placa) no se puede iniciar.
   const puedeIniciarPorteria = estado === 'Confirmado';
@@ -60,18 +115,29 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
     ownedIndexes.includes(i) &&
     enabledIndex === i &&
     muelleOk &&
+    (i !== 1 || ingresoRequiereMuelle) &&
+    (i !== 3 || Boolean(row.cuadrilla)) &&
     (checklistOwner !== 'porteria' || i !== 0 || puedeIniciarPorteria);
 
-  const stepEditable = (i: number) => !cerrada && ownedIndexes.includes(i) && setFlags[i];
+  // P3: al activar un checkbox, los anteriores quedan desactivados mostrando su
+  // hora; el recién activado conserva la hora editable. Solo el ÚLTIMO paso
+  // marcado del flujo es editable; los anteriores se muestran con la hora
+  // bloqueada (aunque pertenezcan al mismo módulo).
+  const stepEditable = (i: number) =>
+    !cerrada && ownedIndexes.includes(i) && setFlags[i] && i === setFlags.lastIndexOf(true);
 
   const handleEdit = () => {
-    onClose();
-    onEdit?.(row);
+    if (onEdit && !cerrada && puedeEditarOperacion(row)) {
+      onClose();
+      onEdit(row);
+    }
   };
 
   const handleDelete = () => {
-    onClose();
-    onDelete?.(row);
+    if (onDelete && !cerrada && puedeEditarOperacion(row)) {
+      onClose();
+      onDelete(row);
+    }
   };
 
   return (
@@ -82,18 +148,35 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-zinc-800">
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">Llave</p>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">
+                Llave
+              </p>
               <h3 className="text-lg font-black text-white font-mono truncate">{row.llave}</h3>
             </div>
             <div className="flex items-baseline gap-2">
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">Placa</p>
-              <p className="text-[11px] font-semibold text-zinc-100 truncate">{row.placa || 'SIN PLACA'}</p>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest shrink-0">
+                Placa
+              </p>
+              <p className="text-[11px] font-semibold text-zinc-100 truncate">
+                {row.placa || 'SIN PLACA'}
+              </p>
             </div>
           </div>
-          <div className="flex-1 flex justify-center">
-            <TipoBadge tipo={row.vehiculoTipo} />
+          <div className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[11px] font-semibold text-zinc-100 truncate">
+                {row.transportadora || '—'}
+              </span>
+              <TipoBadge tipo={row.vehiculoTipo} />
+            </div>
+            <span className="text-[11px] font-semibold text-zinc-100 truncate">
+              {row.region || '—'}
+            </span>
           </div>
-          <button onClick={onClose} className="text-zinc-400 hover:text-white p-1.5 rounded-lg shrink-0">
+          <button
+            onClick={onClose}
+            className="text-zinc-400 hover:text-white p-1.5 rounded-lg shrink-0"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -102,18 +185,22 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
           {/* Control de tiempos / columnas de operación */}
           <div>
-            <div className="flex items-center justify-between pb-1">
-              <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Control de Tiempos</h4>
-              <EstadoBadge estado={getEstadoPorteria(row)} />
+            <div className="flex items-center justify-between pb-1 gap-1.5">
+              <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                Control de Tiempos
+              </h4>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {showEstatus && <EstatusBadge estado={row.estadoTransporte} />}
+                <EstadoBadge estado={getEstadoPorteria(row)} />
+              </div>
             </div>
             {checklistOwner === 'porteria' && estado === 'Pendiente' && (
               <div className="mb-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] rounded-lg px-3 py-2 leading-relaxed">
-                Llave en <strong>PENDIENTE</strong>: el proceso de portería no se puede iniciar hasta que la
-                llave esté <strong>CONFIRMADA</strong> (placa asignada).
+                Llave en <strong>PENDIENTE</strong>: el proceso de portería no se puede iniciar
+                hasta que la llave esté <strong>CONFIRMADA</strong> (placa asignada).
               </div>
             )}
             <div className="bg-[#121726] rounded-xl border border-zinc-800 px-4">
-              <DetailRow label="Transportadora" value={row.transportadora} />
               <DetailRow label="Hora Cita (Slot programado)" value={formatSlot(row.citaCargue)} />
               <TimeRow
                 showCheck={showCheck && ownedIndexes.includes(0)}
@@ -124,16 +211,6 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 value={row.horaLlegadaPorteria}
                 onCheck={() => setConfirmIndex(0)}
                 onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[0].key, hora)}
-              />
-              <TimeRow
-                showCheck={showCheck && ownedIndexes.includes(1)}
-                step={PORTERIA_STEPS[1]}
-                checked={setFlags[1]}
-                enabled={stepEnabled(1)}
-                editable={stepEditable(1)}
-                value={row.horaIngreso}
-                onCheck={() => setConfirmIndex(1)}
-                onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[1].key, hora)}
               />
               <div className="border-b border-zinc-800/60">
                 <div className="flex items-center justify-between gap-3 py-2.5">
@@ -181,11 +258,23 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                     />
                   ) : (
                     <span className="text-xs font-semibold text-zinc-100 text-right">
-                      {timeSet(row.horaMuelleAsignado) ? formatFechaHora(row.horaMuelleAsignado) : '—'}
+                      {timeSet(row.horaMuelleAsignado)
+                        ? formatFechaHora(row.horaMuelleAsignado)
+                        : '—'}
                     </span>
                   )}
                 </div>
               </div>
+              <TimeRow
+                showCheck={showCheck && ownedIndexes.includes(1)}
+                step={PORTERIA_STEPS[1]}
+                checked={setFlags[1]}
+                enabled={stepEnabled(1)}
+                editable={stepEditable(1)}
+                value={row.horaIngreso}
+                onCheck={() => setConfirmIndex(1)}
+                onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[1].key, hora)}
+              />
               <TimeRow
                 showCheck={showCheck && ownedIndexes.includes(2)}
                 step={PORTERIA_STEPS[2]}
@@ -193,18 +282,11 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 enabled={stepEnabled(2)}
                 editable={stepEditable(2)}
                 value={row.horaInicioCargue}
-                onCheck={() => setConfirmIndex(2)}
+                onCheck={() => {
+                  setConfirmIndex(2);
+                  onPorteriaHora?.(row.id, 'horaInicioCargue', nowDateTime());
+                }}
                 onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[2].key, hora)}
-              />
-              <TimeRow
-                showCheck={showCheck && ownedIndexes.includes(3)}
-                step={PORTERIA_STEPS[3]}
-                checked={setFlags[3]}
-                enabled={stepEnabled(3)}
-                editable={stepEditable(3)}
-                value={row.horaFinCargue}
-                onCheck={() => setConfirmIndex(3)}
-                onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[3].key, hora)}
               />
               <div className="flex items-center justify-between gap-3 py-2.5 border-b border-zinc-800/60 last:border-0">
                 <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
@@ -231,6 +313,28 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                   </span>
                 )}
               </div>
+              <div className="flex items-center justify-between gap-3 py-2.5 border-b border-zinc-800/60 last:border-0">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pt-0.5">
+                  Cajas
+                </span>
+                {onCajas ? (
+                  <CajasInput row={row} onCajas={onCajas} />
+                ) : (
+                  <span className="text-xs font-semibold text-zinc-100 text-right">
+                    {row.cajas != null ? row.cajas.toLocaleString('es-CO') : '—'}
+                  </span>
+                )}
+              </div>
+              <TimeRow
+                showCheck={showCheck && ownedIndexes.includes(3)}
+                step={PORTERIA_STEPS[3]}
+                checked={setFlags[3]}
+                enabled={stepEnabled(3)}
+                editable={stepEditable(3)}
+                value={row.horaFinCargue}
+                onCheck={() => setConfirmIndex(3)}
+                onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[3].key, hora)}
+              />
               <TimeRow
                 showCheck={showCheck && ownedIndexes.includes(4)}
                 step={PORTERIA_STEPS[4]}
@@ -241,20 +345,13 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                 onCheck={() => setConfirmIndex(4)}
                 onEdit={(hora) => onPorteriaHora?.(row, PORTERIA_STEPS[4].key, hora)}
               />
-            </div>
-          </div>
-
-          {/* Detalle */}
-          <div>
-            <SectionTitle>Detalle</SectionTitle>
-            <div className="bg-[#121726] rounded-xl border border-zinc-800 px-4">
-              <DetailRow label="Observaciones" value={row.observaciones} />
+              {/* Nº Pedido y Cliente retirados de la UI (siguen en la BD). */}
             </div>
           </div>
         </div>
 
         {/* Footer: acciones */}
-        {(showEdit || showDelete) && !cerrada && (
+        {(showEdit || showDelete) && !cerrada && puedeEditarOperacion(row) && (
           <div className="px-5 py-4 border-t border-zinc-800 space-y-3">
             <div className="flex items-center space-x-2">
               {showEdit && (

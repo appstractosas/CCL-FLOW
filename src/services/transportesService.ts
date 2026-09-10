@@ -1,9 +1,47 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { UnifiedTransporte } from '../types';
+import type { UnifiedTransporte, TipoVehiculo, EstadoTransporte, EstadoPorteria } from '../types';
 
 const TABLE = 'transportes';
 
-function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
+/** Fila de escritura de `transportes` (snake_case, sin columnas auto-generadas). */
+interface TransporteDBWrite {
+  llave: string;
+  fecha_hora: string;
+  placa: string;
+  vehiculo_tipo: string;
+  cita_cargue: string | null;
+  transporte: string | null;
+  denominacion: string | null;
+  cajas: number | null;
+  destino: string | null;
+  region: string | null;
+  transportadora: string;
+  estado_transporte: string;
+  estado_porteria: string;
+  muelle_asignado: string | null;
+  cuadrilla: string | null;
+  hora_muelle_asignado: string | null;
+  hora_ingreso: string | null;
+  hora_salida: string | null;
+  hora_llegada_porteria: string | null;
+  hora_inicio_cargue: string | null;
+  hora_fin_cargue: string | null;
+  observaciones: string | null;
+}
+
+/** Fila de lectura de `transportes` (incluye columnas generadas). */
+interface TransporteDBRow extends TransporteDBWrite {
+  id: string;
+  cajas_manual?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
+ * Convierte un registro del formato frontend (camelCase) al formato BD (snake_case).
+ * Se usa para inserts y updates via RPC.
+ */
+function mapTransporteToDB(item: UnifiedTransporte): TransporteDBWrite {
   return {
     llave: item.llave,
     fecha_hora: item.fechaHora,
@@ -13,6 +51,8 @@ function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
     transporte: item.transporte || null,
     denominacion: item.denominacion || null,
     cajas: item.cajas ?? null,
+    destino: item.destino || null,
+    region: item.region || null,
     transportadora: item.transportadora || '',
     estado_transporte: item.estadoTransporte,
     estado_porteria: item.estadoPorteria,
@@ -28,20 +68,24 @@ function mapTransporteToDB(item: UnifiedTransporte): Record<string, any> {
   };
 }
 
-function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
+/** Convierte un registro de la BD (snake_case) al formato frontend (camelCase). */
+function mapTransporteFromDB(item: TransporteDBRow): UnifiedTransporte {
   return {
     id: item.id,
     llave: item.llave,
     fechaHora: item.fecha_hora,
     placa: item.placa || '',
-    vehiculoTipo: item.vehiculo_tipo,
+    vehiculoTipo: item.vehiculo_tipo as TipoVehiculo,
     citaCargue: item.cita_cargue || '',
     transporte: item.transporte || undefined,
     denominacion: item.denominacion || undefined,
     cajas: item.cajas ?? undefined,
+    cajasManual: item.cajas_manual ?? undefined,
+    destino: item.destino || undefined,
+    region: item.region || undefined,
     transportadora: item.transportadora || '',
-    estadoTransporte: item.estado_transporte,
-    estadoPorteria: item.estado_porteria || 'Pendiente',
+    estadoTransporte: item.estado_transporte as EstadoTransporte,
+    estadoPorteria: (item.estado_porteria as EstadoPorteria) || 'Pendiente',
     muelleAsignado: item.muelle_asignado || undefined,
     cuadrilla: item.cuadrilla || undefined,
     horaMuelleAsignado: item.hora_muelle_asignado || undefined,
@@ -55,13 +99,16 @@ function mapTransporteFromDB(item: Record<string, any>): UnifiedTransporte {
   };
 }
 
-function isOnline(): boolean {
-  return isSupabaseConfigured;
-}
-
+/**
+ * Obtiene todos los transportes ordenados por fecha descendente.
+ * En modo demo retorna array vacío.
+ */
 export async function fetchTransportes(): Promise<UnifiedTransporte[]> {
-  if (!isOnline()) return [];
-  const { data, error } = await supabase.from(TABLE).select('*').order('fecha_hora', { ascending: false });
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .order('fecha_hora', { ascending: false });
   if (error) throw error;
   return (data || []).map(mapTransporteFromDB);
 }
@@ -71,8 +118,11 @@ export async function fetchTransportes(): Promise<UnifiedTransporte[]> {
  *  "YYYY-MM-DD HH:MM" (app) y "YYYY-MM-DDTHH:MM" (sync ISO). Los límites se comparan
  *  como texto: desde = día + espacio, hasta = día + 'Z' (carácter mayor que T y
  *  que el espacio; el '~' falla en PostgREST al combinarse con gte). */
-export async function fetchTransportesByRango(fechaDesde: string, fechaHasta: string): Promise<UnifiedTransporte[]> {
-  if (!isOnline()) return [];
+export async function fetchTransportesByRango(
+  fechaDesde: string,
+  fechaHasta: string,
+): Promise<UnifiedTransporte[]> {
+  if (!isSupabaseConfigured) return [];
   const desde = `${fechaDesde} `;
   const hasta = `${fechaHasta}Z`;
   const { data, error } = await supabase
@@ -85,8 +135,31 @@ export async function fetchTransportesByRango(fechaDesde: string, fechaHasta: st
   return (data || []).map(mapTransporteFromDB);
 }
 
+/** Igual que fetchTransportesByRango pero devuelve las filas CRUDAS de la BD:
+ *  todas las columnas existentes, sin mapear a UnifiedTransporte. La usa el
+ *  export de Informes para volcar la tabla TRANSPORTES completa, sin importar
+ *  qué columnas tenga ni qué datos contenga. */
+export async function fetchTransportesRawByRango(
+  fechaDesde: string,
+  fechaHasta: string,
+): Promise<Record<string, unknown>[]> {
+  if (!isSupabaseConfigured) return [];
+  const desde = `${fechaDesde} `;
+  const hasta = `${fechaHasta}Z`;
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .gte('cita_cargue', desde)
+    .lte('cita_cargue', hasta)
+    .order('cita_cargue', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
 export async function createTransporte(item: UnifiedTransporte): Promise<UnifiedTransporte> {
-  const { data, error } = await supabase.from(TABLE).insert(mapTransporteToDB(item)).select().single();
+  const { data, error } = await supabase.rpc('ccl_create_transporte', {
+    p_data: mapTransporteToDB(item),
+  });
   if (error) throw error;
   return mapTransporteFromDB(data);
 }
@@ -99,7 +172,7 @@ let activeRealtimeUnsubscribe: (() => void) | null = null;
  * App Script del Sheets) modifique la BD.
  */
 export function subscribeToTransportes(onChange: () => void): () => void {
-  if (!isOnline()) return () => {};
+  if (!isSupabaseConfigured) return () => {};
 
   // Si ya hay una suscripción activa, se elimina primero para no volver a usar
   // el mismo canal tras subscribe() (evita el error de realtime y las duplicadas).
@@ -109,12 +182,9 @@ export function subscribeToTransportes(onChange: () => void): () => void {
 
   const channel = supabase
     .channel('transportes_realtime')
-    .on('postgres_changes',
-      { event: '*', schema: 'public', table: TABLE },
-      (payload) => {
-        void onChange();
-      }
-    )
+    .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, () => {
+      void onChange();
+    })
     .subscribe();
 
   activeRealtimeUnsubscribe = () => {
@@ -125,8 +195,16 @@ export function subscribeToTransportes(onChange: () => void): () => void {
   return activeRealtimeUnsubscribe;
 }
 
-export async function updateTransporte(id: string, updates: Partial<UnifiedTransporte>): Promise<void> {
-  const dbUpdates: Record<string, any> = {};
+/**
+ * Actualiza campos específicos de un transporte existente.
+ * Llama a la RPC `ccl_update_transporte` (SECURITY DEFINER).
+ * Si la BD no afecta ninguna fila, lanza un error explícito.
+ */
+export async function updateTransporte(
+  id: string,
+  updates: Partial<UnifiedTransporte>,
+): Promise<void> {
+  const dbUpdates: Record<string, string | number | boolean | undefined> = {};
   if (updates.fechaHora !== undefined) dbUpdates.fecha_hora = updates.fechaHora;
   if (updates.placa !== undefined) dbUpdates.placa = updates.placa;
   if (updates.vehiculoTipo !== undefined) dbUpdates.vehiculo_tipo = updates.vehiculoTipo;
@@ -134,18 +212,71 @@ export async function updateTransporte(id: string, updates: Partial<UnifiedTrans
   if (updates.transporte !== undefined) dbUpdates.transporte = updates.transporte;
   if (updates.denominacion !== undefined) dbUpdates.denominacion = updates.denominacion;
   if (updates.cajas !== undefined) dbUpdates.cajas = updates.cajas;
+  if (updates.cajasManual !== undefined) dbUpdates.cajas_manual = updates.cajasManual;
+  if (updates.destino !== undefined) dbUpdates.destino = updates.destino;
+  if (updates.region !== undefined) dbUpdates.region = updates.region;
   if (updates.transportadora !== undefined) dbUpdates.transportadora = updates.transportadora;
-  if (updates.estadoTransporte !== undefined) dbUpdates.estado_transporte = updates.estadoTransporte;
+  if (updates.estadoTransporte !== undefined)
+    dbUpdates.estado_transporte = updates.estadoTransporte;
   if (updates.estadoPorteria !== undefined) dbUpdates.estado_porteria = updates.estadoPorteria;
   if (updates.muelleAsignado !== undefined) dbUpdates.muelle_asignado = updates.muelleAsignado;
   if (updates.cuadrilla !== undefined) dbUpdates.cuadrilla = updates.cuadrilla;
-  if (updates.horaMuelleAsignado !== undefined) dbUpdates.hora_muelle_asignado = updates.horaMuelleAsignado;
+  if (updates.horaMuelleAsignado !== undefined)
+    dbUpdates.hora_muelle_asignado = updates.horaMuelleAsignado;
   if (updates.horaIngreso !== undefined) dbUpdates.hora_ingreso = updates.horaIngreso;
   if (updates.horaSalida !== undefined) dbUpdates.hora_salida = updates.horaSalida;
-  if (updates.horaLlegadaPorteria !== undefined) dbUpdates.hora_llegada_porteria = updates.horaLlegadaPorteria;
-  if (updates.horaInicioCargue !== undefined) dbUpdates.hora_inicio_cargue = updates.horaInicioCargue;
+  if (updates.horaLlegadaPorteria !== undefined)
+    dbUpdates.hora_llegada_porteria = updates.horaLlegadaPorteria;
+  if (updates.horaInicioCargue !== undefined)
+    dbUpdates.hora_inicio_cargue = updates.horaInicioCargue;
   if (updates.horaFinCargue !== undefined) dbUpdates.hora_fin_cargue = updates.horaFinCargue;
   if (updates.observaciones !== undefined) dbUpdates.observaciones = updates.observaciones;
-  const { error } = await supabase.from(TABLE).update(dbUpdates).eq('id', id);
+  const { error } = await supabase.rpc('ccl_update_transporte', { p_id: id, p_data: dbUpdates });
   if (error) throw error;
+}
+
+// --- NUEVO: paginación servidor (opcional, no rompe nada) ---
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export async function fetchTransportesPaginated(
+  page: number,
+  pageSize: number,
+  filters?: {
+    fechaDesde?: string;
+    fechaHasta?: string;
+    search?: string;
+    estadoPorteria?: string;
+  }
+): Promise<PaginatedResult<UnifiedTransporte>> {
+  if (!isSupabaseConfigured) return { data: [], total: 0, page, pageSize, totalPages: 0 };
+
+  let query = supabase.from(TABLE).select('*', { count: 'exact' });
+
+  if (filters?.fechaDesde) query = query.gte('cita_cargue', `${filters.fechaDesde} `);
+  if (filters?.fechaHasta) query = query.lte('cita_cargue', `${filters.fechaHasta}Z`);
+  if (filters?.search) {
+    const term = filters.search.toUpperCase();
+    query = query.or(`llave.ilike.%${term}%,placa.ilike.%${term}%,transportadora.ilike.%${term}%`);
+  }
+
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  query = query.order('cita_cargue', { ascending: false }).range(from, to);
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+
+  return {
+    data: (data || []).map(mapTransporteFromDB),
+    total: count || 0,
+    page,
+    pageSize,
+    totalPages: Math.ceil((count || 0) / pageSize),
+  };
 }

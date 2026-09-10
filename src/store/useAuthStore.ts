@@ -1,24 +1,29 @@
 import { create } from 'zustand';
 import {
-  Role, UserSession, UserRecord, AppModuleId, PermissionsMap,
-  HistorialMovimiento, UserType,
+  Role,
+  UserSession,
+  UserRecord,
+  AppModuleId,
+  PermissionsMap,
+  HistorialMovimiento,
+  UserType,
 } from '../types';
 import {
-  fetchRoles, updateRole, fetchUsers, createUser, updateUser as updateUserRemote,
-  deleteUser as deleteUserRemote, seedInitialData, PRESET_ROLES, PRESET_USERS, roleForUserType,
+  fetchRoles,
+  updateRole,
+  fetchUsers,
+  createUser as createUserRemote,
+  updateUser as updateUserRemote,
+  deleteUser as deleteUserRemote,
+  seedInitialData,
+  PRESET_ROLES,
+  PRESET_USERS,
+  roleForUserType,
 } from '../services/rbacService';
 import { fetchHistorial, createMovimiento } from '../services/historialService';
 import { cclLogin, cclValidateSession, cclLogout } from '../services/authService';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { ALL_MODULES, userTypeLabel, moduleLabel } from '../lib/moduleConfig';
-
-function permissionsAllTrue(): PermissionsMap {
-  const map = {} as PermissionsMap;
-  for (const mod of ALL_MODULES) {
-    map[mod] = { canAccess: true, canEdit: true };
-  }
-  return map;
-}
+import { userTypeLabel, moduleLabel } from '../lib/moduleConfig';
 
 function buildSession(user: UserRecord): UserSession {
   return {
@@ -65,8 +70,13 @@ interface AuthState {
   login: (cedula: string, clave: string) => Promise<boolean>;
   logout: () => void;
   addMovimiento: (accion: string, modulo: string, detalle?: string, llave?: string) => void;
-  createUser: (data: { nombre: string; cedula: string; clave: string; tipoUsuario: UserType }) => Promise<UserRecord>;
-  updateUser: (id: string, data: Partial<UserRecord>) => void;
+  createUser: (data: {
+    nombre: string;
+    cedula: string;
+    clave: string;
+    tipoUsuario: UserType;
+  }) => Promise<UserRecord>;
+  updateUser: (id: string, data: Partial<UserRecord>) => Promise<void>;
   deleteUser: (id: string) => boolean;
   updateRolePermissions: (roleId: string, moduleId: AppModuleId, enabled: boolean) => void;
   hasModuleAccess: (moduleId: AppModuleId) => boolean;
@@ -101,226 +111,256 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       await seedInitialData();
 
       const [roles, users, historial] = await Promise.all([
-            fetchRoles(),
-            fetchUsers(),
-            fetchHistorial(),
-          ]);
+        fetchRoles(),
+        fetchUsers(),
+        fetchHistorial(),
+      ]);
 
-          const mergedRoles = roles.length > 0 ? roles : PRESET_ROLES;
-          const mergedUsers = users.length > 0 ? users : PRESET_USERS;
+      const mergedRoles = roles.length > 0 ? roles : PRESET_ROLES;
+      const mergedUsers = users.length > 0 ? users : PRESET_USERS;
 
-          let currentUser = get().currentUser;
-          const token = readStoredToken();
-          if (!currentUser && token) {
-            const session = await cclValidateSession(token);
-            if (session.ok && session.user) {
-              const full = mergedUsers.find((u) => u.cedula === session.user?.cedula);
-              currentUser = full ? buildSession(full) : session.user;
-            } else {
-              persistToken(null);
-            }
-          }
-
-          set({
-            roles: mergedRoles,
-            users: mergedUsers,
-            currentUser,
-            historial,
-            initialized: true,
-            demoMode: false,
-          });
-        } catch (err) {
-          console.error('Error loading auth data from Supabase:', err);
+      let currentUser = get().currentUser;
+      const token = readStoredToken();
+      if (!currentUser && token) {
+        const session = await cclValidateSession(token);
+        if (session.ok && session.user) {
+          const full = mergedUsers.find((u) => u.cedula === session.user?.cedula);
+          currentUser = full ? buildSession(full) : session.user;
+        } else {
           persistToken(null);
-          set({
-            roles: PRESET_ROLES,
-            users: PRESET_USERS,
-            currentUser: null,
-            initialized: true,
-            demoMode: true,
-          });
         }
-      },
+      }
 
-      addMovimiento: (accion, modulo, detalle, llave) => {
-        const user = get().currentUser;
-        if (!user) return;
+      set({
+        roles: mergedRoles,
+        users: mergedUsers,
+        currentUser,
+        historial,
+        initialized: true,
+        demoMode: false,
+      });
+    } catch (err) {
+      console.error('Error loading auth data from Supabase:', err);
+      persistToken(null);
+      set({
+        roles: PRESET_ROLES,
+        users: PRESET_USERS,
+        currentUser: null,
+        initialized: true,
+        demoMode: !isSupabaseConfigured,
+      });
+    }
+  },
 
-        const mov: HistorialMovimiento = {
-          id: `HIS-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          usuario: user.name,
-          tipoUsuario: user.tipoUsuario,
-          cedula: user.cedula,
-          accion,
-          modulo,
-          detalle,
-          llaveRelacionada: llave,
-          createdAt: new Date().toISOString(),
-        };
+  addMovimiento: (accion, modulo, detalle, llave) => {
+    const user = get().currentUser;
+    if (!user) return;
 
-        if (isSupabaseConfigured) {
-          createMovimiento(mov).catch(console.error);
-        }
+    const mov: HistorialMovimiento = {
+      id: `HIS-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      usuario: user.name,
+      tipoUsuario: user.tipoUsuario,
+      cedula: user.cedula,
+      accion,
+      modulo,
+      detalle,
+      llaveRelacionada: llave,
+      createdAt: new Date().toISOString(),
+    };
 
-        set((s) => ({ historial: [mov, ...s.historial].slice(0, 500) }));
-      },
+    if (isSupabaseConfigured) {
+      createMovimiento(mov).catch(console.error);
+    }
 
-      login: async (cedula, clave) => {
-        const c = cedula.trim();
+    set((s) => ({ historial: [mov, ...s.historial].slice(0, 500) }));
+  },
 
-        if (isSupabaseConfigured) {
-          // Las credenciales se validan SIEMPRE en la BD (función ccl_login).
-          const session = await cclLogin(c, clave);
-          if (!session.ok || !session.user) return false;
+  login: async (cedula, clave) => {
+    const c = cedula.trim();
 
-          persistToken(session.token || null);
-          set({ currentUser: session.user });
-          get().addMovimiento('INICIO_SESION', 'seguridad', `Inicio de sesión de ${session.user.name} (${userTypeLabel(session.user.tipoUsuario)})`);
-          return true;
-        }
+    if (isSupabaseConfigured) {
+      // Las credenciales se validan SIEMPRE en la BD (función ccl_login).
+      const session = await cclLogin(c, clave);
+      if (!session.ok || !session.user) return false;
 
-        const user = get().users.find((u) => u.cedula === c && u.clave === clave);
-        if (!user) return false;
+      persistToken(session.token || null);
+      set({ currentUser: session.user });
+      get().addMovimiento(
+        'INICIO_SESION',
+        'seguridad',
+        `Inicio de sesión de ${session.user.name} (${userTypeLabel(session.user.tipoUsuario)})`,
+      );
+      return true;
+    }
 
-        set({ currentUser: buildSession(user) });
-        get().addMovimiento('INICIO_SESION', 'seguridad', `Inicio de sesión de ${user.nombre} (${userTypeLabel(user.tipoUsuario)})`);
-        return true;
-      },
+    const user = get().users.find((u) => u.cedula === c && u.clave === clave);
+    if (!user) return false;
 
-      logout: () => {
-        const user = get().currentUser;
-        const token = readStoredToken();
-        if (token) {
-          cclLogout(token).catch(() => {});
-        }
-        if (user) {
-          get().addMovimiento('CIERRE_SESION', 'seguridad', `Cierre de sesión de ${user.name}`);
-        }
-        persistToken(null);
-        set({ currentUser: null });
-      },
+    set({ currentUser: buildSession(user) });
+    get().addMovimiento(
+      'INICIO_SESION',
+      'seguridad',
+      `Inicio de sesión de ${user.nombre} (${userTypeLabel(user.tipoUsuario)})`,
+    );
+    return true;
+  },
 
-      createUser: async (data) => {
-        const existing = get().users.find((u) => u.cedula === data.cedula.trim());
-        if (existing) throw new Error('La cédula ya está registrada');
+  logout: () => {
+    const user = get().currentUser;
+    const token = readStoredToken();
+    if (token) {
+      cclLogout(token).catch(() => {});
+    }
+    if (user) {
+      get().addMovimiento('CIERRE_SESION', 'seguridad', `Cierre de sesión de ${user.name}`);
+    }
+    persistToken(null);
+    set({ currentUser: null });
+  },
 
-        const { roleId, roleName } = roleForUserType(data.tipoUsuario);
-        const newUser: UserRecord = {
-          id: `USER_${Date.now()}`,
-          nombre: data.nombre.trim(),
-          cedula: data.cedula.trim(),
-          clave: data.clave,
-          tipoUsuario: data.tipoUsuario,
-          roleId,
-          roleName,
-          createdAt: new Date().toISOString(),
-        };
+  createUser: async (data) => {
+    const existing = get().users.find((u) => u.cedula === data.cedula.trim());
+    if (existing) throw new Error('La cédula ya está registrada');
 
-        if (isSupabaseConfigured) {
-          try {
-            await createUser(newUser);
-          } catch (err) {
-            console.error('Error saving user to Supabase:', err);
-          }
-        }
+    const { roleId, roleName } = roleForUserType(data.tipoUsuario);
+    const newUser: UserRecord = {
+      id: `USER_${Date.now()}`,
+      nombre: data.nombre.trim(),
+      cedula: data.cedula.trim(),
+      clave: data.clave,
+      tipoUsuario: data.tipoUsuario,
+      roleId,
+      roleName,
+      createdAt: new Date().toISOString(),
+    };
 
-        set((s) => ({ users: [...s.users, newUser] }));
-        get().addMovimiento('CREAR_USUARIO', 'usuarios', `Usuario ${newUser.nombre} (${userTypeLabel(newUser.tipoUsuario)})`);
-        return newUser;
-      },
-
-      updateUser: (id, data) => {
-        const target = get().users.find((u) => u.id === id);
-        if (!target) return;
-
-        let updated: UserRecord = { ...target, ...data };
-        if (data.tipoUsuario) {
-          const { roleId, roleName } = roleForUserType(data.tipoUsuario);
-          updated = { ...updated, roleId, roleName };
-        }
-
-        if (isSupabaseConfigured) {
-          updateUserRemote(id, {
-            nombre: updated.nombre,
-            cedula: updated.cedula,
-            clave: updated.clave,
-            tipoUsuario: updated.tipoUsuario,
-            roleId: updated.roleId,
-            roleName: updated.roleName,
-          }).catch(console.error);
-        }
-
-        set((s) => ({
-          users: s.users.map((u) => (u.id === id ? updated : u)),
-        }));
-        get().addMovimiento('EDITAR_USUARIO', 'usuarios', `Edición del usuario ${updated.nombre}`);
-
-        if (get().currentUser?.id === id) {
-          set({ currentUser: buildSession(updated) });
-        }
-      },
-
-      deleteUser: (id) => {
-        const target = get().users.find((u) => u.id === id);
-        if (!target) return false;
-        if (target.tipoUsuario === 'admin') return false;
-        if (get().currentUser?.id === id) return false;
-
-        if (isSupabaseConfigured) {
-          deleteUserRemote(id).catch(console.error);
-        }
-
-        set((s) => ({ users: s.users.filter((u) => u.id !== id) }));
-        get().addMovimiento('ELIMINAR_USUARIO', 'usuarios', `Eliminación del usuario ${target.nombre}`);
-        return true;
-      },
-
-      updateRolePermissions: (roleId, moduleId, enabled) => {
-        const role = get().roles.find((r) => r.id === roleId);
-        if (!role || role.id === 'ROLE_ADMIN') return;
-
-        const permissions: PermissionsMap = {
-          ...role.permissions,
-          [moduleId]: { canAccess: enabled, canEdit: enabled },
-        };
-
-        if (isSupabaseConfigured) {
-          updateRole(roleId, role.name, role.description, permissions).catch(console.error);
-        }
-
-        set((s) => ({
-          roles: s.roles.map((r) => (r.id === roleId ? { ...r, permissions } : r)),
-        }));
-        get().addMovimiento(
-          'ACTUALIZAR_PERMISOS',
-          moduleId,
-          `Rol ${role.name}: módulo ${moduleLabel(moduleId)} ${enabled ? 'activado' : 'desactivado'}`
+    // La BD es la verdad: si el insert falla (rol inexistente, CHECK de
+    // tipo, duplicados...) se avisa al usuario y NO se agrega en local.
+    let persisted = newUser;
+    if (isSupabaseConfigured) {
+      try {
+        persisted = await createUserRemote(newUser);
+      } catch (err) {
+        window.alert(
+          `No se pudo crear el usuario en la base de datos.\nMotivo: ${(err as Error).message}\n` +
+            'Verifica que el rol exista en la tabla ROLES (migración SQL ejecutada) y vuelve a intentar.',
         );
-      },
+        throw err;
+      }
+    }
 
-      getActiveRole: () => {
-        const { roles, currentUser } = get();
-        if (!currentUser) return roles.find((r) => r.id === 'ROLE_ADMIN') || roles[0];
-        return roles.find((r) => r.id === currentUser.roleId) || roles.find((r) => r.id === 'ROLE_ADMIN') || roles[0];
-      },
+    set((s) => ({ users: [...s.users, persisted] }));
+    get().addMovimiento(
+      'CREAR_USUARIO',
+      'usuarios',
+      `Usuario ${persisted.nombre} (${userTypeLabel(persisted.tipoUsuario)})`,
+    );
+    return persisted;
+  },
 
-      hasModuleAccess: (moduleId) => {
-        // El ADMIN tiene acceso total a cualquier módulo.
-        if (get().currentUser?.tipoUsuario === 'admin') return true;
-        const activeRole = get().getActiveRole();
-        if (!activeRole) return false;
-        return Boolean(activeRole.permissions[moduleId]?.canAccess);
-      },
+  updateUser: async (id, data) => {
+    const target = get().users.find((u) => u.id === id);
+    if (!target) return;
 
-      hasModuleEdit: (moduleId) => {
-        // El ADMIN puede editar en cualquier módulo.
-        if (get().currentUser?.tipoUsuario === 'admin') return true;
-        const activeRole = get().getActiveRole();
-        if (!activeRole) return false;
-        return Boolean(activeRole.permissions[moduleId]?.canEdit);
-      },
+    let updated: UserRecord = { ...target, ...data };
+    if (data.tipoUsuario) {
+      const { roleId, roleName } = roleForUserType(data.tipoUsuario);
+      updated = { ...updated, roleId, roleName };
+    }
 
-      isAdmin: () => {
-        return get().currentUser?.tipoUsuario === 'admin';
-      },
+    if (isSupabaseConfigured) {
+      try {
+        await updateUserRemote(id, {
+          nombre: updated.nombre,
+          cedula: updated.cedula,
+          clave: updated.clave,
+          tipoUsuario: updated.tipoUsuario,
+          roleId: updated.roleId,
+          roleName: updated.roleName,
+        });
+      } catch (err) {
+        window.alert(
+          `No se pudo actualizar el usuario en la base de datos.\nMotivo: ${(err as Error).message}`,
+        );
+        throw err;
+      }
+    }
+
+    set((s) => ({
+      users: s.users.map((u) => (u.id === id ? updated : u)),
+    }));
+    get().addMovimiento('EDITAR_USUARIO', 'usuarios', `Edición del usuario ${updated.nombre}`);
+
+    if (get().currentUser?.id === id) {
+      set({ currentUser: buildSession(updated) });
+    }
+  },
+
+  deleteUser: (id) => {
+    const target = get().users.find((u) => u.id === id);
+    if (!target) return false;
+    if (target.tipoUsuario === 'admin') return false;
+    if (get().currentUser?.id === id) return false;
+
+    if (isSupabaseConfigured) {
+      deleteUserRemote(id).catch(console.error);
+    }
+
+    set((s) => ({ users: s.users.filter((u) => u.id !== id) }));
+    get().addMovimiento('ELIMINAR_USUARIO', 'usuarios', `Eliminación del usuario ${target.nombre}`);
+    return true;
+  },
+
+  updateRolePermissions: (roleId, moduleId, enabled) => {
+    const role = get().roles.find((r) => r.id === roleId);
+    if (!role || role.id === 'ROLE_ADMIN') return;
+
+    const permissions: PermissionsMap = {
+      ...role.permissions,
+      [moduleId]: { canAccess: enabled, canEdit: enabled },
+    };
+
+    if (isSupabaseConfigured) {
+      updateRole(roleId, role.name, role.description, permissions).catch(console.error);
+    }
+
+    set((s) => ({
+      roles: s.roles.map((r) => (r.id === roleId ? { ...r, permissions } : r)),
+    }));
+    get().addMovimiento(
+      'ACTUALIZAR_PERMISOS',
+      moduleId,
+      `Rol ${role.name}: módulo ${moduleLabel(moduleId)} ${enabled ? 'activado' : 'desactivado'}`,
+    );
+  },
+
+  getActiveRole: () => {
+    const { roles, currentUser } = get();
+    if (!currentUser) return roles.find((r) => r.id === 'ROLE_ADMIN') || roles[0];
+    return (
+      roles.find((r) => r.id === currentUser.roleId) ||
+      roles.find((r) => r.id === 'ROLE_ADMIN') ||
+      roles[0]
+    );
+  },
+
+  hasModuleAccess: (moduleId) => {
+    // El ADMIN tiene acceso total a cualquier módulo.
+    if (get().currentUser?.tipoUsuario === 'admin') return true;
+    const activeRole = get().getActiveRole();
+    if (!activeRole) return false;
+    return Boolean(activeRole.permissions[moduleId]?.canAccess);
+  },
+
+  hasModuleEdit: (moduleId) => {
+    // El ADMIN puede editar en cualquier módulo.
+    if (get().currentUser?.tipoUsuario === 'admin') return true;
+    const activeRole = get().getActiveRole();
+    if (!activeRole) return false;
+    return Boolean(activeRole.permissions[moduleId]?.canEdit);
+  },
+
+  isAdmin: () => {
+    return get().currentUser?.tipoUsuario === 'admin';
+  },
 }));

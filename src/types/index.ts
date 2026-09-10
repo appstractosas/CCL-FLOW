@@ -1,9 +1,13 @@
-export type AppModuleId = 
-  | 'despachos' 
+/**
+ * Identificadores de módulos de la aplicación.
+ * Cada módulo tiene permisos de acceso y edición en la matriz RBAC.
+ */
+export type AppModuleId =
+  | 'despachos'
   | 'porteria'
   | 'monitoreo'
   | 'informes'
-  | 'planeacion' 
+  | 'planeacion'
   | 'transportes'
   | 'personal'
   | 'admin_roles'
@@ -12,15 +16,30 @@ export type AppModuleId =
   | 'tablero';
 
 /** Tipos de usuario del sistema (mapean a un rol de la matriz de permisos). */
-export type UserType = 'admin' | 'despachador' | 'portero' | 'planeador' | 'supervisor' | 'monitor' | 'transportes';
+export type UserType =
+  | 'admin'
+  | 'despachador'
+  | 'portero'
+  | 'planeador'
+  | 'supervisor'
+  | 'monitor'
+  | 'transportes'
+  | 'tablero'
+  | 'informes';
 
+/** Permisos de un módulo para un rol: puede acceder y/o puede editar. */
 export interface ModulePermission {
   canAccess: boolean;
   canEdit: boolean;
 }
 
+/** Mapa completo de permisos: un flag por cada módulo de la app. */
 export type PermissionsMap = Record<AppModuleId, ModulePermission>;
 
+/**
+ * Rol de la matriz de permisos (tabla `roles` en Supabase).
+ * Los roles predefinidos (isPreset=true) no se pueden eliminar.
+ */
 export interface Role {
   id: string;
   name: string;
@@ -29,6 +48,10 @@ export interface Role {
   permissions: PermissionsMap;
 }
 
+/**
+ * Sesión activa del usuario logueado.
+ * Se almacena en Zustand (no en localStorage — solo el token va a localStorage).
+ */
 export interface UserSession {
   id: string;
   name: string;
@@ -50,6 +73,7 @@ export interface UserRecord {
   createdAt?: string;
 }
 
+/** Acciones que se registran en el historial de movimientos. */
 export type HistorialAccion =
   | 'INICIO_SESION'
   | 'CIERRE_SESION'
@@ -94,11 +118,7 @@ export type TipoVehiculo = 'SENCILLO' | 'TURBO' | 'MINIMULA' | 'LUV' | 'MULA';
 
 /** Campos de tiempo del control de portería (secuencia de registro de horas). */
 export type PorteriaTimeField =
-  | 'horaLlegadaPorteria'
-  | 'horaIngreso'
-  | 'horaInicioCargue'
-  | 'horaFinCargue'
-  | 'horaSalida';
+  'horaLlegadaPorteria' | 'horaIngreso' | 'horaInicioCargue' | 'horaFinCargue' | 'horaSalida';
 
 /**
  * Registro único de la operación: una fila por vehículo/LLAVE.
@@ -118,6 +138,12 @@ export interface UnifiedTransporte {
   denominacion?: string;
   /** Cantidad de cajas del pedido. Alimenta el módulo de informes. */
   cajas?: number;
+  /** TRUE si las cajas fueron editadas desde la app (el sync no las pisa). */
+  cajasManual?: boolean;
+  /** Ciudad/lugar de destino del pedido (viene del Excel o se captura en la app). */
+  destino?: string;
+  /** Región del pedido (columna Region del Excel / region en la BD). */
+  region?: string;
   transportadora?: string;
   estadoTransporte: EstadoTransporte;
   estadoPorteria: EstadoPorteria;
@@ -140,13 +166,21 @@ export interface TransporteData {
   vehiculoTipo?: TipoVehiculo;
   citaCargue?: string;
   transportadora?: string;
+  /** Número de pedido (no es placa ni vehículo). Un transporte no puede pertenecer a dos llaves. */
+  transporte?: string;
+  /** Nombre del cliente (denominación). */
+  denominacion?: string;
   estadoTransporte?: EstadoTransporte;
   muelleAsignado?: string;
   cuadrilla?: string;
+  cajas?: number;
+  destino?: string;
+  region?: string;
   horaMuelleAsignado?: string;
   observaciones?: string;
 }
 
+/** Mensaje del chat inter-módulo (tabla `chat_messages` en Supabase). */
 export interface ChatMessage {
   id: string;
   senderRole: string;
@@ -184,8 +218,16 @@ export interface Cliente {
 export interface Ciudad {
   id: string;
   ciudad: string;
+  region?: string;
 }
 
+/** Transportadora (tabla `transportadoras`). */
+export interface Transportadora {
+  id: string;
+  nombre: string;
+}
+
+/** Estadísticas KPI del tablero de métricas. */
 export interface KPIStats {
   totalPedidos: number;
   cumplimientoSLA: number;

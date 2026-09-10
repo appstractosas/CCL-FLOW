@@ -12,16 +12,36 @@ import { Loader2, Menu, AlertTriangle } from 'lucide-react';
 import logoSrc from '/assets/logo.png';
 
 // Carga diferida de los módulos para no traer recharts/xlsx/etc. en el primer render.
-const DespachosModule = lazy(() => import('./components/modules/DespachosModule').then((m) => ({ default: m.DespachosModule })));
-const PlaneacionModule = lazy(() => import('./components/modules/PlaneacionModule').then((m) => ({ default: m.PlaneacionModule })));
-const TransportesModule = lazy(() => import('./components/modules/TransportesModule').then((m) => ({ default: m.TransportesModule })));
-const PorteriaModule = lazy(() => import('./components/modules/PorteriaModule').then((m) => ({ default: m.PorteriaModule })));
-const MonitoreoModule = lazy(() => import('./components/modules/MonitoreoModule').then((m) => ({ default: m.MonitoreoModule })));
-const InformesModule = lazy(() => import('./components/modules/InformesModule').then((m) => ({ default: m.InformesModule })));
-const PersonalModule = lazy(() => import('./components/modules/PersonalModule').then((m) => ({ default: m.PersonalModule })));
-const UsuariosModule = lazy(() => import('./components/modules/UsuariosModule').then((m) => ({ default: m.UsuariosModule })));
-const RoleManager = lazy(() => import('./components/rbac/RoleManager').then((m) => ({ default: m.RoleManager })));
-const AeropuertoBoard = lazy(() => import('./components/modules/AeropuertoBoard').then((m) => ({ default: m.AeropuertoBoard })));
+const DespachosModule = lazy(() =>
+  import('./components/modules/DespachosModule').then((m) => ({ default: m.DespachosModule })),
+);
+const PlaneacionModule = lazy(() =>
+  import('./components/modules/PlaneacionModule').then((m) => ({ default: m.PlaneacionModule })),
+);
+const TransportesModule = lazy(() =>
+  import('./components/modules/TransportesModule').then((m) => ({ default: m.TransportesModule })),
+);
+const PorteriaModule = lazy(() =>
+  import('./components/modules/PorteriaModule').then((m) => ({ default: m.PorteriaModule })),
+);
+const MonitoreoModule = lazy(() =>
+  import('./components/modules/MonitoreoModule').then((m) => ({ default: m.MonitoreoModule })),
+);
+const InformesModule = lazy(() =>
+  import('./components/modules/InformesModule').then((m) => ({ default: m.InformesModule })),
+);
+const PersonalModule = lazy(() =>
+  import('./components/modules/PersonalModule').then((m) => ({ default: m.PersonalModule })),
+);
+const UsuariosModule = lazy(() =>
+  import('./components/modules/UsuariosModule').then((m) => ({ default: m.UsuariosModule })),
+);
+const RoleManager = lazy(() =>
+  import('./components/rbac/RoleManager').then((m) => ({ default: m.RoleManager })),
+);
+const AeropuertoBoard = lazy(() =>
+  import('./components/modules/AeropuertoBoard').then((m) => ({ default: m.AeropuertoBoard })),
+);
 
 export default function App() {
   const { hasModuleAccess, currentUser, initialize: initAuth, demoMode: authDemo } = useAuthStore();
@@ -51,16 +71,7 @@ export default function App() {
 
   useEffect(() => {
     Promise.all([initAuth(), initLogistics(), initCatalogos()]).finally(() => setAppReady(true));
-  }, []);
-
-  // Tras el login (o si cambia el rol/permisos) se ubica al usuario en el primer
-  // módulo al que tiene acceso, en lugar de mostrar "Módulo Restringido".
-  useEffect(() => {
-    if (!currentUser) return;
-    if (!hasModuleAccess(activeModule)) {
-      setActiveModule(firstAllowedModule());
-    }
-  }, [currentUser, activeModule, hasModuleAccess]);
+  }, [initAuth, initLogistics, initCatalogos]);
 
   if (!appReady || loading) {
     return (
@@ -114,7 +125,7 @@ export default function App() {
     <div className="min-h-screen bg-[#070a12] text-zinc-100 font-sans antialiased flex selection:bg-emerald-500 selection:text-zinc-950">
       {/* Fixed Navigation Sidebar Left */}
       <Sidebar
-        activeModule={activeModule}
+        activeModule={effectiveModule}
         setActiveModule={setActiveModule}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
@@ -122,7 +133,10 @@ export default function App() {
 
       {/* Mobile Overlay */}
       {isSidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 z-20 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
+        <div
+          className="fixed inset-0 bg-black/60 z-20 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
       )}
 
       {/* Main Content Area */}
@@ -156,10 +170,13 @@ export default function App() {
           <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 sm:px-6 lg:px-8 py-2 flex items-start gap-2 text-amber-400">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <p className="text-xs leading-relaxed">
-              <strong className="font-bold">MODO DEMO</strong> — Sin conexión a la base de datos. Los datos mostrados
-              son de ejemplo. Configura <code className="font-mono bg-black/30 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code>{' '}
-              y <code className="font-mono bg-black/30 px-1 py-0.5 rounded">VITE_SUPABASE_ANON_KEY</code> en las variables
-              de entorno de Vercel y vuelve a desplegar.
+              <strong className="font-bold">MODO DEMO</strong> — Sin conexión a la base de datos.
+              Los datos mostrados son de ejemplo. Configura{' '}
+              <code className="font-mono bg-black/30 px-1 py-0.5 rounded">VITE_SUPABASE_URL</code> y{' '}
+              <code className="font-mono bg-black/30 px-1 py-0.5 rounded">
+                VITE_SUPABASE_ANON_KEY
+              </code>{' '}
+              en las variables de entorno de Vercel y vuelve a desplegar.
             </p>
           </div>
         ) : null}
@@ -177,7 +194,7 @@ export default function App() {
         </main>
 
         {/* Global Footer */}
-        <footer className="border-t border-zinc-800/80 py-4 px-8 text-xs text-zinc-500 bg-[#090d16]">
+        <footer className="border-t border-zinc-800/80 py-3 px-8 text-xs text-zinc-500 bg-[#090d16]">
           <span>gestión de patios logísticos CCL © 2026</span>
         </footer>
       </div>

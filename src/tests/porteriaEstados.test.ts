@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { getEstadoPorteria, isLlaveCerrada } from '../utils/porteria';
+import {
+  getEstadoPorteria,
+  isLlaveCerrada,
+  cumpleFiltroActivas,
+  sortTransportesPorEstado,
+  ORDEN_ESTADOS,
+  ORDEN_ESTADOS_TABLERO,
+} from '../utils/porteria';
+import { addDaysStr } from '../lib/dateUtils';
 import { UnifiedTransporte } from '../types';
 
 function row(overrides: Partial<UnifiedTransporte> = {}): UnifiedTransporte {
@@ -29,16 +37,23 @@ describe('getEstadoPorteria (secuencia de estados de la app)', () => {
 
   it('avanza el estado de portería por cada acción (hora) registrada', () => {
     expect(getEstadoPorteria(row({ horaLlegadaPorteria: '08:00' }))).toBe('LLEGO A PORTERIA');
+    expect(getEstadoPorteria(row({ horaLlegadaPorteria: '08:00', horaIngreso: '08:05' }))).toBe(
+      'INGRESO A MUELLE',
+    );
     expect(
-      getEstadoPorteria(row({ horaLlegadaPorteria: '08:00', horaIngreso: '08:05' }))
-    ).toBe('INGRESO A MUELLE');
-    expect(
-      getEstadoPorteria(row({ horaLlegadaPorteria: '08:00', horaIngreso: '08:05', horaInicioCargue: '08:10' }))
+      getEstadoPorteria(
+        row({ horaLlegadaPorteria: '08:00', horaIngreso: '08:05', horaInicioCargue: '08:10' }),
+      ),
     ).toBe('CARGANDO');
     expect(
       getEstadoPorteria(
-        row({ horaLlegadaPorteria: '08:00', horaIngreso: '08:05', horaInicioCargue: '08:10', horaFinCargue: '09:00' })
-      )
+        row({
+          horaLlegadaPorteria: '08:00',
+          horaIngreso: '08:05',
+          horaInicioCargue: '08:10',
+          horaFinCargue: '09:00',
+        }),
+      ),
     ).toBe('FINALIZO CARGUE');
     expect(
       getEstadoPorteria(
@@ -48,14 +63,16 @@ describe('getEstadoPorteria (secuencia de estados de la app)', () => {
           horaInicioCargue: '08:10',
           horaFinCargue: '09:00',
           horaSalida: '09:15',
-        })
-      )
+        }),
+      ),
     ).toBe('SALIO DE PORTERIA');
   });
 
   it('conserva CANCELADO aunque existan horas registradas', () => {
     expect(getEstadoPorteria(row({ estadoPorteria: 'CANCELADO' }))).toBe('CANCELADO');
-    expect(getEstadoPorteria(row({ estadoPorteria: 'CANCELADO', horaSalida: '09:15' }))).toBe('CANCELADO');
+    expect(getEstadoPorteria(row({ estadoPorteria: 'CANCELADO', horaSalida: '09:15' }))).toBe(
+      'CANCELADO',
+    );
   });
 
   it('marca la llave como cerrada solo en SALIO DE PORTERIA o CANCELADO', () => {
@@ -63,5 +80,73 @@ describe('getEstadoPorteria (secuencia de estados de la app)', () => {
     expect(isLlaveCerrada(row({ horaLlegadaPorteria: '08:00' }))).toBe(false);
     expect(isLlaveCerrada(row({ horaSalida: '09:15' }))).toBe(true);
     expect(isLlaveCerrada(row({ estadoPorteria: 'CANCELADO' }))).toBe(true);
+  });
+});
+
+describe('cumpleFiltroActivas (regla de fechas de la vista ACTIVAS)', () => {
+  it('incluye pasado, hoy y mañana; excluye pasado mañana en adelante', () => {
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(-30)} 07:00` }))).toBe(true);
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00` }))).toBe(true);
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(1)} 07:00` }))).toBe(true);
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(2)} 07:00` }))).toBe(false);
+    expect(cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(10)} 07:00` }))).toBe(false);
+  });
+
+  it('excluye SALIO DE PORTERIA y CANCELADO aunque la fecha esté en la ventana', () => {
+    expect(
+      cumpleFiltroActivas(row({ citaCargue: `${addDaysStr(0)} 07:00`, horaSalida: '09:15' })),
+    ).toBe(false);
+    expect(
+      cumpleFiltroActivas(
+        row({ citaCargue: `${addDaysStr(0)} 07:00`, estadoPorteria: 'CANCELADO' }),
+      ),
+    ).toBe(false);
+  });
+
+  it('excluye llaves activas sin fecha programada', () => {
+    expect(cumpleFiltroActivas(row({ citaCargue: '' }))).toBe(false);
+  });
+
+  it('incluye llaves activas en cualquier etapa dentro de la ventana', () => {
+    expect(
+      cumpleFiltroActivas(
+        row({ citaCargue: `${addDaysStr(0)} 07:00`, horaLlegadaPorteria: '08:00' }),
+      ),
+    ).toBe(true);
+    expect(
+      cumpleFiltroActivas(
+        row({
+          citaCargue: `${addDaysStr(0)} 07:00`,
+          horaIngreso: '08:05',
+          horaInicioCargue: '08:10',
+        }),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('sortTransportesPorEstado (orden del Tablero vs canónico)', () => {
+  const fila = (llave: string, horaLlegadaPorteria: string): UnifiedTransporte =>
+    row({
+      llave,
+      citaCargue: `${addDaysStr(0)} 07:00`,
+      estadoPorteria: horaLlegadaPorteria ? 'Confirmado' : 'Pendiente',
+      horaLlegadaPorteria,
+    });
+
+  it('el orden canónico mantiene Pendiente/Confirmado arriba', () => {
+    const ordenado = sortTransportesPorEstado(
+      [fila('LL-3', '08:00'), fila('LL-1', ''), fila('LL-2', '')],
+      ORDEN_ESTADOS,
+    );
+    expect(ordenado.map((f) => f.llave)).toEqual(['LL-1', 'LL-2', 'LL-3']);
+  });
+
+  it('el orden del Tablero pone arriba LLEGO A PORTERIA y abajo Pendiente/Confirmado', () => {
+    const ordenado = sortTransportesPorEstado(
+      [fila('LL-3', '08:00'), fila('LL-1', ''), fila('LL-2', '')],
+      ORDEN_ESTADOS_TABLERO,
+    );
+    expect(ordenado.map((f) => f.llave)).toEqual(['LL-3', 'LL-1', 'LL-2']);
   });
 });

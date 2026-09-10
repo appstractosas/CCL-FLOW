@@ -36,13 +36,24 @@ describe('TransportesModule', () => {
       estadoPorteria: 'Pendiente',
     };
     useLogisticsStore.setState({
-      transportes: [{ ...base, id: 'TR-TEST-1', llave: 'LL-60533', placa: 'TLX-842' }] as UnifiedTransporte[],
+      transportes: [
+        { ...base, id: 'TR-TEST-1', llave: 'LL-60533', placa: 'TLX-842' },
+      ] as UnifiedTransporte[],
     });
 
     render(<TransportesModule />);
 
     expect(screen.getByText('LL-60533')).toBeInTheDocument();
     expect(screen.queryByText('NUEVA LLAVE')).not.toBeInTheDocument();
+
+    // Header renombrado: PLACA (no PLACA REMOLQUE) y ESTATUS entre CAJAS y ESTADO.
+    expect(screen.getByText('PLACA')).toBeInTheDocument();
+    expect(screen.queryByText('PLACA REMOLQUE')).not.toBeInTheDocument();
+    expect(screen.getByText('• despachado')).toBeInTheDocument();
+
+    // FECHA se muestra solo con la fecha (sin la hora).
+    expect(screen.getByText(todayStr())).toBeInTheDocument();
+    expect(screen.queryByText(`${todayStr()} 08:00`)).not.toBeInTheDocument();
 
     // El ADMIN puede editar → existe la acción de editar.
     fireEvent.click(screen.getByTitle('Editar transporte'));

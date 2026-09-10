@@ -75,14 +75,16 @@ describe('ChatPanel', () => {
         onConfirmarMuelle={() => {}}
         onInputChange={() => {}}
         onSend={onSend}
-      />
+      />,
     );
 
     expect(screen.getByText('Chat Operativo Muelle & Portería')).toBeInTheDocument();
     expect(screen.getAllByText(/LL-60533/).length).toBeGreaterThan(0);
     expect(screen.getByText(/\+ Solicitud Muelle/)).toBeInTheDocument();
     expect(screen.getByText(/\+ Confirmar Muelle/)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Escribe un mensaje de coordinación...')).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('Escribe un mensaje de coordinación...'),
+    ).toBeInTheDocument();
   });
 
   it('muestra el banner cuando se provee', () => {
@@ -108,7 +110,7 @@ describe('ChatPanel', () => {
         onConfirmarMuelle={() => {}}
         onInputChange={() => {}}
         onSend={() => {}}
-      />
+      />,
     );
     expect(screen.getByText('Chat deshabilitado para tu rol.')).toBeInTheDocument();
   });
@@ -136,7 +138,7 @@ describe('ChatPanel', () => {
         onConfirmarMuelle={() => {}}
         onInputChange={() => {}}
         onSend={() => {}}
-      />
+      />,
     );
     expect(screen.getByText('MUELLE CERO')).toBeInTheDocument();
   });

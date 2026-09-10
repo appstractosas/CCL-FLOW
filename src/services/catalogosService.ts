@@ -1,15 +1,12 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { Cliente, Ciudad } from '../types';
+import type { Cliente, Ciudad, Transportadora } from '../types';
 
 const CLIENTES_TABLE = 'clientes';
 const CIUDADES_TABLE = 'ciudades';
-
-function isOnline(): boolean {
-  return isSupabaseConfigured;
-}
+const TRANSPORTADORAS_TABLE = 'transportadoras';
 
 export async function fetchClientes(): Promise<Cliente[]> {
-  if (!isOnline()) return [];
+  if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase.from(CLIENTES_TABLE).select('*').order('denominacion');
   if (error) throw error;
   return (data || []).map((r) => ({
@@ -20,11 +17,25 @@ export async function fetchClientes(): Promise<Cliente[]> {
 }
 
 export async function fetchCiudades(): Promise<Ciudad[]> {
-  if (!isOnline()) return [];
+  if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase.from(CIUDADES_TABLE).select('*').order('ciudad');
   if (error) throw error;
   return (data || []).map((r) => ({
     id: r.id,
     ciudad: r.ciudad,
+    region: r.region ?? undefined,
+  }));
+}
+
+export async function fetchTransportadoras(): Promise<Transportadora[]> {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase
+    .from(TRANSPORTADORAS_TABLE)
+    .select('*')
+    .order('nombre');
+  if (error) throw error;
+  return (data || []).map((r) => ({
+    id: r.id,
+    nombre: r.nombre,
   }));
 }

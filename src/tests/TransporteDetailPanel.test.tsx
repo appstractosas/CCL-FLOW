@@ -31,7 +31,12 @@ const onClose = () => {};
 describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
   it('habilita cada hora solo si la anterior ya fue ejecutada (PORTERÍA)', () => {
     const { rerender } = render(
-      <TransporteDetailPanel row={makeRow()} onClose={onClose} checklistOwner="porteria" onPorteriaHora={() => {}} />
+      <TransporteDetailPanel
+        row={makeRow({ muelleAsignado: 'Muelle 3' })}
+        onClose={onClose}
+        checklistOwner="porteria"
+        onPorteriaHora={() => {}}
+      />,
     );
 
     // Sin horas registradas: se habilita la primera (H. Llegada) y la siguiente queda bloqueada.
@@ -41,20 +46,70 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
     // Con H. Llegada registrada: H. Llegada queda marcada/bloqueada y se habilita H. Ingreso.
     rerender(
       <TransporteDetailPanel
-        row={makeRow({ horaLlegadaPorteria: '08:00' })}
+        row={makeRow({ horaLlegadaPorteria: '08:00', muelleAsignado: 'Muelle 3' })}
         onClose={onClose}
         checklistOwner="porteria"
         onPorteriaHora={() => {}}
-      />
+      />,
     );
     expect(screen.getByLabelText('H. Llegada Portería')).toBeDisabled();
     expect(screen.getByLabelText('H. Ingreso a Muelle')).toBeEnabled();
   });
 
+  it('H. Ingreso a Muelle exige muelle asignado (PORTERÍA, no solo DESPACHOS)', () => {
+    const { rerender } = render(
+      <TransporteDetailPanel
+        row={makeRow({ horaLlegadaPorteria: '08:00' })}
+        onClose={onClose}
+        checklistOwner="porteria"
+        onPorteriaHora={() => {}}
+      />,
+    );
+
+    // Con H. Llegada pero SIN muelle asignado: H. Ingreso queda bloqueado.
+    expect(screen.getByLabelText('H. Llegada Portería')).toBeDisabled();
+    expect(screen.getByLabelText('H. Ingreso a Muelle')).toBeDisabled();
+
+    // Al asignar muelle, se habilita H. Ingreso.
+    rerender(
+      <TransporteDetailPanel
+        row={makeRow({ horaLlegadaPorteria: '08:00', muelleAsignado: 'Muelle 7' })}
+        onClose={onClose}
+        checklistOwner="porteria"
+        onPorteriaHora={() => {}}
+      />,
+    );
+    expect(screen.getByLabelText('H. Ingreso a Muelle')).toBeEnabled();
+  });
+
+  it('ubica Muelle Asignado + H. Asignación entre H. Llegada y H. Ingreso', () => {
+    const { container } = render(
+      <TransporteDetailPanel
+        row={makeRow()}
+        onClose={onClose}
+        onAsignarMuelle={() => {}}
+        onMuelleHora={() => {}}
+      />,
+    );
+    const llegada = screen.getByText('H. Llegada Portería');
+    const muelle = screen.getByText('Muelle Asignado');
+    const ingreso = screen.getByText('H. Ingreso a Muelle');
+    const enOrden = (a: HTMLElement, b: HTMLElement) =>
+      a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(enOrden(llegada, muelle)).toBeTruthy();
+    expect(enOrden(muelle, ingreso)).toBeTruthy();
+    expect(container).not.toBeNull();
+  });
+
   it('muestra los checkbox únicamente del módulo correspondiente', () => {
     // PORTERÍA: 2 checkbox (H. Llegada + H. Ingreso)
     const porteria = render(
-      <TransporteDetailPanel row={makeRow()} onClose={onClose} checklistOwner="porteria" onPorteriaHora={() => {}} />
+      <TransporteDetailPanel
+        row={makeRow()}
+        onClose={onClose}
+        checklistOwner="porteria"
+        onPorteriaHora={() => {}}
+      />,
     );
     expect(screen.getAllByRole('checkbox')).toHaveLength(2);
     expect(() => screen.getByLabelText('H. Inicio Cargue')).toThrow();
@@ -64,11 +119,15 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
     // DESPACHOS: 2 checkbox (H. Inicio Cargue + H. Fin Cargue)
     const despachos = render(
       <TransporteDetailPanel
-        row={makeRow({ horaLlegadaPorteria: '08:00', horaIngreso: '08:05', muelleAsignado: 'Muelle 3' })}
+        row={makeRow({
+          horaLlegadaPorteria: '08:00',
+          horaIngreso: '08:05',
+          muelleAsignado: 'Muelle 3',
+        })}
         onClose={onClose}
         checklistOwner="despachos"
         onPorteriaHora={() => {}}
-      />
+      />,
     );
     expect(screen.getAllByRole('checkbox')).toHaveLength(2);
     expect(screen.getByLabelText('H. Inicio Cargue')).toBeEnabled();
@@ -88,7 +147,7 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
         onClose={onClose}
         checklistOwner="monitoreo"
         onPorteriaHora={() => {}}
-      />
+      />,
     );
     expect(screen.getAllByRole('checkbox')).toHaveLength(1);
     expect(screen.getByLabelText('H. Salida Portería')).toBeEnabled();
@@ -97,7 +156,12 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
   it('bloquea el inicio de portería en llaves PENDIENTE (solo CONFIRMADO puede iniciar)', () => {
     // Llave sin placa (PENDIENTE): PORTERÍA no puede iniciar el proceso.
     const pendiente = render(
-      <TransporteDetailPanel row={makeRow({ estadoPorteria: 'Pendiente' })} onClose={onClose} checklistOwner="porteria" onPorteriaHora={() => {}} />
+      <TransporteDetailPanel
+        row={makeRow({ estadoPorteria: 'Pendiente' })}
+        onClose={onClose}
+        checklistOwner="porteria"
+        onPorteriaHora={() => {}}
+      />,
     );
     expect(screen.getByLabelText('H. Llegada Portería')).toBeDisabled();
     expect(screen.getByLabelText('H. Ingreso a Muelle')).toBeDisabled();
@@ -105,15 +169,63 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
 
     // Llave CONFIRMADA: sí puede iniciar (H. Llegada habilitada).
     render(
-      <TransporteDetailPanel row={makeRow({ estadoPorteria: 'Confirmado' })} onClose={onClose} checklistOwner="porteria" onPorteriaHora={() => {}} />
+      <TransporteDetailPanel
+        row={makeRow({ estadoPorteria: 'Confirmado' })}
+        onClose={onClose}
+        checklistOwner="porteria"
+        onPorteriaHora={() => {}}
+      />,
     );
     expect(screen.getByLabelText('H. Llegada Portería')).toBeEnabled();
+  });
+
+  it('muestra el badge ESTATUS entre "Control de Tiempos" y el estado de portería (showEstatus)', () => {
+    render(<TransporteDetailPanel row={makeRow()} onClose={onClose} showEstatus />);
+    const control = screen.getByText('Control de Tiempos');
+    const estatus = screen.getByText('• alistado');
+    const porteria = screen.getByText('• CONFIRMADO');
+    const enOrden = (a: HTMLElement, b: HTMLElement) =>
+      a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(enOrden(control, estatus)).toBeTruthy();
+    expect(enOrden(estatus, porteria)).toBeTruthy();
+  });
+
+  it('sin showEstatus NO muestra el badge ESTATUS del detalle', () => {
+    render(<TransporteDetailPanel row={makeRow()} onClose={onClose} />);
+    expect(screen.queryByText('• alistado')).not.toBeInTheDocument();
+  });
+
+  it('muestra transportadora y región en el encabezado sin títulos', () => {
+    const { container } = render(
+      <TransporteDetailPanel
+        row={makeRow({
+          transporte: '3000214899',
+          denominacion: 'GLOBAL DISTR',
+          destino: 'NEIVA',
+          region: 'BOGOTA',
+        })}
+        onClose={onClose}
+      />,
+    );
+
+    // Encabezado: transportadora y región, SIN títulos.
+    expect(screen.getByText('ICOLTRANS')).toBeInTheDocument();
+    expect(screen.getByText('BOGOTA')).toBeInTheDocument();
+    expect(screen.queryByText('Transportadora')).not.toBeInTheDocument();
+    expect(screen.queryByText('Región')).not.toBeInTheDocument();
+    expect(screen.queryByText('Observaciones')).not.toBeInTheDocument();
+    expect(container).not.toBeNull();
   });
 
   it('permite asignar muelle en cualquier momento, sin depender de las horas previas', () => {
     // Llave recién creada (ninguna hora registrada): el select de muelle ya está habilitado.
     render(
-      <TransporteDetailPanel row={makeRow()} onClose={onClose} onAsignarMuelle={() => {}} onMuelleHora={() => {}} />
+      <TransporteDetailPanel
+        row={makeRow()}
+        onClose={onClose}
+        onAsignarMuelle={() => {}}
+        onMuelleHora={() => {}}
+      />,
     );
     const selectMuelle = screen.getByRole('combobox');
     expect(selectMuelle).toBeEnabled();
@@ -127,18 +239,87 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
         onClose={onClose}
         checklistOwner="despachos"
         onPorteriaHora={() => {}}
-      />
+      />,
     );
     expect(screen.getByLabelText('H. Inicio Cargue')).toBeDisabled();
 
     rerender(
       <TransporteDetailPanel
-        row={makeRow({ horaLlegadaPorteria: '08:00', horaIngreso: '08:05', muelleAsignado: 'Muelle 7' })}
+        row={makeRow({
+          horaLlegadaPorteria: '08:00',
+          horaIngreso: '08:05',
+          muelleAsignado: 'Muelle 7',
+        })}
         onClose={onClose}
         checklistOwner="despachos"
         onPorteriaHora={() => {}}
-      />
+      />,
     );
     expect(screen.getByLabelText('H. Inicio Cargue')).toBeEnabled();
+  });
+
+  it('P3: al activar un checkbox, el anterior queda con hora en texto y el recién activado editable (PORTERÍA)', () => {
+    const { rerender } = render(
+      <TransporteDetailPanel
+        row={makeRow({ horaLlegadaPorteria: '08:00', muelleAsignado: 'Muelle 3' })}
+        onClose={onClose}
+        checklistOwner="porteria"
+        onPorteriaHora={() => {}}
+      />,
+    );
+
+    // H. Llegada recién activada: su hora sigue editable (input de hora habilitado).
+    expect(screen.getByTitle('Editar H. Llegada Portería')).toBeEnabled();
+    // H. Ingreso (siguiente paso) aún no tiene hora: se muestra "—", sin input.
+    expect(screen.queryByTitle('Editar H. Ingreso a Muelle')).not.toBeInTheDocument();
+
+    // Se activa H. Ingreso: H. Llegada pasa a mostrar la hora como TEXTO (sin
+    // input) y H. Ingreso conserva la hora editable.
+    rerender(
+      <TransporteDetailPanel
+        row={makeRow({
+          horaLlegadaPorteria: '08:00',
+          horaIngreso: '08:15',
+          muelleAsignado: 'Muelle 3',
+        })}
+        onClose={onClose}
+        checklistOwner="porteria"
+        onPorteriaHora={() => {}}
+      />,
+    );
+    expect(screen.queryByTitle('Editar H. Llegada Portería')).not.toBeInTheDocument();
+    expect(screen.getByTitle('Editar H. Ingreso a Muelle')).toBeEnabled();
+  });
+
+  it('P2: Editar/Cancelar del footer solo aparecen en PENDIENTE/CONFIRMADO', () => {
+    const { rerender } = render(
+      <TransporteDetailPanel
+        row={makeRow({ horaLlegadaPorteria: '08:00' })}
+        onClose={onClose}
+        showEdit
+        showDelete
+        onEdit={() => {}}
+        onDelete={() => {}}
+        canCancel={() => true}
+      />,
+    );
+    // LLEGO A PORTERIA: ya no se puede editar ni cancelar la llave.
+    expect(screen.queryByText('Editar')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cancelar')).not.toBeInTheDocument();
+
+    // En CONFIRMADO (sin horas): sí aparecen.
+    rerender(
+      <TransporteDetailPanel
+        row={makeRow()}
+        onClose={onClose}
+        showEdit
+        showDelete
+        onEdit={() => {}}
+        onDelete={() => {}}
+        canCancel={() => true}
+      />,
+    );
+    expect(screen.getByText('Editar')).toBeInTheDocument();
+    expect(screen.getByText('Cancelar')).toBeInTheDocument();
   });
 });

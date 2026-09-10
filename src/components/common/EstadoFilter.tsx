@@ -15,7 +15,9 @@ export const EstadoFilter: React.FC<EstadoFilterProps> = ({ value, onChange }) =
           key={id}
           onClick={() => onChange(id)}
           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-            value === id ? 'bg-blue-600 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+            value === id
+              ? 'bg-blue-600 text-white'
+              : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
           }`}
         >
           {label}
