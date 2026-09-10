@@ -12,6 +12,7 @@ import {
   esDomingo,
   tipoGrupo,
   diffMinutos,
+  diffMinutosReales,
   clasificacionDemora,
   generarDias,
   turnoDeHora,
@@ -201,7 +202,18 @@ describe('utils/informes (utilidades Fase 2)', () => {
   it('minutosHora y diffMinutos procesan horas', () => {
     expect(minutosHora('09:00')).toBe(540);
     expect(diffMinutos('08:00', '09:30')).toBe(90);
+    expect(diffMinutos('23:34', '01:00')).toBe(-1354);
+    expect(diffMinutos('2026-09-02T23:34:00', '2026-09-03T01:00')).toBeNull();
     expect(diffMinutos('', '09:00')).toBeNull();
+  });
+
+  it('diffMinutosReales puentea cruces de medianoche y usa la fecha cuando viene', () => {
+    expect(diffMinutosReales('23:34', '01:00')).toBe(86);
+    expect(diffMinutosReales('2026-09-02 23:34', '2026-09-03 01:00')).toBe(86);
+    expect(diffMinutosReales('2026-09-02T23:34:00', '2026-09-03T01:00')).toBe(86);
+    expect(diffMinutosReales('23:15', '00:10')).toBe(55);
+    expect(diffMinutosReales('2026-09-02 23:15', '2026-09-04 00:10')).toBe(1495);
+    expect(diffMinutosReales('no-hora', '08:00')).toBeNull();
   });
 
   it('clasificacionDemora clasifica según los umbrales', () => {

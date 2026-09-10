@@ -121,12 +121,54 @@ export function tipoGrupo(cuadrilla?: string): GrupoCuadrilla {
   return 'LTSA';
 }
 
-/** Diferencia en minutos entre dos horas "HH:MM" (fin − inicio); null si alguna no es válida. */
+/** Marca de hora: minutos del día y, si viene la fecha, el día desde 1970-01-01. */
+interface MarcaHora {
+  dia?: number;
+  min: number;
+}
+
+/** Parsea "HH:MM" (opcional "HH:MM:SS") o "YYYY-MM-DD[ T ]HH:MM[:SS]" a {dia?, min}; null si no es válida. */
+function marcasHora(hora?: string): MarcaHora | null {
+  if (!hora) return null;
+  const h = String(hora).trim();
+  const conFecha = h.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ])(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (conFecha) {
+    const y = Number(conFecha[1]);
+    const mes = Number(conFecha[2]);
+    const d = Number(conFecha[3]);
+    const hh = Number(conFecha[4]);
+    const mm = Number(conFecha[5]);
+    if (mes < 1 || mes > 12 || d < 1 || d > 31 || hh > 23 || mm > 59) return null;
+    return { dia: Math.floor(Date.UTC(y, mes - 1, d) / 86_400_000), min: hh * 60 + mm };
+  }
+  const solo = h.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!solo) return null;
+  const hh = Number(solo[1]);
+  const mm = Number(solo[2]);
+  if (hh > 23 || mm > 59) return null;
+  return { min: hh * 60 + mm };
+}
+
+/** Diferencia en minutos entre dos horas "HH:MM" (fin − inicio); null si alguna no es válida.
+ *  Solo hora del día: una etapa que da fin < inicio queda negativa (quien la use decide
+ *  si la descarta como inconsistente o si aplica el cruce de medianoche con diffMinutosReales). */
 export function diffMinutos(inicio?: string, fin?: string): number | null {
   const a = minutosHora(inicio);
   const b = minutosHora(fin);
   if (a == null || b == null) return null;
   return b - a;
+}
+
+/** Diferencia real entre dos marcas de hora (fin − inicio) asumiendo que si fin es menor
+ *  que inicio el fin cae al día siguiente (cruce de medianoche). Admite "HH:MM" y
+ *  "YYYY-MM-DD[ T ]HH:MM[:SS]"; null si alguna no es válida. */
+export function diffMinutosReales(inicio?: string, fin?: string): number | null {
+  const a = marcasHora(inicio);
+  const b = marcasHora(fin);
+  if (!a || !b) return null;
+  const dia = a.dia ?? b.dia ?? 0;
+  const diff = (b.dia ?? dia) * 1440 + b.min - ((a.dia ?? dia) * 1440 + a.min);
+  return diff > 0 ? diff : diff + 1440;
 }
 
 /** Clasifica la demora (min) contra el SLA: aTiempo, leve o critico. */
@@ -543,7 +585,7 @@ export function horaHombre(rows: UnifiedTransporte[]): ResultadoHoraHombre {
   for (const r of rows) {
     const grupo = tipoGrupo(r.cuadrilla);
     if (grupo !== 'CCL' && grupo !== 'SLA') continue;
-    const mins = diffMinutos(r.horaInicioCargue, r.horaFinCargue);
+    const mins = diffMinutosReales(r.horaInicioCargue, r.horaFinCargue);
     if (mins == null || mins <= 0) continue;
     cajas += r.cajas ?? 0;
     horasHombre += (mins / 60) * CONSTANTES.HOMBRES_POR_CUADRILLA;
