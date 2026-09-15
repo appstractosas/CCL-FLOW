@@ -1,0 +1,11 @@
+export { EmbudoPanel } from './embudo';
+export { FlotaPanel } from './flota';
+export { TransportadorasPanel } from './transportadoras';
+export { VolumenPanel } from './volumen';
+export { MuellesPanel } from './muelles';
+export { RentabilidadPanel } from './rentabilidad';
+export { CajasDiariasPanel } from './cajas-diarias';
+export { CajasGrupoPanel } from './cajas-grupo';
+export { TiemposEtapaPanel } from './tiempos-etapa';
+export { TiemposHeatmapPanel } from './tiempos-heatmap';
+export { PosicionamientoPanel } from './posicionamiento';

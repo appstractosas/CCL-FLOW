@@ -19,33 +19,6 @@ export interface ValorConteo {
   value: number;
 }
 
-/**
- * CONTEXTO DE DATOS (fila plana por LLAVE).
- * La fuente es la tabla `transportes`; los nombres siguen la BD para que el
- * motor de informes (prompt) los consuma sin mapeos extra.
- * Las horas llegan como 'HH:MM' (o '') y los minutos derivados van en `*_minutos`.
- */
-export interface Fila {
-  created_at: string;
-  llave: string;
-  transporte: string;
-  denominacion: string;
-  cita_cargue: string;
-  cajas: number;
-  transportadora: string;
-  cuadrilla: string;
-  hora_inicio_cargue: string;
-  hora_fin_cargue: string;
-  muelle_asignado: string;
-  // Derivados (mmol/mueble) no vienen de la BD, se calculan al construir la fila.
-  tiempo_muelle_minutos: number | null;
-  llegada_minutos: number | null;
-  inicio_minutos: number | null;
-  fin_minutos: number | null;
-  turno: string | null;
-  costo_diario_ccl: number;
-}
-
 /** Cuadrilla asociada a una fila: CCL es la flota interna; SLA/LTSA son terceros. */
 export type GrupoCuadrilla = 'CCL' | 'SLA' | 'LTSA';
 
@@ -53,25 +26,13 @@ export type GrupoCuadrilla = 'CCL' | 'SLA' | 'LTSA';
 export const CONSTANTES = {
   /** Costo diario de la cuadrilla CCL (se multiplica por los días del rango del informe). */
   COSTO_DIARIO_CCL: 1_432_000,
-  /** Meta SLA (min) para clasificar el tiempo en muelle. */
-  SLA_MINUTOS: 45,
-  /** Minutos de demora para considerarla leve (sobre el SLA). */
-  DEMORA_LEVE_MAX: 60,
-  /** Minutos de demora para considerarla crítica (sobre el SLA). */
-  DEMORA_CRITICO_MIN: 120,
-  /** Horas no atendidas (con SLA esperado) que no se cargan a CCL. */
-  HORAS_DENTRO_SLA: 24,
   /** Meta diaria de cajas registradas (línea de referencia en el gráfico Cajas diarias). */
   META_CAJAS_DIARIAS: 22_000,
-  /** Costo por caja para la flota CCL (rentabilidad de cuadrillas). */
-  COSTO_CAJA_CCL: 200,
   /** Ingreso por caja para SLA/LTSA (rentabilidad de cuadrillas). */
   INGRESO_CAJA_SLA: 140,
   /** Hombres que componen una cuadrilla (cálculo del indicador HORA/HOMBRE). */
   HOMBRES_POR_CUADRILLA: 3,
 } as const;
-
-export type DemoraNivel = 'aTiempo' | 'leve' | 'critico';
 
 /** "HH:MM" (o "HH:MM:SS", o "YYYY-MM-DD HH:MM") → minutos desde las 00:00; null si no es hora válida. */
 export function minutosHora(hora?: string): number | null {
@@ -171,14 +132,6 @@ export function diffMinutosReales(inicio?: string, fin?: string): number | null 
   return diff > 0 ? diff : diff + 1440;
 }
 
-/** Clasifica la demora (min) contra el SLA: aTiempo, leve o critico. */
-export function clasificacionDemora(demoraMin?: number | null): DemoraNivel {
-  if (demoraMin == null || demoraMin <= 0) return 'aTiempo';
-  if (demoraMin <= CONSTANTES.DEMORA_LEVE_MAX) return 'leve';
-  if (demoraMin >= CONSTANTES.DEMORA_CRITICO_MIN) return 'critico';
-  return 'leve';
-}
-
 /** Genera la lista de claves "YYYY-MM-DD" entre desde y hasta (inclusivo). */
 export function generarDias(desde: string, hasta: string): string[] {
   const fechas: string[] = [];
@@ -201,188 +154,6 @@ export function primeraFechaDatos(rows: UnifiedTransporte[]): string | null {
     if (!min || dia < min) min = dia;
   }
   return min;
-}
-
-/** Turno de una hora "HH:MM": T1 (00:00-07:59), T2 (08:00-15:59), T3 (16:00-23:59). */
-export function turnoDeHora(hora?: string): string | null {
-  const min = minutosHora(hora);
-  if (min == null) return null;
-  if (min < 8 * 60) return 'T1';
-  if (min < 16 * 60) return 'T2';
-  return 'T3';
-}
-
-/** Formateadores compartidos por los reportes. */
-export const formatos = {
-  clavesFecha: formatearFechaClave,
-  diaSemana: (fechaHora?: string): string => {
-    const d = parsearFecha(fechaHora);
-    return d ? d.toLocaleDateString('es-ES', { weekday: 'long' }) : '';
-  },
-  hora: (hora?: string): string => hora || '—',
-  numero: (n?: number | null): string => (n == null ? '—' : String(n)),
-  moneda: (n?: number | null): string =>
-    n == null ? '—' : `$${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`,
-};
-
-/** Convierte una fila UnifiedTransporte a Fila del motor de informes. */
-export function aFila(r: UnifiedTransporte): Fila {
-  return {
-    created_at: r.createdAt || '',
-    llave: r.llave,
-    transporte: r.transporte || '',
-    denominacion: r.denominacion || '',
-    cita_cargue: r.citaCargue || '',
-    cajas: r.cajas ?? 0,
-    transportadora: r.transportadora || '',
-    cuadrilla: r.cuadrilla || '',
-    hora_inicio_cargue: r.horaInicioCargue || '',
-    hora_fin_cargue: r.horaFinCargue || '',
-    muelle_asignado: r.muelleAsignado || '',
-    tiempo_muelle_minutos: diffMinutos(r.horaInicioCargue, r.horaFinCargue),
-    llegada_minutos: minutosHora(r.horaLlegadaPorteria),
-    inicio_minutos: minutosHora(r.horaInicioCargue),
-    fin_minutos: minutosHora(r.horaFinCargue),
-    turno: turnoDeHora(r.horaInicioCargue),
-    costo_diario_ccl: CONSTANTES.COSTO_DIARIO_CCL,
-  };
-}
-
-// ===========================================================================
-// FASE 3 — Preparación de filas para el motor de informes
-// ===========================================================================
-
-/** Fila lista para la tabla detalle: demora en minutos y su nivel. */
-export interface FilaTabla extends Fila {
-  demoraMin: number | null;
-  nivelDemora: DemoraNivel;
-}
-
-/** Filtra el rango [desde, hasta] (YYYY-MM-DD) sobre la FECHA HORA CITA (cita_cargue) y proyecta a Fila[]. */
-export function filasPorRango(rows: UnifiedTransporte[], desde: string, hasta: string): Fila[] {
-  return rows
-    .filter((r) => {
-      const clave = formatearFechaClave(r.citaCargue);
-      return clave !== '' && clave >= desde && clave <= hasta;
-    })
-    .map(aFila);
-}
-
-/** Enriquece las filas con la demora (tiempo en muelle − SLA) y su clasificación. */
-export function filasParaTabla(filas: Fila[]): FilaTabla[] {
-  return filas.map((f) => {
-    const demoraMin =
-      f.tiempo_muelle_minutos == null ? null : f.tiempo_muelle_minutos - CONSTANTES.SLA_MINUTOS;
-    return { ...f, demoraMin, nivelDemora: clasificacionDemora(demoraMin) };
-  });
-}
-
-// ===========================================================================
-// FASE 4 — Determinación horaria por cuadrilla y export
-// ===========================================================================
-
-export interface DetalleTurno {
-  turno: string;
-  unidades: number;
-  horas: number;
-}
-
-export interface DeterminacionGrupo {
-  grupo: GrupoCuadrilla;
-  unidades: number;
-  horas: number;
-  /** Costo estimado: flota CCL (interna) usa costo_diario_ccl; terceros = 0. */
-  costoEstimado: number;
-  porTurno: DetalleTurno[];
-}
-
-export interface Determinacion {
-  totalUnidades: number;
-  totalHoras: number;
-  costoEstimado: number;
-  grupos: DeterminacionGrupo[];
-}
-
-const TURNOS_ORDEN: string[] = ['T1', 'T2', 'T3'];
-
-/**
- * Agrupa las filas atendidas (con hora de inicio de cargue) por grupo de
- * cuadrilla y turno. La unidad equivale a una llave; las horas son la suma
- * del tiempo en muelle (minutos → horas con 1 decimal).
- */
-export function determinacionHoraria(filas: Fila[]): Determinacion {
-  const atendidas = filas.filter((f) => f.inicio_minutos != null);
-
-  const gruposMap = new Map<GrupoCuadrilla, DeterminacionGrupo>();
-  for (const g of ['CCL', 'SLA', 'LTSA'] as GrupoCuadrilla[]) {
-    gruposMap.set(g, {
-      grupo: g,
-      unidades: 0,
-      horas: 0,
-      costoEstimado: 0,
-      porTurno: TURNOS_ORDEN.map((t) => ({ turno: t, unidades: 0, horas: 0 })),
-    });
-  }
-
-  for (const f of atendidas) {
-    const grupo = tipoGrupo(f.cuadrilla);
-    const turno = f.turno || 'T1';
-    const horas = (f.tiempo_muelle_minutos ?? 0) / 60;
-    const det = gruposMap.get(grupo)!;
-    det.unidades += 1;
-    det.horas += horas;
-    det.costoEstimado += grupo === 'CCL' ? f.costo_diario_ccl : 0;
-    const turnoDet = det.porTurno.find((t) => t.turno === turno)!;
-    turnoDet.unidades += 1;
-    turnoDet.horas += horas;
-  }
-
-  const grupos = [...gruposMap.values()].filter((g) => g.unidades > 0);
-  const redondea1 = (n: number) => Math.round(n * 10) / 10;
-  for (const g of grupos) {
-    g.horas = redondea1(g.horas);
-    g.porTurno.forEach((t) => {
-      t.horas = redondea1(t.horas);
-    });
-  }
-
-  return {
-    totalUnidades: grupos.reduce((a, g) => a + g.unidades, 0),
-    totalHoras: redondea1(grupos.reduce((a, g) => a + g.horas, 0)),
-    costoEstimado: grupos.reduce((a, g) => a + g.costoEstimado, 0),
-    grupos,
-  };
-}
-
-/** Filas AOA listas para exportar la determinación a Excel. */
-export function filasExportDeterminacion(det: Determinacion): {
-  headers: string[];
-  data: (string | number)[][];
-} {
-  const headers = ['GRUPO', 'TURNO', 'UNIDADES', 'HORAS', 'COSTO ESTIMADO'];
-  const data: (string | number)[][] = [];
-  for (const g of det.grupos) {
-    g.porTurno.forEach((t) => {
-      data.push([
-        g.grupo,
-        t.turno,
-        t.unidades,
-        `${t.horas}h`,
-        g.grupo === 'CCL'
-          ? formatos.moneda(g.costoEstimado / Math.max(1, g.porTurno.length))
-          : '$0',
-      ]);
-    });
-    data.push([g.grupo, 'TOTAL', g.unidades, `${g.horas}h`, formatos.moneda(g.costoEstimado)]);
-  }
-  data.push([
-    'TOTAL',
-    '—',
-    det.totalUnidades,
-    `${det.totalHoras}h`,
-    formatos.moneda(det.costoEstimado),
-  ]);
-  return { headers, data };
 }
 
 const ESTADOS_FLUJO: EstadoPorteria[] = [
@@ -417,6 +188,19 @@ export const COLOR_EMBUDO: Record<string, string> = {
   CANCELADO: '#ef4444',
 };
 
+/** Cajas de una fila (con valor por defecto). */
+const cajasDe = (r: UnifiedTransporte): number => r.cajas ?? 0;
+
+/** Acumula una cantidad en un mapa numérico (crea la clave con 0 si no existe). */
+function acumular<K>(mapa: Map<K, number>, clave: K, cantidad: number): void {
+  mapa.set(clave, (mapa.get(clave) || 0) + cantidad);
+}
+
+/** Convierte un mapa nombre→valor a la forma que esperan los gráficos. */
+function aValorConteo<K extends string>(mapa: Map<K, number>): ValorConteo[] {
+  return [...mapa.entries()].map(([name, value]) => ({ name, value }));
+}
+
 /** Indicadores operativos del rango seleccionado. */
 export function calcularKPIs(rows: UnifiedTransporte[]): InformesKPIs {
   const total = rows.length;
@@ -432,8 +216,7 @@ export function calcularKPIs(rows: UnifiedTransporte[]): InformesKPIs {
 export function embudoEstados(rows: UnifiedTransporte[]): EstadoConteo[] {
   const mapa = new Map<string, number>(ESTADOS_FLUJO.map((e) => [e, 0]));
   for (const r of rows) {
-    const estado = getEstadoPorteria(r);
-    mapa.set(estado, (mapa.get(estado) || 0) + 1);
+    acumular(mapa, getEstadoPorteria(r), 1);
   }
   return ESTADOS_FLUJO.map((e) => ({ estado: e, count: mapa.get(e) || 0 }));
 }
@@ -443,7 +226,7 @@ export function porTipo(rows: UnifiedTransporte[]): ValorConteo[] {
   const mapa = new Map<TipoVehiculo, number>(TIPOS_VEHICULO.map((t) => [t, 0]));
   for (const r of rows) {
     const t = r.vehiculoTipo;
-    if (mapa.has(t)) mapa.set(t, (mapa.get(t) || 0) + 1);
+    if (mapa.has(t)) acumular(mapa, t, 1);
   }
   return TIPOS_VEHICULO.map((t) => ({ name: t, value: mapa.get(t) || 0 }));
 }
@@ -453,11 +236,9 @@ export function porTransportadora(rows: UnifiedTransporte[], topN = 8): ValorCon
   const mapa = new Map<string, number>();
   for (const r of rows) {
     const nombre = r.transportadora?.trim();
-    if (!nombre) continue;
-    mapa.set(nombre, (mapa.get(nombre) || 0) + 1);
+    if (nombre) acumular(mapa, nombre, 1);
   }
-  return [...mapa.entries()]
-    .map(([name, value]) => ({ name, value }))
+  return aValorConteo(mapa)
     .sort((a, b) => b.value - a.value)
     .slice(0, topN);
 }
@@ -467,12 +248,9 @@ export function volumenPorDia(rows: UnifiedTransporte[]): ValorConteo[] {
   const mapa = new Map<string, number>();
   for (const r of rows) {
     const dia = formatearFechaClave(r.horaSalida);
-    if (!dia) continue;
-    mapa.set(dia, (mapa.get(dia) || 0) + 1);
+    if (dia) acumular(mapa, dia, 1);
   }
-  return [...mapa.entries()]
-    .map(([dia, count]) => ({ name: dia, value: count }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  return aValorConteo(mapa).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Punto de uso/ocupación de un muelle: despachos y cajas. */
@@ -490,7 +268,7 @@ export function usoPorMuelle(rows: UnifiedTransporte[]): MuelleUso[] {
     if (!muelle) continue;
     const cur = mapa.get(muelle) || { name: muelle, despachos: 0, cajas: 0 };
     cur.despachos += 1;
-    cur.cajas += r.cajas ?? 0;
+    cur.cajas += cajasDe(r);
     mapa.set(muelle, cur);
   }
   return [...mapa.values()].sort((a, b) => b.cajas - a.cajas);
@@ -535,7 +313,7 @@ export function rentabilidadCuadrillas(
     if (!String(r.cuadrilla || '').trim()) continue;
     const grupo = tipoGrupo(r.cuadrilla);
     if (grupo === 'SLA') {
-      bucket.ingresoSLA += (r.cajas ?? 0) * CONSTANTES.INGRESO_CAJA_SLA;
+      bucket.ingresoSLA += cajasDe(r) * CONSTANTES.INGRESO_CAJA_SLA;
     }
   }
 
@@ -547,12 +325,9 @@ export function cajasPorDia(rows: UnifiedTransporte[]): ValorConteo[] {
   const mapa = new Map<string, number>();
   for (const r of rows) {
     const dia = formatearFechaClave(r.horaInicioCargue);
-    if (!dia) continue;
-    mapa.set(dia, (mapa.get(dia) || 0) + (r.cajas ?? 0));
+    if (dia) acumular(mapa, dia, cajasDe(r));
   }
-  return [...mapa.entries()]
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  return aValorConteo(mapa).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Distribución de cajas por tipo de cuadrilla (CCL/SLA/LTSA). Las llaves sin cuadrilla no se asignan a LTSA. */
@@ -561,7 +336,7 @@ export function cajasPorCuadrilla(rows: UnifiedTransporte[]): ValorConteo[] {
   for (const r of rows) {
     const grupo = tipoGrupo(r.cuadrilla);
     if (grupo === 'LTSA' && !String(r.cuadrilla || '').trim()) continue;
-    mapa.set(grupo, (mapa.get(grupo) || 0) + (r.cajas ?? 0));
+    acumular(mapa, grupo, cajasDe(r));
   }
   return (['CCL', 'SLA', 'LTSA'] as GrupoCuadrilla[]).map((g) => ({
     name: g,
@@ -587,7 +362,7 @@ export function horaHombre(rows: UnifiedTransporte[]): ResultadoHoraHombre {
     if (grupo !== 'CCL' && grupo !== 'SLA') continue;
     const mins = diffMinutosReales(r.horaInicioCargue, r.horaFinCargue);
     if (mins == null || mins <= 0) continue;
-    cajas += r.cajas ?? 0;
+    cajas += cajasDe(r);
     horasHombre += (mins / 60) * CONSTANTES.HOMBRES_POR_CUADRILLA;
   }
   const indice = horasHombre > 0 ? cajas / horasHombre : 0;
