@@ -11,7 +11,7 @@ import {
   LabelList,
 } from 'recharts';
 import type { ValorConteo } from '../../../../utils/informes';
-import { TOOLTIP_STYLE } from './helpers';
+import { TOOLTIP_STYLE, dotPorDia } from './helpers';
 import { ChartHeader, PanelEmpty } from './shared';
 
 /** Volumen de llaves por día (área). */
@@ -64,6 +64,8 @@ export const VolumenPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> 
               stroke="#10b981"
               strokeWidth={2}
               fill="url(#fillVolumen)"
+              dot={dotPorDia('#10b981')}
+              activeDot={{ r: 4, fill: '#10b981' }}
               isAnimationActive={false}
             >
               <LabelList
