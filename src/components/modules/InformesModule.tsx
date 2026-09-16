@@ -359,11 +359,42 @@ export const InformesModule: React.FC = () => {
               <p className="text-[10px] text-zinc-500 font-mono">
                 Cajas por hora-hombre (CCL + SLA)
               </p>
-              <p className="text-xl font-black text-white">
-                {horaHombreData.horasHombre > 0
-                  ? horaHombreData.indice.toLocaleString('es-CO', { maximumFractionDigits: 1 })
-                  : '—'}
-              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
+                    Promedio
+                  </span>
+                  <span className="text-lg font-black text-white">
+                    {horaHombreData.horasHombre > 0
+                      ? horaHombreData.indice.toLocaleString('es-CO', { maximumFractionDigits: 1 })
+                      : '—'}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-bold text-blue-400 uppercase tracking-wider">
+                    H/H CCL
+                  </span>
+                  <span className="text-lg font-black text-white">
+                    {horaHombreData.ccl.horasHombre > 0
+                      ? horaHombreData.ccl.indice.toLocaleString('es-CO', {
+                          maximumFractionDigits: 1,
+                        })
+                      : '—'}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">
+                    H/H SLA
+                  </span>
+                  <span className="text-lg font-black text-white">
+                    {horaHombreData.sla.horasHombre > 0
+                      ? horaHombreData.sla.indice.toLocaleString('es-CO', {
+                          maximumFractionDigits: 1,
+                        })
+                      : '—'}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className="bg-[#0e1320] border border-amber-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">

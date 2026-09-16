@@ -265,15 +265,25 @@ describe('utils/informes (utilidades Fase 2)', () => {
         horaFinCargue: '--:--',
       }),
     ]);
-    // CCL: 2 h × 3 hombres = 6 h-h · SLA: 1 h × 3 = 3 h-h → 9 h-h en total; LTSA y la fila sin horas no cuentan.
+    // CCL: 2 h × 3 hombres = 6 h-h → 120/6 = 20 cajas por h-h.
+    // SLA: 1 h × 3 = 3 h-h → 60/3 = 20 cajas por h-h.
+    // Total: 9 h-h → 180/9 = 20 cajas por h-h; LTSA y la fila sin horas no cuentan.
     expect(res.cajas).toBe(180);
     expect(res.horasHombre).toBe(9);
     expect(res.indice).toBe(20);
+    expect(res.ccl).toEqual({ cajas: 120, horasHombre: 6, indice: 20 });
+    expect(res.sla).toEqual({ cajas: 60, horasHombre: 3, indice: 20 });
   });
 
-  it('horaHombre devuelve índice 0 cuando no hay horas de cargue válidas', () => {
+  it('horaHombre devuelve índices 0 cuando no hay horas de cargue válidas', () => {
     const res = horaHombre([row({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 40 })]);
-    expect(res).toEqual({ cajas: 0, horasHombre: 0, indice: 0 });
+    expect(res).toEqual({
+      cajas: 0,
+      horasHombre: 0,
+      indice: 0,
+      ccl: { cajas: 0, horasHombre: 0, indice: 0 },
+      sla: { cajas: 0, horasHombre: 0, indice: 0 },
+    });
   });
 });
 

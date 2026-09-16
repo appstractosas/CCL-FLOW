@@ -347,26 +347,42 @@ export function cajasPorCuadrilla(rows: UnifiedTransporte[]): ValorConteo[] {
 /** Cajas cargadas por hora-hombre de las cuadrillas CCL y SLA (LTSA no cuenta).
  *  Solo participan las llaves con hora de inicio y fin de cargue válidas;
  *  el tiempo de cargue (minutos) de cada llave se multiplica por la tripulación
- *  de la cuadrilla (HOMBRES_POR_CUADRILLA) para obtener las horas-hombre. */
-export interface ResultadoHoraHombre {
+ *  de la cuadrilla (HOMBRES_POR_CUADRILLA) para obtener las horas-hombre.
+ *  El índice combinado (indice) es el promedio de ambas cuadrillas (CCL + SLA). */
+export interface ResultadoHoraHombreGrupo {
   cajas: number;
   horasHombre: number;
   indice: number;
 }
 
+export interface ResultadoHoraHombre extends ResultadoHoraHombreGrupo {
+  ccl: ResultadoHoraHombreGrupo;
+  sla: ResultadoHoraHombreGrupo;
+}
+
+function resultadoGrupo_(cajas: number, horasHombre: number): ResultadoHoraHombreGrupo {
+  return { cajas, horasHombre, indice: horasHombre > 0 ? cajas / horasHombre : 0 };
+}
+
 export function horaHombre(rows: UnifiedTransporte[]): ResultadoHoraHombre {
-  let cajas = 0;
-  let horasHombre = 0;
+  const grupos = { CCL: { cajas: 0, horasHombre: 0 }, SLA: { cajas: 0, horasHombre: 0 } };
   for (const r of rows) {
     const grupo = tipoGrupo(r.cuadrilla);
     if (grupo !== 'CCL' && grupo !== 'SLA') continue;
     const mins = diffMinutosReales(r.horaInicioCargue, r.horaFinCargue);
     if (mins == null || mins <= 0) continue;
-    cajas += cajasDe(r);
-    horasHombre += (mins / 60) * CONSTANTES.HOMBRES_POR_CUADRILLA;
+    grupos[grupo].cajas += cajasDe(r);
+    grupos[grupo].horasHombre += (mins / 60) * CONSTANTES.HOMBRES_POR_CUADRILLA;
   }
-  const indice = horasHombre > 0 ? cajas / horasHombre : 0;
-  return { cajas, horasHombre, indice };
+  const ccl = resultadoGrupo_(grupos.CCL.cajas, grupos.CCL.horasHombre);
+  const sla = resultadoGrupo_(grupos.SLA.cajas, grupos.SLA.horasHombre);
+  return {
+    cajas: ccl.cajas + sla.cajas,
+    horasHombre: ccl.horasHombre + sla.horasHombre,
+    indice: ccl.horasHombre + sla.horasHombre > 0 ? (ccl.cajas + sla.cajas) / (ccl.horasHombre + sla.horasHombre) : 0,
+    ccl,
+    sla,
+  };
 }
 
 // ===========================================================================
