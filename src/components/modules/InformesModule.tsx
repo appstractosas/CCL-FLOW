@@ -19,7 +19,6 @@ import {
   cajasPorDia,
   cajasPorCuadrilla,
   tiemposPorteria,
-  distribucionRangos,
   mapaPosicionamiento,
   primeraFechaDatos,
   horaHombre,
@@ -35,7 +34,6 @@ import {
   CajasDiariasPanel,
   CajasGrupoPanel,
   TiemposEtapaPanel,
-  TiemposHeatmapPanel,
   PosicionamientoPanel,
 } from './informes/panels';
 
@@ -143,9 +141,8 @@ export const InformesModule: React.FC = () => {
   const cajasGrupo = useMemo(() => cajasPorCuadrilla(rowsFiltradas), [rowsFiltradas]);
   const horaHombreData = useMemo(() => horaHombre(rowsFiltradas), [rowsFiltradas]);
 
-  // Tiempos de portería: promedio por etapa + distribución por rango de demora.
+  // Tiempos de portería: promedio por etapa.
   const tiemposEtapas = useMemo(() => tiemposPorteria(rowsFiltradas), [rowsFiltradas]);
-  const distribucionRangosData = useMemo(() => distribucionRangos(rowsFiltradas), [rowsFiltradas]);
 
   // Mapa de calor de posicionamiento: matriz fecha × hora (llegada a portería vs cita).
   const posicionamiento = useMemo(() => mapaPosicionamiento(rowsFiltradas), [rowsFiltradas]);
@@ -438,18 +435,14 @@ export const InformesModule: React.FC = () => {
             ))}
           </div>
 
-          {/* Cajas diarias (60%) + Cajas cargadas por cuadrilla (40%) — PC en fila, móvil apilado */}
-          <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
-            <div className="lg:col-span-6">
-              <CajasDiariasPanel data={cajasDia} sinDatos={sinDatos} />
-            </div>
-            <div className="lg:col-span-4">
-              <CajasGrupoPanel data={cajasGrupo} sinDatos={sinDatos} />
-            </div>
-          </div>
+          {/* Cajas diarias: fila completa de la pantalla (PC), apilado en móvil */}
+          <CajasDiariasPanel data={cajasDia} sinDatos={sinDatos} />
 
           {/* Rentabilidad cuadrillas */}
           <RentabilidadPanel data={rentabilidad} sinDatos={sinDatos} />
+
+          {/* Volumen de llaves por día */}
+          <VolumenPanel data={volumen} sinDatos={sinDatos} />
 
           {/* Embudo de estados + Flota donut + Transportadoras */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -458,14 +451,11 @@ export const InformesModule: React.FC = () => {
             <TransportadorasPanel data={transportadoras} sinDatos={sinDatos} />
           </div>
 
-          {/* Tiempos de portería: promedio por etapa (50%) + heatmap de distribución (50%) — PC en fila, móvil apilado */}
+          {/* Tiempo promedio por etapa (50%) + Cajas cargadas por cuadrilla (50%) — PC en fila, móvil apilado */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <TiemposEtapaPanel data={tiemposEtapas} sinDatos={sinDatos} />
-            <TiemposHeatmapPanel data={distribucionRangosData} sinDatos={sinDatos} />
+            <CajasGrupoPanel data={cajasGrupo} sinDatos={sinDatos} />
           </div>
-
-          {/* Volumen de llaves por día */}
-          <VolumenPanel data={volumen} sinDatos={sinDatos} />
 
           {/* Uso y Ocupación de Muelles (30%) + Mapa de Calor de Posicionamiento (70%) — el mapa con más ancho, sin scroll horizontal */}
           <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">

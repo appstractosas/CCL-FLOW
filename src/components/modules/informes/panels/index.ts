@@ -7,5 +7,4 @@ export { RentabilidadPanel } from './rentabilidad';
 export { CajasDiariasPanel } from './cajas-diarias';
 export { CajasGrupoPanel } from './cajas-grupo';
 export { TiemposEtapaPanel } from './tiempos-etapa';
-export { TiemposHeatmapPanel } from './tiempos-heatmap';
 export { PosicionamientoPanel } from './posicionamiento';

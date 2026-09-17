@@ -9,12 +9,12 @@ export const EmbudoPanel: React.FC<{ data: EstadoConteo[]; sinDatos: boolean }> 
   data,
   sinDatos,
 }) => (
-  <div className="lg:col-span-5 bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+  <div className="lg:col-span-4 bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
     <ChartHeader title="Embudo Operativo" subtitle="Llaves por estado del flujo" />
     {sinDatos ? (
       <PanelEmpty />
     ) : (
-      <div className="h-72">
+      <div className="h-60">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}

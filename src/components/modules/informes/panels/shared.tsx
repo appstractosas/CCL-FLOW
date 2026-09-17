@@ -119,7 +119,10 @@ export const DonutSvg: React.FC<{
           const mid = p.start + p.angle / 2;
           const labelX = CX + labelDist * Math.cos(mid);
           const labelY = CY + labelDist * Math.sin(mid);
-          const izquierda = mid > Math.PI * 0.5 && mid < Math.PI * 1.5;
+          const izquierda =
+            p.labelAnchor !== undefined
+              ? p.labelAnchor === 'izquierda'
+              : mid > Math.PI * 0.5 && mid < Math.PI * 1.5;
           const anchor = izquierda ? 'end' : 'start';
           const offX = izquierda ? -8 : 8;
           const pct = Math.round(p.portion * 100 * 10) / 10;
