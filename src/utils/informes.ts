@@ -243,11 +243,11 @@ export function porTransportadora(rows: UnifiedTransporte[], topN = 8): ValorCon
     .slice(0, topN);
 }
 
-/** Número de llaves por día (YYYY-MM-DD) según la HORA DE SALIDA (despacho real), ascendente. */
+/** Número de llaves por día (YYYY-MM-DD) según la CITA DE CARGUE (programación), ascendente. */
 export function volumenPorDia(rows: UnifiedTransporte[]): ValorConteo[] {
   const mapa = new Map<string, number>();
   for (const r of rows) {
-    const dia = formatearFechaClave(r.horaSalida);
+    const dia = formatearFechaClave(r.citaCargue);
     if (dia) acumular(mapa, dia, 1);
   }
   return aValorConteo(mapa).sort((a, b) => a.name.localeCompare(b.name));
@@ -294,7 +294,7 @@ export function rentabilidadCuadrillas(
 ): RentabilidadBucket[] {
   const movimiento = new Set<string>();
   for (const r of rows) {
-    const dia = formatearFechaClave(r.horaInicioCargue);
+    const dia = formatearFechaClave(r.citaCargue);
     if (dia) movimiento.add(dia);
   }
 
@@ -307,7 +307,7 @@ export function rentabilidadCuadrillas(
   // Ingreso de cuadrillas SLA según las cajas de cada día (LTSA no se incluye en este gráfico).
   // Las llaves sin cuadrilla asignada no se consideran operación de terceros.
   for (const r of rows) {
-    const dia = formatearFechaClave(r.horaInicioCargue);
+    const dia = formatearFechaClave(r.citaCargue);
     const bucket = buckets.get(dia);
     if (!bucket) continue;
     if (!String(r.cuadrilla || '').trim()) continue;
@@ -320,11 +320,11 @@ export function rentabilidadCuadrillas(
   return [...buckets.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Cajas registradas por día (YYYY-MM-DD) según la HORA DE INICIO DE CARGUE (operación real), ascendente. */
+/** Cajas registradas por día (YYYY-MM-DD) según la CITA DE CARGUE (programación), ascendente. */
 export function cajasPorDia(rows: UnifiedTransporte[]): ValorConteo[] {
   const mapa = new Map<string, number>();
   for (const r of rows) {
-    const dia = formatearFechaClave(r.horaInicioCargue);
+    const dia = formatearFechaClave(r.citaCargue);
     if (dia) acumular(mapa, dia, cajasDe(r));
   }
   return aValorConteo(mapa).sort((a, b) => a.name.localeCompare(b.name));
@@ -494,48 +494,6 @@ export function tiemposPorteria(rows: UnifiedTransporte[]): TiempoEtapaResumen[]
       conteo: dur.length,
     };
   });
-}
-
-/** Rango de demora de una etapa: [min, max) en minutos; el último rango es abierto [480, ∞). */
-export interface RangoDemora {
-  id: string;
-  label: string;
-  min: number;
-  max: number;
-}
-
-/** Los 6 rangos de demora que agrupan la duración de cada etapa en el gráfico de distribución. */
-export const RANGOS_DEMORA: RangoDemora[] = [
-  { id: '0-30min', label: '0-30 min', min: 0, max: 30 },
-  { id: '30-60min', label: '30-60 min', min: 30, max: 60 },
-  { id: '1-2h', label: '1-2 h', min: 60, max: 120 },
-  { id: '2-4h', label: '2-4 h', min: 120, max: 240 },
-  { id: '4-8h', label: '4-8 h', min: 240, max: 480 },
-  { id: '>8h', label: '>8 h', min: 480, max: Number.POSITIVE_INFINITY },
-];
-
-/**
- * Conteo de llaves por rango de demora y por etapa: para cada llave y cada
- * etapa, su duración (min) cae en uno de los RANGOS_DEMORA y suma +1 a la
- * barra de ese estado. Devuelve { rangoId: { etapaId: conteo } } con las 5
- * etapas de cada rango inicializadas en 0.
- */
-export function distribucionRangos(
-  rows: UnifiedTransporte[],
-): Record<string, Record<string, number>> {
-  const base = Object.fromEntries(ETAPAS_PORTERIA.map((e) => [e.id, 0]));
-  const res: Record<string, Record<string, number>> = {};
-  for (const rg of RANGOS_DEMORA) res[rg.id] = { ...base };
-
-  for (const r of rows) {
-    for (const etapa of ETAPAS_PORTERIA) {
-      const d = duracionEtapa(etapa, r);
-      if (d == null) continue; // sin ambas horas o inconsistente: no aporta
-      const rg = RANGOS_DEMORA.find((b) => d >= b.min && d < b.max);
-      if (rg) res[rg.id][etapa.id] += 1;
-    }
-  }
-  return res;
 }
 
 // ===========================================================================
