@@ -22,6 +22,7 @@ import {
   mapaPosicionamiento,
   primeraFechaDatos,
   horaHombre,
+  tiempoCarguePorTipo,
 } from '../../utils/informes';
 import type { UnifiedTransporte } from '../../types';
 import {
@@ -33,6 +34,7 @@ import {
   RentabilidadPanel,
   CajasDiariasPanel,
   CajasGrupoPanel,
+  TiempoCarguePanel,
   TiemposEtapaPanel,
   PosicionamientoPanel,
 } from './informes/panels';
@@ -143,6 +145,9 @@ export const InformesModule: React.FC = () => {
 
   // Tiempos de portería: promedio por etapa.
   const tiemposEtapas = useMemo(() => tiemposPorteria(rowsFiltradas), [rowsFiltradas]);
+
+  // Tiempo de cargue promedio por tipo de vehículo.
+  const tiempoCargue = useMemo(() => tiempoCarguePorTipo(rowsFiltradas), [rowsFiltradas]);
 
   // Mapa de calor de posicionamiento: matriz fecha × hora (llegada a portería vs cita).
   const posicionamiento = useMemo(() => mapaPosicionamiento(rowsFiltradas), [rowsFiltradas]);
@@ -444,10 +449,15 @@ export const InformesModule: React.FC = () => {
           {/* Volumen de llaves por día */}
           <VolumenPanel data={volumen} sinDatos={sinDatos} />
 
-          {/* Embudo de estados + Flota donut + Transportadoras */}
+          {/* Tiempo de cargue por tipo de vehículo + Flota (50%-50%) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <TiempoCarguePanel data={tiempoCargue} sinDatos={sinDatos} />
+            <FlotaPanel data={flota} sinDatos={sinDatos} />
+          </div>
+
+          {/* Embudo de estados + Llaves por Transportadora (50%-50%) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <EmbudoPanel data={embudo} sinDatos={sinDatos} />
-            <FlotaPanel data={flota} sinDatos={sinDatos} />
             <TransportadorasPanel data={transportadoras} sinDatos={sinDatos} />
           </div>
 

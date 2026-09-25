@@ -24,6 +24,7 @@ import {
   clasificarCita,
   primeraFechaDatos,
   horaHombre,
+  tiempoCarguePorTipo,
 } from '../utils/informes';
 
 function row(overrides: Partial<UnifiedTransporte> = {}): UnifiedTransporte {
@@ -430,6 +431,34 @@ describe('utils/informes (nuevos gráficos)', () => {
       expect(e.color).toMatch(/^#[0-9a-f]{6}$/i);
       expect(e.descripcion).toContain('→');
     }
+  });
+
+  it('tiempoCarguePorTipo promedia y agrupa por tipo, solo con horas de cargue válidas', () => {
+    const tiempos = tiempoCarguePorTipo([
+      row({ llave: 'LL-1', vehiculoTipo: 'TURBO', horaInicioCargue: '08:00', horaFinCargue: '09:30' }),
+      row({ llave: 'LL-2', vehiculoTipo: 'SENCILLO', horaInicioCargue: '08:00', horaFinCargue: '08:20' }),
+      // Cruce de medianoche: 23:50 → 00:10 = 20 min.
+      row({ llave: 'LL-3', vehiculoTipo: 'SENCILLO', horaInicioCargue: '23:50', horaFinCargue: '00:10' }),
+      // Sin fin de cargue, hora inválida y duración 0 → no cuentan.
+      row({ llave: 'LL-4', vehiculoTipo: 'SENCILLO', horaInicioCargue: '08:00' }),
+      row({ llave: 'LL-5', vehiculoTipo: 'LUV', horaInicioCargue: '08:00', horaFinCargue: '--:--' }),
+      row({ llave: 'LL-6', vehiculoTipo: 'TURBO', horaInicioCargue: '09:00', horaFinCargue: '09:00' }),
+    ]);
+    expect(tiempos.map((t) => t.name)).toEqual(['SENCILLO', 'TURBO', 'MINIMULA', 'LUV', 'MULA']);
+    expect(tiempos.find((t) => t.name === 'SENCILLO')).toMatchObject({
+      promedio: 20,
+      minimo: 20,
+      maximo: 20,
+      conteo: 2,
+    });
+    expect(tiempos.find((t) => t.name === 'TURBO')).toMatchObject({
+      promedio: 90,
+      minimo: 90,
+      maximo: 90,
+      conteo: 1,
+    });
+    expect(tiempos.find((t) => t.name === 'MINIMULA')).toMatchObject({ promedio: 0, minimo: 0, maximo: 0, conteo: 0 });
+    expect(tiempos.find((t) => t.name === 'LUV')).toMatchObject({ promedio: 0, minimo: 0, maximo: 0, conteo: 0 });
   });
 });
 

@@ -231,6 +231,41 @@ export function porTipo(rows: UnifiedTransporte[]): ValorConteo[] {
   return TIPOS_VEHICULO.map((t) => ({ name: t, value: mapa.get(t) || 0 }));
 }
 
+/** Tiempo de cargue agregado por tipo de vehículo (minutos). */
+export interface TiempoCargueTipo {
+  name: string;
+  promedio: number;
+  minimo: number;
+  maximo: number;
+  conteo: number;
+}
+
+/** Promedio/mín/máx del tiempo de cargue (fin − inicio) por tipo de vehículo, en el orden
+ *  de TIPOS_VEHICULO. Solo cuentan las llaves con ambas horas de cargue válidas y duración
+ *  positiva. El cruce de medianoche lo resuelve diffMinutosReales; se descarta el caso
+ *  degenerado fin == inicio (24 h según ese helper, sin duración real medida). */
+export function tiempoCarguePorTipo(rows: UnifiedTransporte[]): TiempoCargueTipo[] {
+  const medidas = new Map<TipoVehiculo, number[]>();
+  for (const r of rows) {
+    if (!TIPOS_VEHICULO.includes(r.vehiculoTipo)) continue;
+    const mins = diffMinutosReales(r.horaInicioCargue, r.horaFinCargue);
+    if (mins == null || mins <= 0 || mins >= 1440) continue;
+    const lista = medidas.get(r.vehiculoTipo) ?? [];
+    lista.push(mins);
+    medidas.set(r.vehiculoTipo, lista);
+  }
+  return TIPOS_VEHICULO.map((t) => {
+    const lista = medidas.get(t) ?? [];
+    return {
+      name: t,
+      promedio: lista.length ? Math.round(lista.reduce((a, b) => a + b, 0) / lista.length) : 0,
+      minimo: lista.length ? Math.min(...lista) : 0,
+      maximo: lista.length ? Math.max(...lista) : 0,
+      conteo: lista.length,
+    };
+  });
+}
+
 /** Llaves por transportadora (top N, ordenadas descendente). */
 export function porTransportadora(rows: UnifiedTransporte[], topN = 8): ValorConteo[] {
   const mapa = new Map<string, number>();

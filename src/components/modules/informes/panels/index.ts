@@ -6,5 +6,6 @@ export { MuellesPanel } from './muelles';
 export { RentabilidadPanel } from './rentabilidad';
 export { CajasDiariasPanel } from './cajas-diarias';
 export { CajasGrupoPanel } from './cajas-grupo';
+export { TiempoCarguePanel } from './tiempo-cargue';
 export { TiemposEtapaPanel } from './tiempos-etapa';
 export { PosicionamientoPanel } from './posicionamiento';
