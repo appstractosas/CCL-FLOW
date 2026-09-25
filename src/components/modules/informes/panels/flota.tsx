@@ -15,7 +15,7 @@ export const FlotaPanel: React.FC<{ data: ValorConteo[]; sinDatos: boolean }> = 
     labelAnchor: d.name === 'MULA' ? 'derecha' : undefined,
   }));
   return (
-    <div className="lg:col-span-4 bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+    <div className="lg:col-span-6 bg-[#0b0f19] border border-zinc-800/90 rounded-2xl p-5 flex flex-col justify-between space-y-4">
       <ChartHeader title="Flota por Tipo de Vehículo" subtitle="Composición del rango" />
       {sinDatos ? (
         <PanelEmpty />
