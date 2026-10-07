@@ -589,12 +589,18 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
       }
 
       // No se elimina el vehículo: queda con estado CANCELADO y sin editar.
+      // Primero la BD; si falla, se informa y NO se aplica el cambio local
+      // (evita el "cancelado fantasma" que la UI mostraba sin existir en BD).
       const patch: Partial<UnifiedTransporte> = { estadoPorteria: 'CANCELADO' as EstadoPorteria };
       if (isSupabaseConfigured) {
         try {
           await updateTransporteRemote(id, patch);
         } catch (err) {
           console.error('Error cancelando transporte en Supabase:', err);
+          window.alert(
+            `No se pudo cancelar en la base de datos: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          return;
         }
       }
       patchTransporte(id, patch);
