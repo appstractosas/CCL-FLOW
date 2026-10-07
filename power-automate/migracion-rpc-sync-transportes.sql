@@ -154,6 +154,52 @@ BEGIN
   FROM tmp_sync
   ORDER BY llave, placa, row_id DESC;
 
+  -- 2.5) TRANSFERENCIA DE PLACAS (renombrado) - SIN límite de fecha.
+  --   Al cambiar una placa en el Excel (ABC -> DEF), NO crear fila nueva:
+  --   transferir la placa a la fila existente de la misma llave, conservando
+  --   id, created_at, cajas_manual y estado_porteria. Para cada llave del
+  --   payload: si hay placas nuevas (en Excel, no en BD) y placas viejas (en
+  --   BD, no en Excel) con la MISMA cantidad, se renombra la fila vieja a la
+  --   placa nueva (emparejamiento determinista por orden alfabético). Si las
+  --   cantidades no coinciden, el sobrante sigue las reglas normales (INSERT o
+  --   huérfano).
+  WITH
+    nuevas AS (
+      SELECT t.llave, t.placa
+      FROM tmp_cons t
+      WHERE t.placa IS NOT NULL AND t.placa <> ''
+      GROUP BY t.llave, t.placa
+    ),
+    viejas AS (
+      SELECT x.llave, x.placa
+      FROM public.transportes x
+      WHERE x.placa IS NOT NULL AND x.placa <> ''
+    ),
+    nueva_x AS (
+      SELECT n.llave, n.placa,
+             row_number() OVER (PARTITION BY n.llave ORDER BY n.placa) AS rn
+      FROM nuevas n
+      LEFT JOIN viejas v ON v.llave = n.llave AND v.placa = n.placa
+      WHERE v.placa IS NULL
+    ),
+    vieja_x AS (
+      SELECT v.llave, v.placa,
+             row_number() OVER (PARTITION BY v.llave ORDER BY v.placa) AS rn
+      FROM viejas v
+      LEFT JOIN nuevas n ON n.llave = v.llave AND n.placa = v.placa
+      WHERE n.placa IS NULL
+    ),
+    emparejada AS (
+      SELECT nx.llave, nx.placa AS placa_nueva, vx.placa AS placa_vieja
+      FROM nueva_x nx
+      JOIN vieja_x vx ON vx.llave = nx.llave AND vx.rn = nx.rn
+    )
+  UPDATE public.transportes t
+  SET placa = e.placa_nueva,
+      updated_at = now()
+  FROM emparejada e
+  WHERE t.llave = e.llave AND t.placa = e.placa_vieja;
+
   -- 3) UPSERT por (llave, placa).
   FOR r IN SELECT * FROM tmp_cons ORDER BY llave, placa LOOP
     -- fecha_hora: serial de Excel (ej. 46248) -> ISO | ya ISO -> tal cual.

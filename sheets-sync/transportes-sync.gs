@@ -1,15 +1,19 @@
 /*****************************************************************************
  * CCL FLOW — Sincronización Google Sheets → Supabase (tabla "transportes")
  * ---------------------------------------------------------------------------
+ * RESPALDO / BACKUP — La fuente principal es Power Automate (Excel 365).
+ * Este script se mantiene como respaldo y se ejecuta SOLO si falla el PA.
+ * ---------------------------------------------------------------------------
  * Lee la pestaña de operaciones del Sheets y hace UPSERT de cada fila en la
  * tabla TRANSPORTES de Supabase usando el par (llave, placa) como clave.
  *
  * REGLA DE NEGOCIO (confirmada):
  *   Una LLAVE puede tener VARIAS PLACAS (cada placa = UNA FILA en la BD y en el
  *   Sheets). Las CAJAS se registran POR PLACA, no se suman por llave.
- *   Un TRANSPORTE (nº pedido) no puede pertenecer a DOS llaves distintas
- *   (dentro de la MISMA llave puede repetirse si el pedido se reparte en
- *   varias placas).
+ *   Un TRANSPORTE (nº pedido) PUEDE pertenecer a DISTINTAS llaves
+ *   (el trigger de unicidad por transporte fue eliminado en BD v2026-09-24).
+ *   Dentro de la MISMA llave puede repetirse si el pedido se reparte en
+ *   varias placas.
  *
  * CLAVE (llave, placa):
  *   El UPSERT identifica la fila por (llave, placa). Si el Sheets repite el
@@ -26,6 +30,13 @@
  *   el huérfano (llave,'') de esa llave (regla de fusión sin doble conteo, ver
  *   migracion-rpc-sync-transportes.sql).
  *
+ * RPC SYNC_TRANSPORTES (v2):
+ *   - Si (llave, placa) YA EXISTE → UPDATE esa fila (persiste cambios).
+ *   - Si llave existe pero placa es NUEVA → INSERT normal (nueva placa).
+ *   - Si llave NO existe → INSERT normal (primera vez).
+ *   - Permite mismo transporte en distintas llaves (sin error).
+ *   - Filtro por cita_cargue = hoy (zona America/Bogota) aplicado en buildRows_.
+ *
  * CAMPOS PARA INFORMES:
  *   - Transporte   → numero de pedido (col. "Transporte")
  *   - Denominación → nombre del cliente (col. "Denominación")
@@ -33,11 +44,11 @@
  *   - Destino      → ciudad/planta de destino (col. "Destino")
  *   Requieren haber creado las columnas en la BD
  *   (destino: ver supabase-migracion-destino-kg.sql):
- *   ALTER TABLE transportes
- *     ADD COLUMN IF NOT EXISTS transporte TEXT,
- *     ADD COLUMN IF NOT EXISTS denominacion TEXT,
- *     ADD COLUMN IF NOT EXISTS cajas NUMERIC DEFAULT 0,
- *     ADD COLUMN IF NOT EXISTS destino TEXT;
+ *     ALTER TABLE transportes
+ *       ADD COLUMN IF NOT EXISTS transporte TEXT,
+ *       ADD COLUMN IF NOT EXISTS denominacion TEXT,
+ *       ADD COLUMN IF NOT EXISTS cajas NUMERIC DEFAULT 0,
+ *       ADD COLUMN IF NOT EXISTS destino TEXT;
  *   Y el UNIQUE por (llave, placa) en lugar de llave sola:
  *     ALTER TABLE transportes DROP CONSTRAINT IF EXISTS transportes_llave_key;
  *     ALTER TABLE transportes ADD CONSTRAINT transportes_llave_placa_key
@@ -52,7 +63,8 @@
  *****************************************************************************/
 
 var SPREADSHEET_ID = '1uVuPEnwLHFjVRTysi9SSXgt1PVeJNWqRQ69oxxaNiY4';
-var SHEET_NAME = 'Hoja 1'; // Ajustar al nombre exacto de la pestaña de operaciones.
+var SHEET_NAME = 'CONSOLIDADO'; // Nombre exacto de la pestaña de operaciones.
+var HEADER_CAJAS = 'Cajas originales'; // Nombre exacto de la columna de cajas
 var TABLE = 'transportes';
 // Clave del UPSERT: el par (llave, placa) identifica la fila.
 var UNIQUE_KEY = 'llave,placa';
@@ -76,7 +88,7 @@ var MAPPING = {
   'Transporte': 'transporte',     // NÚMERO DE PEDIDO (no es placa ni vehículo)
   'Denominación': 'denominacion', // Nombre del cliente
   'Placa': 'placa',
-  'Cajas': 'cajas',               // Cantidad de cajas (numérica)
+  'Cajas originales': 'cajas',               // Cantidad de cajas (numérica)
   'Destino': 'destino',           // Ciudad/planta de destino del pedido
   'Region': 'region',             // Región del pedido (region en la BD)
   // 'Estatus' alimenta estado_transporte con DESPACHADO/ALISTADO/PENDIENTE
@@ -193,7 +205,8 @@ function buildRows_() {
         } else if (dbField === 'cita_cargue') {
           val = parseFechaHora_(raw);
         } else if (dbField === 'placa' || dbField === 'llave') {
-          val = String(raw).toUpperCase().trim();
+          val = String(raw).toUpperCase().trim().replace(/\s+/g, '');
+          if (dbField === 'placa' && val === '') val = '';
         } else if (dbField === 'cajas') {
           // NUMERIC en la BD: se envía como número (soporta "1.234" o "1234").
           var cajasNum = Number(String(raw).replace(/[.,]/g, '').trim());
@@ -245,7 +258,8 @@ function buildRows_() {
   var orden = [];
   for (var i = 0; i < rows.length; i++) {
     var filaActual = rows[i];
-    var clave = filaActual.llave + '|' + (filaActual.placa || '');
+    var placaNorm = (filaActual.placa || '').toString().trim().toUpperCase().replace(/\s+/g, '');
+    var clave = filaActual.llave + '|' + (placaNorm || '__SIN_PLACA__');
     if (!Object.prototype.hasOwnProperty.call(dedup, clave)) {
       var copia = {};
       for (var k in filaActual) copia[k] = filaActual[k];
@@ -264,21 +278,22 @@ function buildRows_() {
           base[k2] = v;
         }
       }
-    }
+}
   }
   rows = [];
   for (var o = 0; o < orden.length; o++) {
     rows.push(dedup[orden[o]]);
   }
-  return rows;
+
+return rows; // Sin filtro: sube TODAS las filas del Sheets
 }
 
 /* ---------------------------- sincronización ------------------------------ */
 
 /**
- * Lee el Sheets y hace UPSERT a Supabase (inserta o actualiza por (llave, placa)).
- * Ejecutable a mano y usado por los disparadores onEdit/temporal.
- * Envía las filas AGRUPADAS: ahorra llamadas HTTP (cuota diaria de urlfetch).
+ * Lee el Sheets, filtra por cita_cargue = HOY, y hace FULL SYNC (upsert + delete)
+ * vía RPC sync_transportes_full(_filas, _fecha).
+ * Elimina en BD las filas de hoy que NO están en el Sheets (borradas en Sheets).
  */
 function syncTransportes() {
   var cfg = getConfig_();
@@ -288,33 +303,40 @@ function syncTransportes() {
 
   var rows = buildRows_();
   if (rows.length === 0) {
-    Logger.log('syncTransportes: sin filas nuevas para enviar.');
+    Logger.log('syncTransportes: sin filas de hoy para enviar.');
     return 0;
   }
 
-  // Usa la función RPC sync_transportes (mismo endpoint y lógica que Power Automate).
-  var baseUrl = cfg.url.replace(/\/+$/, '') + '/rest/v1/rpc/sync_transportes';
+  var hoy = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd');
+
+  // Usa la función RPC sync_transportes_full (full sync con deletes).
+  var baseUrl = cfg.url.replace(/\/+$/, '') + '/rest/v1/rpc/sync_transportes_full';
   var headers = {
     'apikey': cfg.key,
     'Authorization': 'Bearer ' + cfg.key,
     'Content-Type': 'application/json',
   };
 
+  var payload = JSON.stringify({
+    _filas: rows,
+    _fecha: hoy
+  });
+
   var options = {
     method: 'post',
     contentType: 'application/json',
     headers: headers,
-    payload: JSON.stringify({ _filas: rows }),
+    payload: payload,
     muteHttpExceptions: true,
   };
 
   var res = UrlFetchApp.fetch(baseUrl, options);
   var code = res.getResponseCode();
   if (code >= 400) {
-    throw new Error('syncTransportes RPC → Supabase respondió ' + code + ': ' + res.getContentText());
+    throw new Error('syncTransportes_full RPC → Supabase respondió ' + code + ': ' + res.getContentText());
   }
 
-  Logger.log('syncTransportes: ' + rows.length + ' filas sincronizadas vía RPC sync_transportes.');
+  Logger.log('syncTransportes: ' + rows.length + ' filas sincronizadas vía RPC sync_transportes_full (full sync con deletes).');
   return rows.length;
 }
 
@@ -418,25 +440,10 @@ function protegerHoja() {
   return proteccion.getProtectionType();
 }
 
-/** Disparador onEdit: cada cambio en el Sheets dispara la sincronización. */
-function onEdit(e) {
-  try {
-    if (e && e.source) {
-      // Control de acceso: los no-admin NO pueden editar ni eliminar.
-      if (bloquearNoAdmin_(e)) return;
-
-      var target = SpreadsheetApp.openById(SPREADSHEET_ID);
-      if (e.source.getId() !== target.getId()) return;
-      var sheet = e.source.getActiveSheet();
-      if (sheet.getName() !== getSheet_().getName()) return;
-    }
-    syncTransportes();
-  } catch (err) {
-    Logger.log('onEdit error: ' + err.message);
-  }
-}
-
-/** Crea los disparadores: onEdit + un respaldo temporal cada 1 minuto. */
+/**
+ * Crea el disparador temporal: sincroniza cada 5 minutos desde el Sheets.
+ * NO instala onEdit (evita que cada edición dispare el sync inmediatamente).
+ */
 function installTriggers() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
 
@@ -444,22 +451,17 @@ function installTriggers() {
     ScriptApp.deleteTrigger(t);
   });
 
-  ScriptApp.newTrigger('onEdit')
-    .forSpreadsheet(ss)
-    .onEdit()
-    .create();
-
   ScriptApp.newTrigger('syncTransportes')
     .timeBased()
-    .everyMinutes(1)
+    .everyMinutes(5)
     .create();
 
-  Logger.log('Disparadores creados: onEdit + cada 1 minuto.');
+  Logger.log('Disparador creado: syncTransportes cada 5 minutos (sin onEdit).');
 }
 
 /**
- * Elimina TODOS los disparadores instalados del proyecto (onEdit + el temporal
- * de cada 1 minuto) mientras Power Automate (Excel 365) es el sync activo.
+ * Elimina TODOS los disparadores instalados del proyecto (el temporal de 5
+ * minutos) mientras Power Automate (Excel 365) es el sync activo.
  * El resto del script queda intacto como respaldo:
  *   - syncTransportes() sigue siendo ejecutable a mano (botón ▶ en el editor).
  *   - Para REACTIVAR el respaldo cuando Power Automate falle, ejecutar:
