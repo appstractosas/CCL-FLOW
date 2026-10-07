@@ -35,7 +35,8 @@ interface TransporteDetailPanelProps {
 const CajasInput: React.FC<{
   row: UnifiedTransporte;
   onCajas: (row: UnifiedTransporte, cajas: number) => void;
-}> = ({ row, onCajas }) => {
+  editable?: boolean;
+}> = ({ row, onCajas, editable = true }) => {
   const [val, setVal] = useState<string>(row.cajas != null ? String(row.cajas) : '');
 
   React.useEffect(() => {
@@ -63,8 +64,9 @@ const CajasInput: React.FC<{
           (e.target as HTMLInputElement).blur();
         }
       }}
-      title="Editar número de cajas"
-      className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2.5 py-1.5 rounded-lg font-bold focus:outline-none text-xs text-right w-24 focus:border-emerald-500"
+      disabled={!editable}
+      title={editable ? 'Editar número de cajas' : 'Solo editable en estados CARGANDO o FINALIZO CARGUE'}
+      className={`bg-zinc-900 text-zinc-100 border border-zinc-700 px-2.5 py-1.5 rounded-lg font-bold focus:outline-none text-xs text-right w-24 focus:border-emerald-500 ${!editable ? 'opacity-50 cursor-not-allowed' : 'focus:border-emerald-500'}`}
     />
   );
 };
@@ -91,6 +93,8 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
 
   const cerrada = isLlaveCerrada(row);
   const estado = getEstadoPorteria(row);
+  const estadosCajasEditables = ['CARGANDO', 'FINALIZO CARGUE'];
+  const cajasEditable = estadosCajasEditables.includes(estado);
   const setFlags = PORTERIA_STEPS.map((s) =>
     timeSet((row as Record<string, unknown>)[s.key] as string | undefined),
   );
@@ -318,7 +322,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
                   Cajas
                 </span>
                 {onCajas ? (
-                  <CajasInput row={row} onCajas={onCajas} />
+                  <CajasInput row={row} onCajas={onCajas} editable={cajasEditable} />
                 ) : (
                   <span className="text-xs font-semibold text-zinc-100 text-right">
                     {row.cajas != null ? row.cajas.toLocaleString('es-CO') : '—'}

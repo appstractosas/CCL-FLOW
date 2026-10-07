@@ -117,6 +117,8 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
   const lockedCls =
     'w-full px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-xl text-xs text-zinc-500 focus:outline-none';
   const locked = Boolean(editingRow && editPlacaOnly);
+  const estadosCajasEditables = ['CARGANDO', 'FINALIZO CARGUE'];
+  const cajasEditable = editingRow ? estadosCajasEditables.includes(editingRow.estadoPorteria) : true;
 
   return (
     <div
@@ -271,9 +273,9 @@ export const TransporteFormModal: React.FC<TransporteFormModalProps> = ({
                 min={0}
                 placeholder="Ej: 579"
                 value={formData.cajas}
-                disabled={locked}
+                disabled={locked || !cajasEditable}
                 onChange={(e) => setFormData({ ...formData, cajas: e.target.value })}
-                className={`${locked ? lockedCls : inputCls} font-mono text-right`}
+                className={`${locked || !cajasEditable ? lockedCls : inputCls} font-mono text-right`}
               />
             </div>
           </div>
