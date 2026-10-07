@@ -66,22 +66,23 @@ export const PosicionamientoPanel: React.FC<{
       {!hayDatos ? (
         <PanelEmpty />
       ) : (
-        <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-          <table className="text-[8.5px]" style={{ borderSpacing: 1 }}>
+        <div className="overflow-visible">
+          <table className="text-[8px]" style={{ borderSpacing: 1, tableLayout: 'fixed', width: '100%' }}>
             <thead className="sticky top-0 z-20 bg-[#0b0f19]">
               <tr>
-                <th className="sticky left-0 z-30 bg-[#0b0f19] px-1 py-1 text-left text-[8px] font-bold uppercase tracking-wider text-zinc-500">
+                <th className="sticky left-0 z-30 bg-[#0b0f19] px-0.5 py-1 text-left text-[7.5px] font-bold uppercase tracking-wider text-zinc-500" style={{ minWidth: '70px', width: '70px' }}>
                   Fecha
                 </th>
                 {horas.map((h) => (
                   <th
                     key={h}
-                    className="px-0.5 py-1 text-center text-[8px] font-mono font-bold text-zinc-500"
+                    className="px-0.25 py-1 text-center text-[7.5px] font-mono font-bold text-zinc-500"
+                    style={{ minWidth: '36px', width: '36px' }}
                   >
                     {h}
                   </th>
                 ))}
-                <th className="px-1 py-1 text-right text-[8px] font-bold uppercase tracking-wider text-zinc-400">
+                <th className="px-0.5 py-1 text-right text-[7.5px] font-bold uppercase tracking-wider text-zinc-400" style={{ minWidth: '48px', width: '48px' }}>
                   Total
                 </th>
               </tr>
@@ -96,9 +97,10 @@ export const PosicionamientoPanel: React.FC<{
                 return (
                   <tr key={f.label}>
                     <td
-                      className={`sticky left-0 z-10 bg-[#0b0f19] px-1 py-0.5 whitespace-nowrap text-[9px] font-bold ${
+                      className={`sticky left-0 z-10 bg-[#0b0f19] px-0.5 py-0.5 whitespace-nowrap text-[9px] font-bold ${
                         esDom ? 'text-rose-400' : 'text-zinc-300'
                       }`}
+                      style={{ minWidth: '70px', width: '70px' }}
                     >
                       {f.label}
                     </td>
@@ -116,15 +118,16 @@ export const PosicionamientoPanel: React.FC<{
                           style={{
                             backgroundColor: bg,
                             color: n > 0 ? fg : 'transparent',
-                            padding: 2,
-                            minWidth: 14,
+                            padding: '1px 0',
+                            minWidth: '36px',
+                            width: '36px',
                           }}
                         >
                           {n > 0 ? n : ''}
                         </td>
                       );
                     })}
-                    <td className="px-1 py-0.5 text-right text-[9px] font-mono font-bold text-white border-l border-zinc-800/70">
+                    <td className="px-0.5 py-0.5 text-right text-[9px] font-mono font-bold text-white border-l border-zinc-800/70" style={{ minWidth: '48px', width: '48px' }}>
                       {totalDia}
                     </td>
                   </tr>
@@ -133,18 +136,19 @@ export const PosicionamientoPanel: React.FC<{
             </tbody>
             <tfoot>
               <tr className="border-t border-zinc-800">
-                <td className="sticky left-0 z-10 bg-[#0b0f19] px-1 py-1 text-[8px] font-bold uppercase tracking-wider text-zinc-400">
+                <td className="sticky left-0 z-10 bg-[#0b0f19] px-0.5 py-1 text-[7.5px] font-bold uppercase tracking-wider text-zinc-400" style={{ minWidth: '70px', width: '70px' }}>
                   Total gen
                 </td>
                 {totalesPorHora.map((t, i) => (
                   <td
                     key={i}
-                    className="px-0.5 py-1 text-center text-[8.5px] font-mono font-bold text-zinc-300"
+                    className="px-0.25 py-1 text-center text-[7.5px] font-mono font-bold text-zinc-300"
+                    style={{ minWidth: '36px', width: '36px' }}
                   >
                     {t > 0 ? t : ''}
                   </td>
                 ))}
-                <td className="px-1 py-1 text-right text-[9px] font-mono font-bold text-white">
+                <td className="px-0.5 py-1 text-right text-[7.5px] font-mono font-bold text-white" style={{ minWidth: '48px', width: '48px' }}>
                   {totalGeneral}
                 </td>
               </tr>

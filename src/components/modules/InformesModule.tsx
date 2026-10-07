@@ -455,9 +455,10 @@ export const InformesModule: React.FC = () => {
             <FlotaPanel data={flota} sinDatos={sinDatos} />
           </div>
 
-          {/* Embudo de estados + Llaves por Transportadora (50%-50%) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Embudo de estados + Uso y Ocupación de Muelles + Llaves por Transportadora (33.33% c/u) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <EmbudoPanel data={embudo} sinDatos={sinDatos} />
+            <MuellesPanel data={usoMuelle} sinDatos={sinDatos} />
             <TransportadorasPanel data={transportadoras} sinDatos={sinDatos} />
           </div>
 
@@ -467,15 +468,8 @@ export const InformesModule: React.FC = () => {
             <CajasGrupoPanel data={cajasGrupo} sinDatos={sinDatos} />
           </div>
 
-          {/* Uso y Ocupación de Muelles (30%) + Mapa de Calor de Posicionamiento (70%) — el mapa con más ancho, sin scroll horizontal */}
-          <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
-            <div className="lg:col-span-3">
-              <MuellesPanel data={usoMuelle} sinDatos={sinDatos} />
-            </div>
-            <div className="lg:col-span-7">
-              <PosicionamientoPanel data={posicionamiento} sinDatos={sinDatos} />
-            </div>
-          </div>
+          {/* Mapa de Calor de Posicionamiento */}
+          <PosicionamientoPanel data={posicionamiento} sinDatos={sinDatos} />
         </>
       )}
     </div>
