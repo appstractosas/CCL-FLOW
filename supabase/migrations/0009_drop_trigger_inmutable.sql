@@ -1,0 +1,46 @@
+-- =============================================================================
+-- MIGRACIÓN: Eliminar trigger de inmutabilidad (fix flujo portería)
+-- -----------------------------------------------------------------------------
+-- CAUSA RAÍZ:
+--   trg_transporte_inmutable usaba subscripting dinámico (NEW[campo]/OLD[campo])
+--   en una función declarada RETURNS trigger. PostgreSQL no soporta ese
+--   subscripting sobre el tipo compuesto 'transportes', por lo que la función
+--   lanzaba el error:
+--       42804: cannot subscript type transportes because it does not support
+--               subscripting
+--   El trigger es BEFORE UPDATE, así que el error se lanzaba ANTES de aplicar
+--   cualquier cambio: TODO el UPDATE se revertía (muelle_asignado,
+--   hora_muelle_asignado, horas de portería, cuadrilla, cajas).
+--   La app hace optimistic update y luego persiste; al fallar la RPC revierte
+--   el estado local (useLogisticsStore.persistirCambio), por eso en pantalla
+--   "el supervisor asigna el muelle y se borra".
+--   Afectaba a cualquier UPDATE sobre filas cuyo estado_porteria ya estuviera
+--   en LLEGO A PORTERIA, INGRESO A MUELLE, CARGANDO, FINALIZO CARGUE,
+--   SALIO DE PORTERIA o CANCELADO.
+--
+-- ALCANCE REAL DEL DAÑO:
+--   - App: asignar muelle, horas de portería, cuadrilla y cajas fallaban y se
+--     revertían en las llaves que ya habían llegado a portería.
+--   - Sync (RPC sync_transportes_full): su "ON CONFLICT ... DO UPDATE" también
+--     dispara triggers BEFORE UPDATE, por lo que las actualizaciones del
+--     Sheets sobre llaves avanzadas quedaban bloqueadas.
+--
+-- DECISIÓN: eliminar el trigger.
+--   La inmutabilidad se valida en el FRONTEND, que es donde realmente se usa:
+--     - useLogisticsStore.llaveCerrada() / isLlaveCerrada(): no deja editar
+--       llaves cerradas.
+--     - No deja editar la identidad de la llave (placa, llave) segun el estado.
+--     - Cajas editables SOLO en CARGANDO / FINALIZO CARGUE
+--       (TransporteDetailPanel.tsx y TransporteFormModal.tsx), regla que se
+--       mantiene intacta.
+--   La barrera de BD era ademas insuficiente: el sync del Sheets escribe
+--   directamente y no respeta estados, y la app ya filtra en pantalla.
+--
+-- IMPACTO: Solo BD. No toca la app, ni el sync, ni datos existentes.
+--   La columna 'kg' (obsoleta) y demás reglas de negocio no se ven afectadas.
+--   Para revertir (reactivar la barrera) existiría la migración 0007, pero
+--   requeriría reescribir la función SIN subscripting dinámico.
+-- =============================================================================
+
+DROP TRIGGER IF EXISTS trg_transporte_inmutable ON public.transportes;
+DROP FUNCTION IF EXISTS public.trg_transporte_inmutable();

@@ -1,0 +1,55 @@
+-- =============================================================================
+-- MIGRACIÓN: Eliminar trigger trg_transporte_persistir_cambios
+-- -----------------------------------------------------------------------------
+-- PROPÓSITO:
+--   El trigger BEFORE INSERT interceptaba todo INSERT y, si la llave ya
+--   existía, CANCELABA el INSERT (RETURN NULL) e intentaba actualizar TODAS
+--   las filas de esa llave (WHERE llave = NEW.llave sin filtro de placa).
+--
+-- PROBLEMAS QUE CAUSABA:
+--   1. El sync no podía crear filas nuevas (placas nuevas) en llaves ya
+--      existentes: el INSERT se cancelaba y la placa nueva se perdía.
+--   2. Al actualizar todas las filas de la llave con la misma placa, violaba
+--      UNIQUE (llave, placa) → error 23505.
+--   3. La UPDATE interna disparaba trg_transporte_inmutable (0007) en llaves
+--      avanzadas → error 42804 que abortaba la corrida del sync.
+--
+-- POR QUÉ ES SEGURO:
+--   * La app NUNCA inserta en transportes (usa UPDATE vía
+--     ccl_update_transporte) → no se ve afectada.
+--   * Los duplicados siguen protegidos por:
+--       - UNIQUE (llave, placa)          (0002)
+--       - dedupe en el GS (transportes-sync.gs)
+--       - ON CONFLICT (llave, placa) del RPC sync_transportes_full (0008)
+--
+-- IMPACTO: Solo BD. No toca app, GS ni informes.
+--
+-- REVERSIÓN (si se quisiera volver atrás):
+--   CREATE OR REPLACE FUNCTION public.trg_transporte_persistir_cambios()
+--   RETURNS trigger LANGUAGE plpgsql AS $$
+--   BEGIN
+--     IF EXISTS (SELECT 1 FROM public.transportes WHERE llave = NEW.llave) THEN
+--       UPDATE public.transportes
+--       SET placa              = COALESCE(NEW.placa, placa),
+--           vehiculo_tipo      = COALESCE(NEW.vehiculo_tipo, vehiculo_tipo),
+--           transportadora     = COALESCE(NEW.transportadora, transportadora),
+--           transporte         = COALESCE(NEW.transporte, transporte),
+--           denominacion       = COALESCE(NEW.denominacion, denominacion),
+--           cita_cargue        = COALESCE(NEW.cita_cargue, cita_cargue),
+--           cajas              = COALESCE(NULLIF(NEW.cajas, 0), cajas),
+--           estado_transporte  = COALESCE(NEW.estado_transporte, estado_transporte),
+--           updated_at         = now()
+--       WHERE llave = NEW.llave;
+--       RETURN NULL;
+--     END IF;
+--     RETURN NEW;
+--   END;
+--   $$;
+--   DROP TRIGGER IF EXISTS trg_transporte_persistir_cambios ON public.transportes;
+--   CREATE TRIGGER trg_transporte_persistir_cambios
+--     BEFORE INSERT ON public.transportes
+--     FOR EACH ROW EXECUTE FUNCTION public.trg_transporte_persistir_cambios();
+-- =============================================================================
+
+DROP TRIGGER IF EXISTS trg_transporte_persistir_cambios ON public.transportes;
+DROP FUNCTION IF EXISTS public.trg_transporte_persistir_cambios();
