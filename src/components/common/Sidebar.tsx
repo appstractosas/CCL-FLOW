@@ -6,6 +6,7 @@ import {
   DoorClosed,
   Eye,
   BarChart3,
+  TrendingUp,
   UserCheck,
   Settings,
   Users,
@@ -39,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'monitoreo' as AppModuleId, label: 'Monitoreo', icon: Eye },
     { id: 'tablero' as AppModuleId, label: 'Tablero', icon: LayoutDashboard },
     { id: 'informes' as AppModuleId, label: 'Informes', icon: BarChart3 },
+    { id: 'informes-gerencia' as AppModuleId, label: 'Informes Gerencia', icon: TrendingUp },
     { id: 'admin_roles' as AppModuleId, label: 'ROLES', icon: Settings },
     { id: 'usuarios' as AppModuleId, label: 'USUARIOS', icon: Users },
   ];

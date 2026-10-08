@@ -1,37 +1,29 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Activity, CheckCircle2, Clock, FileDown, Loader2, Truck } from 'lucide-react';
 import { ModuleToolbar } from '../common/ModuleToolbar';
-import { todayStr, inicioSemanaStr, inicioMesStr, inicioAnioStr } from '../../lib/dateUtils';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { useLogisticsStore } from '../../store/useLogisticsStore';
 import { fetchTransportesRawByRango } from '../../services/transportesService';
-import { fetchInformesRango } from '../../services/informesService';
-import { subscribeToTransportes } from '../../services/transportesService';
+import { useInformesRango } from '../../hooks/useInformesRango';
 import {
   calcularKPIs,
   embudoEstados,
   porTipo,
   porTransportadora,
   volumenPorDia,
-  tipoGrupo,
   usoPorMuelle,
-  rentabilidadCuadrillas,
   cajasPorDia,
   cajasPorCuadrilla,
   tiemposPorteria,
   mapaPosicionamiento,
-  primeraFechaDatos,
-  horaHombre,
   tiempoCarguePorTipo,
 } from '../../utils/informes';
-import type { UnifiedTransporte } from '../../types';
 import {
   EmbudoPanel,
   FlotaPanel,
   TransportadorasPanel,
   VolumenPanel,
   MuellesPanel,
-  RentabilidadPanel,
   CajasDiariasPanel,
   CajasGrupoPanel,
   TiempoCarguePanel,
@@ -40,92 +32,21 @@ import {
 } from './informes/panels';
 
 export const InformesModule: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dateFrom, setDateFrom] = useState(todayStr());
-  const [dateTo, setDateTo] = useState(todayStr());
-  const [rangoPreset, setRangoPreset] = useState<'dia' | 'semana' | 'mes' | 'anio'>('dia');
+  const {
+    searchTerm,
+    setSearchTerm,
+    dateFrom,
+    setDateFrom,
+    dateTo,
+    setDateTo,
+    rangoPreset,
+    aplicarRango,
+    loading,
+    error,
+    rowsFiltradas,
+    sinDatos,
+  } = useInformesRango();
   const [exporting, setExporting] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [rows, setRows] = useState<UnifiedTransporte[]>([]);
-  const refreshTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rangoPresetRef = React.useRef<'dia' | 'semana' | 'mes' | 'anio'>('dia');
-
-  /** Aplica el rango del botón: día hoy→hoy; semana desde el lunes; mes desde el día 1;
-   *  año desde el 1-ene (luego se ajusta al primer día con datos). Siempre termina en hoy. */
-  const aplicarRango = useCallback((preset: 'dia' | 'semana' | 'mes' | 'anio') => {
-    rangoPresetRef.current = preset;
-    setRangoPreset(preset);
-    const hoy = todayStr();
-    if (preset === 'dia') {
-      setDateFrom(hoy);
-      setDateTo(hoy);
-    } else if (preset === 'semana') {
-      setDateFrom(inicioSemanaStr());
-      setDateTo(hoy);
-    } else if (preset === 'mes') {
-      setDateFrom(inicioMesStr());
-      setDateTo(hoy);
-    } else {
-      setDateFrom(inicioAnioStr());
-      setDateTo(hoy);
-    }
-  }, []);
-
-  const load = useCallback(async (fs: string, ft: string) => {
-    setError(null);
-    try {
-      const data = await fetchInformesRango(fs, ft);
-      // Año: el rango inicia el día más antiguo con datos (p. ej. 25-jul si no hay en enero).
-      if (rangoPresetRef.current === 'anio') {
-        const primera = primeraFechaDatos(data);
-        if (primera && primera > fs) setDateFrom(primera);
-      }
-      setRows(data);
-    } catch (err) {
-      console.error('Error cargando informes:', err);
-      setError('No se pudo cargar la información. Revisa la conexión con la base de datos.');
-      setRows([]);
-    } finally {
-      // Solo la carga inicial muestra el spinner; los refrescos (realtime, cambio
-      // de rango) actualizan en segundo plano sin parpadeo.
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga de métricas del rango (fetch + state async)
-    void load(dateFrom, dateTo);
-  }, [dateFrom, dateTo, load]);
-
-  // Refresco en vivo: cuando la operación cambia (Sheets, portería, etc.) se recalculan las métricas.
-  // Con DEBOUNCE: el sync del Sheets dispara muchos eventos seguidos y refrescar cada uno
-  // haría parpadear las filas; se agrupan y se refresca una sola vez por ráfaga.
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    const unsubscribe = subscribeToTransportes(() => {
-      if (refreshTimer.current) clearTimeout(refreshTimer.current);
-      refreshTimer.current = setTimeout(() => {
-        void load(dateFrom, dateTo);
-      }, 350);
-    });
-    return () => {
-      if (refreshTimer.current) clearTimeout(refreshTimer.current);
-      unsubscribe();
-    };
-  }, [dateFrom, dateTo, load]);
-
-  const s = searchTerm.trim().toLowerCase();
-  const rowsFiltradas = useMemo(() => {
-    if (!s) return rows;
-    return rows.filter((r) =>
-      [r.llave, r.placa, r.transportadora].some((v) =>
-        String(v || '')
-          .toLowerCase()
-          .includes(s),
-      ),
-    );
-  }, [rows, s]);
 
   const kpis = useMemo(() => calcularKPIs(rowsFiltradas), [rowsFiltradas]);
   const embudo = useMemo(() => embudoEstados(rowsFiltradas), [rowsFiltradas]);
@@ -133,15 +54,9 @@ export const InformesModule: React.FC = () => {
   const transportadoras = useMemo(() => porTransportadora(rowsFiltradas, 8), [rowsFiltradas]);
   const volumen = useMemo(() => volumenPorDia(rowsFiltradas), [rowsFiltradas]);
 
-  // Nuevos gráficos (según el rango seleccionado).
   const usoMuelle = useMemo(() => usoPorMuelle(rowsFiltradas), [rowsFiltradas]);
-  const rentabilidad = useMemo(
-    () => rentabilidadCuadrillas(rowsFiltradas, dateFrom, dateTo),
-    [rowsFiltradas, dateFrom, dateTo],
-  );
   const cajasDia = useMemo(() => cajasPorDia(rowsFiltradas), [rowsFiltradas]);
   const cajasGrupo = useMemo(() => cajasPorCuadrilla(rowsFiltradas), [rowsFiltradas]);
-  const horaHombreData = useMemo(() => horaHombre(rowsFiltradas), [rowsFiltradas]);
 
   // Tiempos de portería: promedio por etapa.
   const tiemposEtapas = useMemo(() => tiemposPorteria(rowsFiltradas), [rowsFiltradas]);
@@ -151,35 +66,6 @@ export const InformesModule: React.FC = () => {
 
   // Mapa de calor de posicionamiento: matriz fecha × hora (llegada a portería vs cita).
   const posicionamiento = useMemo(() => mapaPosicionamiento(rowsFiltradas), [rowsFiltradas]);
-
-  // Inversiones del periodo según el rango de fechas.
-  const { diasRango, inversionCCL, inversionSLA, cajasPeriodo, inversionTotal } = useMemo(() => {
-    // Nº de días del rango (inclusivo).
-    const t0 = new Date(`${dateFrom}T00:00:00`).getTime();
-    const t1 = new Date(`${dateTo}T00:00:00`).getTime();
-    const dias = t1 >= t0 ? Math.floor((t1 - t0) / 86_400_000) + 1 : 0;
-
-    const cajasCCL = rowsFiltradas
-      .filter((r) => tipoGrupo(r.cuadrilla) === 'CCL')
-      .reduce((a, r) => a + (r.cajas ?? 0), 0);
-    const cajasSLA = rowsFiltradas
-      .filter((r) => tipoGrupo(r.cuadrilla) === 'SLA')
-      .reduce((a, r) => a + (r.cajas ?? 0), 0);
-    const cajasTodas = rowsFiltradas.reduce((a, r) => a + (r.cajas ?? 0), 0);
-
-    const inversionCCL = dias * 1_432_000;
-    const inversionSLA = cajasSLA * 140;
-    return {
-      diasRango: dias,
-      inversionCCL,
-      inversionSLA,
-      cajasPeriodo: cajasTodas,
-      inversionTotal: inversionCCL + inversionSLA,
-      cajasCCL,
-    };
-  }, [rowsFiltradas, dateFrom, dateTo]);
-
-  const sinDatos = rowsFiltradas.length === 0;
 
   const handleExportExcel = async () => {
     if (exporting || !dateFrom || !dateTo) return;
@@ -328,100 +214,6 @@ export const InformesModule: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Tags de inversión del periodo (una sola fila en PC, cascada en móvil) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="bg-[#0e1320] border border-blue-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">
-                CCL (inversión)
-              </p>
-              <p className="text-[10px] text-zinc-500 font-mono">{diasRango} días × $1.432.000</p>
-              <p className="text-xl font-black text-white">
-                ${inversionCCL.toLocaleString('es-CO')}
-              </p>
-            </div>
-
-            <div className="bg-[#0e1320] border border-emerald-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
-                SLA (inversión)
-              </p>
-              <p className="text-[10px] text-zinc-500 font-mono">
-                {inversionSLA > 0
-                  ? `${inversionSLA / 140} cajas SLA × $140`
-                  : 'sin cajas SLA en el rango'}
-              </p>
-              <p className="text-xl font-black text-white">
-                ${inversionSLA.toLocaleString('es-CO')}
-              </p>
-            </div>
-
-            <div className="bg-[#0e1320] border border-cyan-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">
-                HORA/HOMBRE
-              </p>
-              <p className="text-[10px] text-zinc-500 font-mono">
-                Cajas por hora-hombre (CCL + SLA)
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
-                    Promedio
-                  </span>
-                  <span className="text-lg font-black text-white">
-                    {horaHombreData.horasHombre > 0
-                      ? horaHombreData.indice.toLocaleString('es-CO', { maximumFractionDigits: 1 })
-                      : '—'}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-bold text-blue-400 uppercase tracking-wider">
-                    H/H CCL
-                  </span>
-                  <span className="text-lg font-black text-white">
-                    {horaHombreData.ccl.horasHombre > 0
-                      ? horaHombreData.ccl.indice.toLocaleString('es-CO', {
-                          maximumFractionDigits: 1,
-                        })
-                      : '—'}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">
-                    H/H SLA
-                  </span>
-                  <span className="text-lg font-black text-white">
-                    {horaHombreData.sla.horasHombre > 0
-                      ? horaHombreData.sla.indice.toLocaleString('es-CO', {
-                          maximumFractionDigits: 1,
-                        })
-                      : '—'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#0e1320] border border-amber-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
-                Cajas del periodo
-              </p>
-              <p className="text-[10px] text-zinc-500 font-mono">
-                Suma de cajas de todas las cuadrillas
-              </p>
-              <p className="text-xl font-black text-white">
-                {cajasPeriodo.toLocaleString('es-CO')}
-              </p>
-            </div>
-
-            <div className="bg-[#0e1320] border border-violet-500/20 rounded-2xl px-4 py-3 flex flex-col gap-1">
-              <p className="text-[11px] font-bold text-violet-400 uppercase tracking-wider">
-                Inversión total del periodo
-              </p>
-              <p className="text-[10px] text-zinc-500 font-mono">CCL + SLA</p>
-              <p className="text-xl font-black text-white">
-                ${inversionTotal.toLocaleString('es-CO')}
-              </p>
-            </div>
-          </div>
-
           {/* 4 KPI Cards (datos reales del rango) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {kpiCards.map((k) => (
@@ -442,9 +234,6 @@ export const InformesModule: React.FC = () => {
 
           {/* Cajas diarias: fila completa de la pantalla (PC), apilado en móvil */}
           <CajasDiariasPanel data={cajasDia} sinDatos={sinDatos} />
-
-          {/* Rentabilidad cuadrillas */}
-          <RentabilidadPanel data={rentabilidad} sinDatos={sinDatos} />
 
           {/* Volumen de llaves por día */}
           <VolumenPanel data={volumen} sinDatos={sinDatos} />

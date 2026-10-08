@@ -29,8 +29,8 @@ describe('PermissionMatrix', () => {
   it('muestra un toggle por celda de rol activada', () => {
     render(<PermissionMatrix />);
     const switches = screen.getAllByRole('switch');
-    // 11 módulos x 8 roles operativos = 88 toggles
-    expect(switches.length).toBe(88);
+    // 12 módulos x 8 roles operativos = 96 toggles
+    expect(switches.length).toBe(96);
   });
 
   it('lista solo los roles operativos como columnas (sin ADMIN)', () => {
@@ -66,12 +66,12 @@ describe('Roles TABLERO e INFORMES (solo lectura)', () => {
     expect(Object.values(role.permissions).every((p) => !p.canEdit)).toBe(true);
   });
 
-  it('ROLE_INFORMES solo accede a informes y no puede editar nada', () => {
+  it('ROLE_INFORMES solo accede a informes e informes-gerencia y no puede editar nada', () => {
     const role = PRESET_ROLES.find((r) => r.id === 'ROLE_INFORMES')!;
     const accesibles = Object.entries(role.permissions)
       .filter(([, p]) => p.canAccess)
       .map(([m]) => m);
-    expect(accesibles).toEqual(['informes']);
+    expect(accesibles).toEqual(['informes', 'informes-gerencia']);
     expect(Object.values(role.permissions).every((p) => !p.canEdit)).toBe(true);
   });
 });

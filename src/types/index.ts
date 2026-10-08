@@ -7,6 +7,7 @@ export type AppModuleId =
   | 'porteria'
   | 'monitoreo'
   | 'informes'
+  | 'informes-gerencia'
   | 'planeacion'
   | 'transportes'
   | 'personal'
@@ -113,7 +114,7 @@ export type EstadoPorteria =
   | 'FINALIZO CARGUE'
   | 'SALIO DE PORTERIA'
   | 'CANCELADO';
-export type EstadoTransporte = 'DESPACHADO' | 'ALISTADO' | 'PENDIENTE';
+export type EstadoTransporte = 'DESPACHADO' | 'ALISTADO' | 'PENDIENTE' | 'EN PROCESO';
 export type TipoVehiculo = 'SENCILLO' | 'TURBO' | 'MINIMULA' | 'LUV' | 'MULA';
 
 /** Campos de tiempo del control de portería (secuencia de registro de horas). */

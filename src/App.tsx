@@ -30,6 +30,11 @@ const MonitoreoModule = lazy(() =>
 const InformesModule = lazy(() =>
   import('./components/modules/InformesModule').then((m) => ({ default: m.InformesModule })),
 );
+const InformesGerenciaModule = lazy(() =>
+  import('./components/modules/InformesGerenciaModule').then((m) => ({
+    default: m.InformesGerenciaModule,
+  })),
+);
 const PersonalModule = lazy(() =>
   import('./components/modules/PersonalModule').then((m) => ({ default: m.PersonalModule })),
 );
@@ -61,6 +66,7 @@ export default function App() {
     'monitoreo',
     'tablero',
     'informes',
+    'informes-gerencia',
     'admin_roles',
     'usuarios',
   ];
@@ -110,6 +116,8 @@ export default function App() {
         return <PersonalModule />;
       case 'informes':
         return <InformesModule />;
+      case 'informes-gerencia':
+        return <InformesGerenciaModule />;
       case 'admin_roles':
         return <RoleManager />;
       case 'usuarios':
