@@ -68,6 +68,14 @@ El repo queda así en la rama `dev`:
 > marca se limpia sola cuando el Excel trae ese mismo número (ver regla 11 en el
 > `migracion-rpc-sync-transportes.sql`).
 
+> 📌 `campos_manuales`: mismas reglas que `cajas_manual` pero en columna lista
+> (`text[]`). Si el planeador creó/editó desde la app la cita, transportadora,
+> denominación, destino, región, vehículo, pedido o fecha, esos campos quedan
+> protegidos y el Excel no los pisa; la marca se limpia sola cuando el Excel
+> trae el mismo valor (ver regla 12 en `migracion-rpc-sync-transportes.sql`).
+> Requiere la migración `supabase/migrations/0012_campos_manuales.sql`.
+> La **placa no se protege**: si cambió en la app, hay que reflejarla en el Excel.
+
 > 1 solo POST por corrida, igual que el `.gs`. La **conversión de fechas, el
 > SUM por placa y el UPSERT los hace la función** en Supabase (ver script
 > `migracion-rpc-sync-transportes.sql`). El antiguo POST row-by-row con

@@ -1,0 +1,259 @@
+-- =============================================================================
+-- 0013: sync_transportes_full con proteccion campos_manuales
+--
+-- Motivo: el upsert pisaba los campos que la app habia editado (creacion o
+-- edicion de llave por el planeador) con los valores viejos del Sheets.
+--
+-- Cambios frente a 0011_estado_en_proceso.sql:
+--   * ON CONFLICT: por cada campo protegido, si esta en transportes.campos_manuales
+--     se conserva el valor de la BD; si no, misma logica de siempre
+--     (COALESCE(NULLIF(EXCLUDED...)) / fecha_hora directa).
+--   * campos_manuales: se limpian las marcas cuyo valor el fuente trajo igual
+--     (_mismo_valor: texto exacto o mismo instante); a partir de ahi el fuente
+--     vuelve a mandar sobre ese campo (mismo comportamiento que cajas_manual).
+--   * PLACA NO se protege (decision de diseño: es parte de la clave del upsert).
+-- El resto (transferencia de placas, cajas_manual, estado_porteria, pasos 5/6,
+-- CASE de EN PROCESO) es identico a 0011.
+--
+-- Orden: correr DESPUES de 0012_campos_manuales.sql (crea la columna y
+-- _mismo_valor). Reversible: restaurar la funcion desde 0011.
+-- Aplicar en Supabase SQL Editor.
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.sync_transportes_full(_filas jsonb, _fecha date)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  r RECORD;
+  v_fecha timestamptz;
+  v_cita  text;
+  v_placas_dia  text[];         -- placas por llave en payload (formato llave|placa)
+BEGIN
+  IF jsonb_typeof(_filas) <> 'array' OR jsonb_array_length(_filas) = 0 THEN
+    RETURN;
+  END IF;
+
+  -- 1. Normalizar payload a tmp_sync
+  CREATE TEMP TABLE tmp_sync ON COMMIT DROP AS
+  SELECT
+    row_number() OVER ()::int AS row_id,
+    UPPER(TRIM(COALESCE(f->>'llave','')))                AS llave,
+    NULLIF(UPPER(TRIM(COALESCE(f->>'placa',''))) ,'')    AS placa,
+    NULLIF(UPPER(TRIM(COALESCE(f->>'vehiculo_tipo',''))),'') AS vehiculo_tipo,
+    NULLIF(public._sync_campo(f, ARRAY['transportadora','olt inicial']),'') AS transportadora,
+    NULLIF(public._sync_campo(f, ARRAY['transporte']),'') AS transporte,
+    NULLIF(public._sync_campo(f, ARRAY['denominacion','denominación']),'') AS denominacion,
+    NULLIF(public._sync_campo(f, ARRAY['destino']),'') AS destino,
+    NULLIF(public._sync_campo(f, ARRAY['region','región']),'') AS region,
+    NULLIF(public._sync_campo(f, ARRAY['estado_transporte','estatus']),'') AS estado_transporte,
+    NULLIF(TRIM(f->>'cita_cargue'),'')                   AS cita_cargue,
+    NULLIF(TRIM(f->>'fecha_hora'),'')                    AS fecha_hora,
+    COALESCE(ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'cajas',''),'[.,]','','g'),'')::numeric), 0) AS cajas,
+    (UPPER(TRIM(COALESCE(f->>'estatus',''))) = 'CANCELADO') AS estado_cancelado
+  FROM jsonb_array_elements(_filas) AS f
+  WHERE NULLIF(TRIM(f->>'llave'),'') IS NOT NULL;
+
+  -- 2. Dedupe por (llave, placa) y suma de cajas
+  CREATE TEMP TABLE tmp_cons ON COMMIT DROP AS
+  SELECT DISTINCT ON (llave, placa)
+    row_id,
+    llave,
+    placa,
+    vehiculo_tipo,
+    transportadora,
+    transporte,
+    denominacion,
+    destino,
+    region,
+    estado_transporte,
+    cita_cargue,
+    fecha_hora,
+    estado_cancelado,
+    SUM(cajas) OVER (PARTITION BY llave, placa)::numeric AS cajas
+  FROM tmp_sync
+  ORDER BY llave, placa, row_id DESC;
+
+  -- 3. Recolectar claves (llave|placa) que llegaron en el payload
+  SELECT array_agg(DISTINCT llave || '|' || COALESCE(placa,'')) INTO v_placas_dia
+  FROM tmp_cons;
+
+  -- 3.5 TRANSFERENCIA DE PLACAS (renombrado) - SIN límite de cita_cargue.
+  --   Para cada llave del payload: si hay placas nuevas (en Sheets, no en BD) y
+  --   placas viejas (en BD, no en Sheets) con la MISMA cantidad, se renombra la
+  --   fila vieja a la placa nueva (conserva id, created_at, cajas_manual,
+  --   estado_porteria). Emparejamiento por orden alfabético (determinista).
+  --   Si las cantidades no coinciden, el sobrante se maneja con las reglas de
+  --   INSERT (nueva) o placa=''/Pendiente (quitada) normales.
+  WITH
+    nuevas AS (
+      SELECT t.llave, t.placa
+      FROM tmp_cons t
+      WHERE t.placa IS NOT NULL AND t.placa <> ''
+      GROUP BY t.llave, t.placa
+    ),
+    viejas AS (
+      SELECT x.llave, x.placa
+      FROM public.transportes x
+      WHERE x.placa IS NOT NULL AND x.placa <> ''
+    ),
+    nueva_x AS (
+      SELECT n.llave, n.placa,
+             row_number() OVER (PARTITION BY n.llave ORDER BY n.placa) AS rn
+      FROM nuevas n
+      LEFT JOIN viejas v ON v.llave = n.llave AND v.placa = n.placa
+      WHERE v.placa IS NULL
+    ),
+    vieja_x AS (
+      SELECT v.llave, v.placa,
+             row_number() OVER (PARTITION BY v.llave ORDER BY v.placa) AS rn
+      FROM viejas v
+      LEFT JOIN nuevas n ON n.llave = v.llave AND n.placa = v.placa
+      WHERE n.placa IS NULL
+    ),
+    emparejada AS (
+      SELECT nx.llave, nx.placa AS placa_nueva, vx.placa AS placa_vieja
+      FROM nueva_x nx
+      JOIN vieja_x vx ON vx.llave = nx.llave AND vx.rn = nx.rn
+    )
+  UPDATE public.transportes t
+  SET placa = e.placa_nueva,
+      updated_at = now()
+  FROM emparejada e
+  WHERE t.llave = e.llave AND t.placa = e.placa_vieja;
+
+  -- 4. UPSERT filas del payload (lógica v2 + campos_manuales)
+  FOR r IN SELECT * FROM tmp_cons ORDER BY llave, placa LOOP
+    IF r.fecha_hora ~ '^[0-9]+(\.[0-9]+)?$' THEN
+      v_fecha := (date '1899-12-30' + r.fecha_hora::numeric * interval '1 day')::timestamptz;
+    ELSE
+      v_fecha := r.fecha_hora::timestamptz;
+    END IF;
+
+    IF v_fecha IS NULL OR v_fecha < '2026-09-01'::timestamptz THEN
+      CONTINUE;
+    END IF;
+
+    IF r.cita_cargue ~ '^[0-9]+(\.[0-9]+)?$' THEN
+      v_cita := to_char((date '1899-12-30' + r.cita_cargue::numeric * interval '1 day'), 'YYYY-MM-DD"T"HH24:MI:00');
+    ELSE
+      v_cita := r.cita_cargue;
+    END IF;
+
+    INSERT INTO transportes (
+      llave, fecha_hora, placa, vehiculo_tipo, transportadora,
+      transporte, denominacion, destino, region, cita_cargue, cajas,
+      estado_transporte, estado_porteria, updated_at
+    ) VALUES (
+      r.llave,
+      COALESCE(v_fecha, now()),
+      COALESCE(r.placa, ''),
+      COALESCE(r.vehiculo_tipo, 'SENCILLO'),
+      COALESCE(r.transportadora, ''),
+      r.transporte, r.denominacion, r.destino, r.region, r.cita_cargue, r.cajas,
+      CASE WHEN r.estado_transporte IN ('DESPACHADO','ALISTADO','EN PROCESO')
+           THEN r.estado_transporte ELSE 'ALISTADO' END,
+      CASE
+        WHEN r.estado_cancelado THEN 'CANCELADO'
+        WHEN COALESCE(r.placa,'') <> '' THEN 'Confirmado'
+        ELSE 'Pendiente'
+      END,
+      now()
+    )
+    ON CONFLICT (llave, placa) DO UPDATE SET
+      -- Campos protegidos (campos_manuales): si la app los edito, conserva el
+      -- valor de la BD; si no, el fuente manda con la logica de siempre.
+      fecha_hora     = CASE WHEN 'fecha_hora' = ANY(transportes.campos_manuales)
+                            THEN transportes.fecha_hora ELSE EXCLUDED.fecha_hora END,
+      vehiculo_tipo  = CASE WHEN 'vehiculo_tipo' = ANY(transportes.campos_manuales)
+                            THEN transportes.vehiculo_tipo
+                            ELSE COALESCE(NULLIF(EXCLUDED.vehiculo_tipo,''), transportes.vehiculo_tipo) END,
+      transportadora = CASE WHEN 'transportadora' = ANY(transportes.campos_manuales)
+                            THEN transportes.transportadora
+                            ELSE COALESCE(NULLIF(EXCLUDED.transportadora,''), transportes.transportadora) END,
+      transporte     = CASE WHEN 'transporte' = ANY(transportes.campos_manuales)
+                            THEN transportes.transporte
+                            ELSE COALESCE(NULLIF(EXCLUDED.transporte,''), transportes.transporte) END,
+      denominacion   = CASE WHEN 'denominacion' = ANY(transportes.campos_manuales)
+                            THEN transportes.denominacion
+                            ELSE COALESCE(NULLIF(EXCLUDED.denominacion,''), transportes.denominacion) END,
+      destino        = CASE WHEN 'destino' = ANY(transportes.campos_manuales)
+                            THEN transportes.destino
+                            ELSE COALESCE(NULLIF(EXCLUDED.destino,''), transportes.destino) END,
+      region         = CASE WHEN 'region' = ANY(transportes.campos_manuales)
+                            THEN transportes.region
+                            ELSE COALESCE(NULLIF(EXCLUDED.region,''), transportes.region) END,
+      cita_cargue    = CASE WHEN 'cita_cargue' = ANY(transportes.campos_manuales)
+                            THEN transportes.cita_cargue
+                            ELSE COALESCE(NULLIF(EXCLUDED.cita_cargue,''), transportes.cita_cargue) END,
+      estado_transporte = CASE WHEN EXCLUDED.estado_transporte IN ('DESPACHADO','ALISTADO','EN PROCESO')
+                                THEN EXCLUDED.estado_transporte ELSE 'ALISTADO' END,
+      cajas = CASE WHEN transportes.cajas_manual THEN transportes.cajas
+                    ELSE COALESCE(NULLIF(EXCLUDED.cajas,0), transportes.cajas) END,
+      cajas_manual = CASE WHEN transportes.cajas_manual
+                           AND EXCLUDED.cajas > 0
+                           AND EXCLUDED.cajas = transportes.cajas
+                          THEN FALSE ELSE transportes.cajas_manual END,
+      -- Limpieza de marcas: el campo deja de estar protegido cuando el fuente
+      -- trae el mismo valor (texto exacto o mismo instante via _mismo_valor).
+      campos_manuales = (
+        SELECT COALESCE(array_agg(DISTINCT f ORDER BY f), '{}')
+        FROM unnest(transportes.campos_manuales) AS f
+        WHERE NOT (
+             (f = 'fecha_hora'     AND EXCLUDED.fecha_hora IS NOT DISTINCT FROM transportes.fecha_hora)
+          OR (f = 'cita_cargue'    AND public._mismo_valor(EXCLUDED.cita_cargue, transportes.cita_cargue))
+          OR (f = 'vehiculo_tipo'  AND public._mismo_valor(EXCLUDED.vehiculo_tipo, transportes.vehiculo_tipo))
+          OR (f = 'transportadora' AND public._mismo_valor(EXCLUDED.transportadora, transportes.transportadora))
+          OR (f = 'transporte'     AND public._mismo_valor(EXCLUDED.transporte, transportes.transporte))
+          OR (f = 'denominacion'   AND public._mismo_valor(EXCLUDED.denominacion, transportes.denominacion))
+          OR (f = 'destino'        AND public._mismo_valor(EXCLUDED.destino, transportes.destino))
+          OR (f = 'region'         AND public._mismo_valor(EXCLUDED.region, transportes.region))
+        )
+      ),
+      estado_porteria = CASE
+        WHEN EXCLUDED.estado_porteria = 'CANCELADO' THEN 'CANCELADO'
+        WHEN transportes.estado_porteria IN ('Pendiente','Confirmado') AND COALESCE(EXCLUDED.placa,'') <> '' THEN 'Confirmado'
+        ELSE transportes.estado_porteria
+      END,
+      updated_at     = now();
+  END LOOP;
+
+  -- 5. Placas quitadas SIN reemplazo: para la fecha _fecha, a placa=''/Pendiente
+  UPDATE public.transportes t
+  SET
+    placa = '',
+    estado_porteria = 'Pendiente',
+    updated_at = now()
+  WHERE t.cita_cargue IS NOT NULL
+    AND (
+      CASE
+        WHEN t.cita_cargue ~ '^[0-9]+(\.[0-9]+)?$' THEN
+          (date '1899-12-30' + t.cita_cargue::numeric * interval '1 day')::date
+        ELSE
+          t.cita_cargue::date
+      END
+    ) = _fecha
+    AND (t.llave || '|' || COALESCE(t.placa,'')) <> ALL(v_placas_dia)
+    AND COALESCE(t.placa,'') <> '';
+
+  -- 6. FUSIONAR PLACAS VACÍAS (huérfanos) para las llaves del payload
+  FOR r IN
+    SELECT DISTINCT t.llave
+    FROM public.transportes t
+    WHERE COALESCE(t.placa,'') = ''
+      AND EXISTS (SELECT 1 FROM public.transportes t2
+                  WHERE t2.llave = t.llave
+                    AND COALESCE(t2.placa,'') <> '')
+      AND NOT EXISTS (SELECT 1 FROM tmp_sync s
+                      WHERE s.llave = t.llave
+                        AND s.placa IS NULL)
+  LOOP
+    DELETE FROM public.transportes
+    WHERE llave = r.llave AND COALESCE(placa,'') = '';
+  END LOOP;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.sync_transportes_full(jsonb, date) TO anon, authenticated, service_role;

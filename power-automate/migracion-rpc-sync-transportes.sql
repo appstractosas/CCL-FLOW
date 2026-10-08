@@ -21,7 +21,8 @@
 --      redondea).
 --   2) Estatus 'CANCELADO' -> estado_porteria = 'CANCELADO'.
 --   3) estatus (col. Estatus/estado_transporte del Excel) -> estado_transporte:
---      solo DESPACHADO/ALISTADO/PENDIENTE (valores del CHECK de la BD);
+--      solo DESPACHADO/ALISTADO/EN PROCESO (valores del CHECK de la BD;
+--      PENDIENTE es historico y ya no viene en el origen);
 --      vacío o valor desconocido -> 'ALISTADO' (DEFAULT de la columna).
 --   4) Agrupa por (llave, placa): ganador = ÚLTIMA fila del par para el resto de
 --      campos y SUMA de cajas de todas las filas del par (mismo tratamiento
@@ -50,10 +51,19 @@
 --      el despachador en la app), el sync NO la pisa; conserva el valor
 --      capturado. La marca se limpia sola cuando el fuente trae EXACTAMENTE ese
 --      mismo número de cajas (a partir de ahí el Excel vuelve a mandar).
+--  12) CAMPOS MANUALES: si la fila tiene campos editados desde la app
+--      (transportes.campos_manuales, p.ej. cita/transportadora/denominacion
+--      creadas o editadas por el planeador), el upsert NO los pisa. Cada marca
+--      se limpia sola cuando el fuente trae el mismo valor (_mismo_valor:
+--      texto exacto o mismo instante); a partir de ahí el Excel vuelve a mandar
+--      sobre ese campo. La placa NO se protege (es parte de la clave).
+--
+-- DEPENDENCIA: requiere la columna transportes.campos_manuales y la función
+--   public._mismo_valor creadas en supabase/migrations/0012_campos_manuales.sql.
 --
 -- ADITIVO y REVERSIBLE:
 --   - Solo CREA/REEMPLAZA la función; NO toca tablas ni datos existentes.
---   - Revertir: DROP FUNCTION public.sync_transportes(jsonb);
+--   - Revertir: restaurar la versión anterior de esta función.
 --
 -- Cómo se llama desde Power Automate:
 --   URI:  https://<ref>.supabase.co/rest/v1/rpc/sync_transportes
@@ -88,6 +98,25 @@ BEGIN
     END LOOP;
   END LOOP;
   RETURN NULL;
+END;
+$$;
+
+-- Helper: igualdad tolerante a formato (texto exacto o mismo instante).
+-- Usado para limpiar campos_manuales sin marcar/proteger por diferencias de
+-- formato entre la app y el Excel (p.ej. '2026-10-08 10:00' vs '...T10:00:00').
+CREATE OR REPLACE FUNCTION public._mismo_valor(a text, b text)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+  IF a IS NOT DISTINCT FROM b THEN RETURN TRUE; END IF;
+  IF a IS NULL OR b IS NULL THEN RETURN FALSE; END IF;
+  BEGIN
+    RETURN a::timestamptz = b::timestamptz;
+  EXCEPTION WHEN others THEN
+    RETURN FALSE;
+  END;
 END;
 $$;
 
@@ -239,7 +268,7 @@ BEGIN
       -- estado_transporte: solo los valores del CHECK de la columna; si la
       -- celda Estatus viene vacía o con un valor desconocido, se aplica el
       -- DEFAULT 'ALISTADO' (el CHECK rechaza cualquier otro valor).
-      CASE WHEN r.estado_transporte IN ('DESPACHADO','ALISTADO','PENDIENTE')
+      CASE WHEN r.estado_transporte IN ('DESPACHADO','ALISTADO','EN PROCESO')
            THEN r.estado_transporte ELSE 'ALISTADO' END,
       -- estado_porteria (fila NUEVA): CANCELADO si el Estatus lo dice; si hay
       -- placa -> CONFIRMADO; sin placa -> PENDIENTE.
@@ -251,18 +280,35 @@ BEGIN
       now()
     )
     ON CONFLICT (llave, placa) DO UPDATE SET
-      fecha_hora     = EXCLUDED.fecha_hora,
-      vehiculo_tipo  = COALESCE(NULLIF(EXCLUDED.vehiculo_tipo,''), transportes.vehiculo_tipo),
-      transportadora = COALESCE(NULLIF(EXCLUDED.transportadora,''), transportes.transportadora),
-      transporte     = COALESCE(NULLIF(EXCLUDED.transporte,''), transportes.transporte),
-      denominacion   = COALESCE(NULLIF(EXCLUDED.denominacion,''), transportes.denominacion),
-      destino        = COALESCE(NULLIF(EXCLUDED.destino,''), transportes.destino),
+      -- Campos protegidos (campos_manuales): si la app los editó, se conserva
+      -- el valor de la BD; si no, el Excel manda con la lógica de siempre.
+      fecha_hora     = CASE WHEN 'fecha_hora' = ANY(transportes.campos_manuales)
+                            THEN transportes.fecha_hora ELSE EXCLUDED.fecha_hora END,
+      vehiculo_tipo  = CASE WHEN 'vehiculo_tipo' = ANY(transportes.campos_manuales)
+                            THEN transportes.vehiculo_tipo
+                            ELSE COALESCE(NULLIF(EXCLUDED.vehiculo_tipo,''), transportes.vehiculo_tipo) END,
+      transportadora = CASE WHEN 'transportadora' = ANY(transportes.campos_manuales)
+                            THEN transportes.transportadora
+                            ELSE COALESCE(NULLIF(EXCLUDED.transportadora,''), transportes.transportadora) END,
+      transporte     = CASE WHEN 'transporte' = ANY(transportes.campos_manuales)
+                            THEN transportes.transporte
+                            ELSE COALESCE(NULLIF(EXCLUDED.transporte,''), transportes.transporte) END,
+      denominacion   = CASE WHEN 'denominacion' = ANY(transportes.campos_manuales)
+                            THEN transportes.denominacion
+                            ELSE COALESCE(NULLIF(EXCLUDED.denominacion,''), transportes.denominacion) END,
+      destino        = CASE WHEN 'destino' = ANY(transportes.campos_manuales)
+                            THEN transportes.destino
+                            ELSE COALESCE(NULLIF(EXCLUDED.destino,''), transportes.destino) END,
       -- región: igual que destino; solo se pisa cuando el Excel trae valor.
-      region         = COALESCE(NULLIF(EXCLUDED.region,''), transportes.region),
-      cita_cargue    = COALESCE(NULLIF(EXCLUDED.cita_cargue,''), transportes.cita_cargue),
+      region         = CASE WHEN 'region' = ANY(transportes.campos_manuales)
+                            THEN transportes.region
+                            ELSE COALESCE(NULLIF(EXCLUDED.region,''), transportes.region) END,
+      cita_cargue    = CASE WHEN 'cita_cargue' = ANY(transportes.campos_manuales)
+                            THEN transportes.cita_cargue
+                            ELSE COALESCE(NULLIF(EXCLUDED.cita_cargue,''), transportes.cita_cargue) END,
       -- estado_transporte: el Excel ES la fuente; se pisa solo con valores
       -- válidos (vacío/desconocido -> 'ALISTADO', nunca fuera del CHECK).
-      estado_transporte = CASE WHEN EXCLUDED.estado_transporte IN ('DESPACHADO','ALISTADO','PENDIENTE')
+      estado_transporte = CASE WHEN EXCLUDED.estado_transporte IN ('DESPACHADO','ALISTADO','EN PROCESO')
                                THEN EXCLUDED.estado_transporte ELSE 'ALISTADO' END,
       -- cajas: el fuente (Excel) manda y el valor se refresca en
       -- cada corrida con la SUMA del par (llave, placa) que trae este payload,
@@ -275,6 +321,22 @@ BEGIN
                            AND EXCLUDED.cajas > 0
                            AND EXCLUDED.cajas = transportes.cajas
                           THEN FALSE ELSE transportes.cajas_manual END,
+      -- Limpieza de marcas: el campo deja de estar protegido cuando el Excel
+      -- trae el mismo valor (texto exacto o mismo instante, _mismo_valor).
+      campos_manuales = (
+        SELECT COALESCE(array_agg(DISTINCT f ORDER BY f), '{}')
+        FROM unnest(transportes.campos_manuales) AS f
+        WHERE NOT (
+             (f = 'fecha_hora'     AND EXCLUDED.fecha_hora IS NOT DISTINCT FROM transportes.fecha_hora)
+          OR (f = 'cita_cargue'    AND public._mismo_valor(EXCLUDED.cita_cargue, transportes.cita_cargue))
+          OR (f = 'vehiculo_tipo'  AND public._mismo_valor(EXCLUDED.vehiculo_tipo, transportes.vehiculo_tipo))
+          OR (f = 'transportadora' AND public._mismo_valor(EXCLUDED.transportadora, transportes.transportadora))
+          OR (f = 'transporte'     AND public._mismo_valor(EXCLUDED.transporte, transportes.transporte))
+          OR (f = 'denominacion'   AND public._mismo_valor(EXCLUDED.denominacion, transportes.denominacion))
+          OR (f = 'destino'        AND public._mismo_valor(EXCLUDED.destino, transportes.destino))
+          OR (f = 'region'         AND public._mismo_valor(EXCLUDED.region, transportes.region))
+        )
+      ),
       -- estado_porteria (fila EXISTENTE): solo se pisa si llega CANCELADO, o si la
       -- fila aún está en PENDIENTE/CONFIRMADO y el Excel trae placa (avanza a
       -- CONFIRMADO). NUNCA retrocede un estado avanzado de portería.
