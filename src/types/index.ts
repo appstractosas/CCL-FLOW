@@ -121,6 +121,16 @@ export type TipoVehiculo = 'SENCILLO' | 'TURBO' | 'MINIMULA' | 'LUV' | 'MULA';
 export type PorteriaTimeField =
   'horaLlegadaPorteria' | 'horaIngreso' | 'horaInicioCargue' | 'horaFinCargue' | 'horaSalida';
 
+/** Una línea de la llave proveniente del Sheets/Excel (columna jsonb detalle_llave). */
+export interface DetalleLlave {
+  /** Nombre del cliente de la línea (col. Denominación). */
+  denominacion?: string;
+  /** Ciudad/planta de destino de la línea (col. Destino). */
+  destino?: string;
+  /** Cita de entrega de la línea (col. Cita de entrega). */
+  citaEntrega?: string;
+}
+
 /**
  * Registro único de la operación: una fila por vehículo/LLAVE.
  * Combinamos en una sola tabla los datos de TRANSPORTES, DESPACHOS y PORTERÍA.
@@ -145,6 +155,8 @@ export interface UnifiedTransporte {
   destino?: string;
   /** Región del pedido (columna Region del Excel / region en la BD). */
   region?: string;
+  /** Líneas de la llave (una por fila del origen) en el orden del Sheets/Excel. La lee el modal de detalle de Transportes. */
+  detalleLlave?: DetalleLlave[];
   transportadora?: string;
   estadoTransporte: EstadoTransporte;
   estadoPorteria: EstadoPorteria;

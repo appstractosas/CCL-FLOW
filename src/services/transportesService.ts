@@ -1,5 +1,10 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { UnifiedTransporte, TipoVehiculo, EstadoTransporte, EstadoPorteria } from '../types';
+import type {
+  UnifiedTransporte,
+  TipoVehiculo,
+  EstadoTransporte,
+  EstadoPorteria,
+} from '../types';
 
 const TABLE = 'transportes';
 
@@ -29,10 +34,18 @@ interface TransporteDBWrite {
   observaciones: string | null;
 }
 
+/** Elemento crudo del jsonb `detalle_llave` (snake_case, tal como lo arma el RPC). */
+interface DetalleLlaveDB {
+  denominacion?: string;
+  destino?: string;
+  cita_entrega?: string;
+}
+
 /** Fila de lectura de `transportes` (incluye columnas generadas). */
 interface TransporteDBRow extends TransporteDBWrite {
   id: string;
   cajas_manual?: boolean;
+  detalle_llave?: DetalleLlaveDB[];
   created_at?: string;
   updated_at?: string;
 }
@@ -83,6 +96,13 @@ function mapTransporteFromDB(item: TransporteDBRow): UnifiedTransporte {
     cajasManual: item.cajas_manual ?? undefined,
     destino: item.destino || undefined,
     region: item.region || undefined,
+    detalleLlave: item.detalle_llave
+      ? item.detalle_llave.map((l) => ({
+          denominacion: l.denominacion,
+          destino: l.destino,
+          citaEntrega: l.cita_entrega,
+        }))
+      : undefined,
     transportadora: item.transportadora || '',
     estadoTransporte: item.estado_transporte as EstadoTransporte,
     estadoPorteria: (item.estado_porteria as EstadoPorteria) || 'Pendiente',

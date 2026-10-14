@@ -1,5 +1,5 @@
-import React from 'react';
-import { PorteriaTimeField } from '../../types';
+import React, { useState } from 'react';
+import { PorteriaTimeField, UnifiedTransporte } from '../../types';
 import {
   timeSet,
   formatFechaHora,
@@ -148,5 +148,48 @@ export function TimeRow({
         </span>
       )}
     </div>
+  );
+}
+
+export function CajasInput({
+  row,
+  onCajas,
+  editable = true,
+}: {
+  row: UnifiedTransporte;
+  onCajas: (row: UnifiedTransporte, cajas: number) => void;
+  editable?: boolean;
+}) {
+  const [val, setVal] = useState<string>(row.cajas != null ? String(row.cajas) : '');
+
+  React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza el input con el valor recibido de la fila
+    setVal(row.cajas != null ? String(row.cajas) : '');
+  }, [row.cajas]);
+
+  const commit = () => {
+    const num = Number(val);
+    if (Number.isFinite(num) && num >= 0 && num !== row.cajas) {
+      onCajas(row, num);
+    }
+  };
+
+  return (
+    <input
+      type="number"
+      min={0}
+      value={val}
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          commit();
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+      disabled={!editable}
+      title={editable ? 'Editar número de cajas' : 'Solo editable en estados CARGANDO o FINALIZO CARGUE'}
+      className={`bg-zinc-900 text-zinc-100 border border-zinc-700 px-2.5 py-1.5 rounded-lg font-bold focus:outline-none text-xs text-right w-24 focus:border-emerald-500 ${!editable ? 'opacity-50 cursor-not-allowed' : 'focus:border-emerald-500'}`}
+    />
   );
 }
