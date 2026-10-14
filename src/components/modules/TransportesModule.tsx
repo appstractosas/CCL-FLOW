@@ -37,6 +37,8 @@ export const TransportesModule: React.FC = () => {
         showDelete: false,
         showCajas: true,
         showEstatus: true,
+        showRegion: true,
+        showDetalleLlave: true,
         onEdit: openEdit,
       }}
     >

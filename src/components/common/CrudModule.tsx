@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useLogisticsStore } from '../../store/useLogisticsStore';
 import { ModuleToolbar } from './ModuleToolbar';
 import { EstadoFilter } from './EstadoFilter';
 import { TransportesTable, TransportesTableProps } from '../modules/TransportesTable';
 import { useFiltrosTransportes } from '../../hooks/useFiltrosTransportes';
+import { cumpleFiltroActivas } from '../../utils/porteria';
 
 interface CrudModuleProps {
   searchPlaceholder: string;
@@ -36,6 +37,11 @@ export const CrudModule: React.FC<CrudModuleProps> = ({
     pageResetKey,
   } = useFiltrosTransportes(transportes);
 
+  const llavesActivas = useMemo(
+    () => transportes.filter((row) => cumpleFiltroActivas(row)).length,
+    [transportes],
+  );
+
   return (
     <div className="space-y-4 mt-[-6px] sm:mt-[-14px] lg:mt-[-22px]">
       <ModuleToolbar
@@ -46,6 +52,9 @@ export const CrudModule: React.FC<CrudModuleProps> = ({
         dateTo={dateTo}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
+        searchWidthClass="sm:w-36"
+        counter={`${llavesActivas} llaves`}
+        counterClassName="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white whitespace-nowrap"
         leftContent={<EstadoFilter value={estadoFiltro} onChange={setEstadoFiltro} />}
         rightContent={rightContent}
       />
