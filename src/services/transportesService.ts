@@ -45,6 +45,10 @@ interface DetalleLlaveDB {
 interface TransporteDBRow extends TransporteDBWrite {
   id: string;
   cajas_manual?: boolean;
+  /** Peso en KG (col. del fuente). Informativo y de solo lectura en la app. */
+  kg?: number | null;
+  /** Metros (col. del fuente). Informativo y de solo lectura en la app. */
+  mts?: number | null;
   detalle_llave?: DetalleLlaveDB[];
   created_at?: string;
   updated_at?: string;
@@ -94,6 +98,8 @@ function mapTransporteFromDB(item: TransporteDBRow): UnifiedTransporte {
     denominacion: item.denominacion || undefined,
     cajas: item.cajas ?? undefined,
     cajasManual: item.cajas_manual ?? undefined,
+    kg: item.kg ?? undefined,
+    mts: item.mts ?? undefined,
     destino: item.destino || undefined,
     region: item.region || undefined,
     detalleLlave: item.detalle_llave

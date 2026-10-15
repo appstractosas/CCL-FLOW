@@ -21,6 +21,7 @@ interface SidebarProps {
   setActiveModule: (module: AppModuleId) => void;
   isOpen: boolean;
   onClose: () => void;
+  isDesktopOpen?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveModule,
   isOpen,
   onClose,
+  isDesktopOpen = true,
 }) => {
   const { hasModuleAccess } = useAuthStore();
 
@@ -49,7 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside
       className={`fixed top-0 left-0 z-30 h-full w-fit min-w-fit bg-[#090d16] border-r border-zinc-800/80 flex flex-col shrink-0 text-zinc-300 select-none transition-transform duration-200 ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
-      } lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen`}
+      } ${isDesktopOpen ? 'lg:flex lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen' : 'lg:hidden'}`}
     >
       {/* Logo & Header */}
       <div className="px-3 py-2.5 border-b border-zinc-800/80">

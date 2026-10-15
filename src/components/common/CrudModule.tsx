@@ -4,7 +4,7 @@ import { ModuleToolbar } from './ModuleToolbar';
 import { EstadoFilter } from './EstadoFilter';
 import { TransportesTable, TransportesTableProps } from '../modules/TransportesTable';
 import { useFiltrosTransportes } from '../../hooks/useFiltrosTransportes';
-import { cumpleFiltroActivas } from '../../utils/porteria';
+import { sortTransportesPorEstado, ORDEN_ESTADOS_TABLERO } from '../../utils/porteria';
 
 interface CrudModuleProps {
   searchPlaceholder: string;
@@ -37,9 +37,9 @@ export const CrudModule: React.FC<CrudModuleProps> = ({
     pageResetKey,
   } = useFiltrosTransportes(transportes);
 
-  const llavesActivas = useMemo(
-    () => transportes.filter((row) => cumpleFiltroActivas(row)).length,
-    [transportes],
+  const rowsOrdenadas = useMemo(
+    () => sortTransportesPorEstado(rowsFiltradas, ORDEN_ESTADOS_TABLERO),
+    [rowsFiltradas],
   );
 
   return (
@@ -53,13 +53,13 @@ export const CrudModule: React.FC<CrudModuleProps> = ({
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
         searchWidthClass="sm:w-36"
-        counter={`${llavesActivas} llaves`}
+        counter={`${rowsOrdenadas.length} llaves`}
         counterClassName="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white whitespace-nowrap"
         leftContent={<EstadoFilter value={estadoFiltro} onChange={setEstadoFiltro} />}
         rightContent={rightContent}
       />
 
-      <TransportesTable rows={rowsFiltradas} pageResetKey={pageResetKey} {...tableProps} />
+      <TransportesTable rows={rowsOrdenadas} pageResetKey={pageResetKey} {...tableProps} />
       {children}
     </div>
   );

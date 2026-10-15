@@ -134,4 +134,18 @@ describe('Sidebar', () => {
     fireEvent.click(screen.getByAltText('CCL Logo'));
     expect(setActiveModule).toHaveBeenCalledWith('despachos');
   });
+
+  it('aplica lg:hidden en PC cuando isDesktopOpen es false', () => {
+    const { container } = render(
+      <Sidebar
+        activeModule="planeacion"
+        setActiveModule={() => {}}
+        isOpen
+        onClose={() => {}}
+        isDesktopOpen={false}
+      />,
+    );
+    const aside = container.querySelector('aside');
+    expect(aside).toHaveClass('lg:hidden');
+  });
 });

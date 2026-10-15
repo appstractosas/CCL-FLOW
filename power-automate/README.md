@@ -40,12 +40,12 @@ El repo queda así en la rama `dev`:
 
 ### Flujo definitivo (3 pasos, sin bucle)
 
-1. **Seleccionar** (Salida: array con todas las filas, incluidas las claves `estatus` ← columna Estatus, `destino` ← columna Destino y `kg` ← columna Kg).
-   > ⚠️ Si agregas columnas nuevas al Excel (p. ej. `Destino`, `Kg`), hay que
+1. **Seleccionar** (Salida: array con todas las filas, incluidas las claves `estatus` ← columna Estatus, `destino` ← columna Destino, `kg` ← columna KG y `mts` ← columna MTS).
+   > ⚠️ Si agregas columnas nuevas al Excel (p. ej. `Destino`, `Kg`, `Mts`), hay que
    > AGREGARLAS al mapeo clave/valor del **Seleccionar**: el RPC solo lee las
-   > claves que llegan en el JSON. Sin ese cambio, `destino`/`kg` quedan `null`
+   > claves que llegan en el JSON. Sin ese cambio, `destino`/`kg`/`mts` quedan `null`
    > en la BD aunque la migración y el RPC ya estén aplicados. Las claves
-   > numéricas van EXACTAS y en minúscula (`cajas`, `kg`); las de texto son
+   > numéricas van EXACTAS y en minúscula (`cajas`, `kg`, `mts`); las de texto son
    > tolerantes (`Destino`, `DESTINO`, etc.).
 2. **Redactar** (la acción Compose aparece como "Redactar" en el diseñador en español) → Entradas (Expresión): `json(concat('{''_filas'':', string(body('Seleccionar')), '}'))` — envuelve el array como parámetro del RPC.
 3. **HTTP** → `POST https://gklcxnlseghdqylvnkdb.supabase.co/rest/v1/rpc/sync_transportes`, Cuerpo = `outputs('Redactar')`, mismos 4 headers (`apikey`, `Authorization: Bearer`, `Prefer: resolution=merge-duplicates,return=minimal`, `Content-Type: application/json`).
@@ -135,6 +135,7 @@ El repo queda así en la rama `dev`:
 | cajas | SÍ | 0 |
 | destino | SÍ | null |
 | kg | SÍ | null |
+| mts | SÍ | null |
 
 ## Mapeo de columnas (encabezado Excel → campo de la BD)
 
@@ -150,15 +151,24 @@ El repo queda así en la rama `dev`:
 | `Placa` | `placa` | mayúsculas; si está vacía se envía `''` |
 | `Cajas` | `cajas` | número; en el **Seleccionar** la clave va exacta: `cajas` |
 | `Destino` | `destino` | ciudad/planta de destino del pedido |
-| `Kg` | `kg` | peso en kilogramos; en el **Seleccionar** la clave va exacta: `kg` (igual convención que `cajas`) |
+| `KG` | `kg` | peso en kilogramos; en el **Seleccionar** la clave va exacta: `kg` (igual convención que `cajas`) |
+| `MTS` | `mts` | metros; en el **Seleccionar** la clave va exacta: `mts` (igual convención que `cajas`) |
 | `Estatus` | `estado_transporte` | DESPACHADO/ALISTADO/PENDIENTE (valores del CHECK de la BD). Vacío o desconocido → `'ALISTADO'`. Si dice `CANCELADO`, no entra al CHECK: pasa a `estado_porteria='CANCELADO'` |
 
-### Orden de despliegue para DESTINO/KG (nuevo)
+### Orden de despliegue para DESTINO/KG (histórico)
 
 1. Ejecutar `supabase-migracion-destino-kg.sql` en Supabase (crea las columnas `destino` y `kg`).
 2. Re-ejecutar `power-automate/migracion-rpc-sync-transportes.sql` (el RPC nuevo ya lee `destino`/`kg`; `kg = COALESCE(EXCLUDED.kg, …)` no pisa lo capturado en la app).
 3. En el flujo de Power Automate, agregar al **Seleccionar** los pares clave/valor: `destino` ← columna Destino, `kg` ← columna Kg.
 4. Probar end-to-end con una fila del Excel y verificar en la app/BD que destino y kg quedaron registrados.
+
+### Orden de despliegue para KG/MTS (0017) — columnas informativas
+
+1. Ejecutar `supabase/migrations/0017_mts.sql` en Supabase (crea `kg` si falta y `mts`, y actualiza el RPC `sync_transportes_full`).
+2. Re-ejecutar `power-automate/migracion-rpc-sync-transportes.sql` (el RPC `sync_transportes` ya lee `kg`/`mts`).
+3. En el flujo de Power Automate, agregar al **Seleccionar** los pares clave/valor: `kg` ← columna KG, `mts` ← columna MTS (claves EXACTAS en minúscula).
+4. En el respaldo de Apps Script, ya vienen los mapeos `'KG'→kg` y `'MTS'→mts` (no requiere cambios una vez desplegado el `.gs`).
+5. Probar end-to-end y verificar en la tabla de TRANSPORTES que KG/MTS se muestran (solo lectura).
 
 ## Servicios/acciones de Power Automate a usar (lo que falta)
 

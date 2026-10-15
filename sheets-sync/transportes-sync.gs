@@ -96,6 +96,8 @@ var MAPPING = {
   'Denominación': 'denominacion', // Nombre del cliente
   'Placa': 'placa',
   'Cajas originales': 'cajas',               // Cantidad de cajas (numérica)
+  'KG': 'kg',                     // Peso en KG (numérica, INFORMATIVA)
+  'MTS': 'mts',                   // Metros (numérica, INFORMATIVA)
   'Destino': 'destino',           // Ciudad/planta de destino del pedido
   'Region': 'region',             // Región del pedido (region en la BD)
   // 'Cita de entrega' es un campo transitorio: NO se guarda como columna
@@ -186,14 +188,29 @@ function buildRows_() {
   var lastCol = sheet.getLastColumn();
   if (lastRow < 2) return [];
 
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+    .map(function (h) { return String(h).trim(); });
+
+  // La hoja puede tener filas de relleno vacías al final: getLastRow() apunta a
+  // ellas y la ventana de las últimas MAX_FILAS filas caería sobre filas SIN
+  // llave (0 filas útiles). Se ubica la ÚLTIMA fila CON llave y la ventana
+  // termina ahí.
+  var lastDataRow = lastRow;
+  var llaveCol = headerIndex_(headers, HEADER_LLAVE);
+  if (llaveCol >= 0) {
+    var llaveVals = sheet.getRange(1, llaveCol + 1, lastRow, 1).getValues();
+    for (var i = llaveVals.length - 1; i >= 1; i--) {
+      if (String(llaveVals[i][0]).trim() !== '') { lastDataRow = i + 1; break; }
+    }
+  }
+  if (lastDataRow < 2) return [];
+
   // Solo se leen las últimas MAX_FILAS filas de datos (lo más nuevo está abajo):
   // evita que la ejecución se ralentice con miles de filas. Los encabezados
   // (fila 1) se leen aparte porque quedan fuera de la ventana.
-  var firstDataRow = Math.max(2, lastRow - MAX_FILAS + 1);
-  var nRows = lastRow - firstDataRow + 1;
+  var firstDataRow = Math.max(2, lastDataRow - MAX_FILAS + 1);
+  var nRows = lastDataRow - firstDataRow + 1;
   var values = sheet.getRange(firstDataRow, 1, nRows, lastCol).getValues();
-  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
-    .map(function (h) { return String(h).trim(); });
 
   // Mapa normalizado "encabezado normalizado" -> "campo BD" para que no importen
   // mayúsculas, tildes o espacios (ej: "Denominación" vs "Denominacion").
@@ -207,7 +224,7 @@ function buildRows_() {
   var dbFields = Object.keys(MAPPING).map(function (h) { return MAPPING[h]; });
 
   var rows = [];
-  for (var r = 1; r < values.length; r++) {
+  for (var r = 0; r < values.length; r++) {
     var obj = {};
     for (var f = 0; f < dbFields.length; f++) {
       obj[dbFields[f]] = null;
@@ -227,10 +244,10 @@ function buildRows_() {
         } else if (dbField === 'placa' || dbField === 'llave') {
           val = String(raw).toUpperCase().trim().replace(/\s+/g, '');
           if (dbField === 'placa' && val === '') val = '';
-        } else if (dbField === 'cajas') {
+        } else if (dbField === 'cajas' || dbField === 'kg' || dbField === 'mts') {
           // NUMERIC en la BD: se envía como número (soporta "1.234" o "1234").
-          var cajasNum = Number(String(raw).replace(/[.,]/g, '').trim());
-          val = isFinite(cajasNum) ? Math.round(cajasNum) : null;
+          var num = Number(String(raw).replace(/[.,]/g, '').trim());
+          val = isFinite(num) ? Math.round(num) : null;
         } else if (dbField === 'estatus') {
           // "Estado mercancia": se envía bajo la clave 'estatus' (no
           // 'estado_transporte') para que el RPC detecte CANCELADO y ponga

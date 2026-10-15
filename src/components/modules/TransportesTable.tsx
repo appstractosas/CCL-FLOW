@@ -26,6 +26,10 @@ export interface TransportesTableProps {
   checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
   showCajas?: boolean;
+  /** Muestra la columna informativa KG (columna del fuente, solo lectura) tras CAJAS. */
+  showKg?: boolean;
+  /** Muestra la columna informativa MTS (columna del fuente, solo lectura) tras KG. */
+  showMts?: boolean;
   /** Muestra la columna ESTATUS (estado_transporte de la BD) entre CAJAS y ESTADO. */
   showEstatus?: boolean;
   /** Solo Planeación: reemplaza la columna FECHA por REGION (entre FECHA HORA CITA y LLAVE). */
@@ -50,6 +54,8 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   checklistOwner,
   onPorteriaHora,
   showCajas = false,
+  showKg = false,
+  showMts = false,
   showEstatus = false,
   showRegion = false,
   showDetalleLlave = false,
@@ -76,6 +82,8 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
     6 +
     (showRegion ? 1 : 0) +
     (showCajas ? 1 : 0) +
+    (showKg ? 1 : 0) +
+    (showMts ? 1 : 0) +
     (showEstatus ? 1 : 0) +
     (showActions ? 1 : 0);
 
@@ -102,6 +110,8 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
               <th className="py-2.5 px-3">LLAVE</th>
               <th className="py-2.5 px-3">MUELLE</th>
               {showCajas && <th className="py-2.5 px-3">CAJAS</th>}
+              {showKg && <th className="py-2.5 px-3">KG</th>}
+              {showMts && <th className="py-2.5 px-3">MTS</th>}
               {showEstatus && <th className="py-2.5 px-3">ESTATUS</th>}
               <th className="py-2.5 px-3">ESTADO</th>
               {showActions && <th className="py-2.5 px-3 text-right">ACCIONES</th>}
@@ -160,6 +170,16 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                       {showCajas && (
                         <td className="py-2.5 px-3 font-mono font-bold text-amber-400 whitespace-nowrap">
                           {row.cajas ? row.cajas.toLocaleString('es-CO') : '—'}
+                        </td>
+                      )}
+                      {showKg && (
+                        <td className="py-2.5 px-3 font-mono text-zinc-300 whitespace-nowrap">
+                          {row.kg ? row.kg.toLocaleString('es-CO') : '—'}
+                        </td>
+                      )}
+                      {showMts && (
+                        <td className="py-2.5 px-3 font-mono text-zinc-300 whitespace-nowrap">
+                          {row.mts ? row.mts.toLocaleString('es-CO') : '—'}
                         </td>
                       )}
                       {showEstatus && (

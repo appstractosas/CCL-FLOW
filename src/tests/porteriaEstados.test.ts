@@ -134,7 +134,7 @@ describe('sortTransportesPorEstado (orden del Tablero vs canónico)', () => {
       horaLlegadaPorteria,
     });
 
-  it('el orden canónico mantiene Pendiente/Confirmado arriba', () => {
+  it('el orden canónico mantiene Confirmado y Pendiente arriba de las operaciones en patio', () => {
     const ordenado = sortTransportesPorEstado(
       [fila('LL-3', '08:00'), fila('LL-1', ''), fila('LL-2', '')],
       ORDEN_ESTADOS,
@@ -142,11 +142,24 @@ describe('sortTransportesPorEstado (orden del Tablero vs canónico)', () => {
     expect(ordenado.map((f) => f.llave)).toEqual(['LL-1', 'LL-2', 'LL-3']);
   });
 
-  it('el orden del Tablero pone arriba LLEGO A PORTERIA y abajo Pendiente/Confirmado', () => {
+  it('el orden del Tablero pone arriba LLEGO A PORTERIA y abajo Confirmado/Pendiente', () => {
     const ordenado = sortTransportesPorEstado(
       [fila('LL-3', '08:00'), fila('LL-1', ''), fila('LL-2', '')],
       ORDEN_ESTADOS_TABLERO,
     );
     expect(ordenado.map((f) => f.llave)).toEqual(['LL-3', 'LL-1', 'LL-2']);
+  });
+
+  it('el orden del Tablero ubica SALIO DE PORTERIA antes de Confirmado y Confirmado antes de Pendiente', () => {
+    const rSalida = row({ llave: 'LL-10', horaLlegadaPorteria: '08:00', horaSalida: '10:00' }); // SALIO DE PORTERIA
+    const rConfirmado = row({ llave: 'LL-20', estadoPorteria: 'Confirmado' }); // Confirmado
+    const rPendiente = row({ llave: 'LL-30', estadoPorteria: 'Pendiente' }); // Pendiente
+    const rCancelado = row({ llave: 'LL-40', estadoPorteria: 'CANCELADO' }); // CANCELADO
+
+    const resultado = sortTransportesPorEstado(
+      [rCancelado, rPendiente, rConfirmado, rSalida],
+      ORDEN_ESTADOS_TABLERO,
+    );
+    expect(resultado.map((r) => r.llave)).toEqual(['LL-10', 'LL-20', 'LL-30', 'LL-40']);
   });
 });

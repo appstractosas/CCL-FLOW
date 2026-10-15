@@ -28,6 +28,7 @@ export const NotificationsBell: React.FC = () => {
   const [toast, setToast] = useState<Notificacion | null>(null);
   const firstIdRef = useRef<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  const toastRef = useRef<HTMLDivElement>(null);
 
   // Banner estilo WhatsApp: solo cuando llega una notificación NUEVA (id distinto
   // al último visto), nunca al cargar el historial inicial.
@@ -51,6 +52,16 @@ export const NotificationsBell: React.FC = () => {
       if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
     };
   }, []);
+
+  // Oculta el banner flotante al hacer clic fuera de él (la X sigue funcionando).
+  useEffect(() => {
+    if (!toast) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (toastRef.current && !toastRef.current.contains(e.target as Node)) setToast(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [toast]);
 
   const toggleOpen = () => {
     const next = !open;
@@ -143,7 +154,10 @@ export const NotificationsBell: React.FC = () => {
 
       {/* Banner flotante (estilo WhatsApp) al llegar una notificación nueva */}
       {toast && (
-        <div className="fixed top-16 right-3 left-3 z-[70] sm:right-6 sm:left-auto sm:w-96 animate-in slide-in-from-top-5 fade-in duration-200">
+        <div
+          ref={toastRef}
+          className="fixed top-16 right-3 left-3 z-[70] sm:right-6 sm:left-auto sm:w-96 animate-in slide-in-from-top-5 fade-in duration-200"
+        >
           <div
             className={`bg-[#121726] border rounded-xl shadow-2xl overflow-hidden ${notifMeta(toast).border}`}
           >

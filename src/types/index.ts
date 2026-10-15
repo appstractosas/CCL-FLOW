@@ -151,6 +151,10 @@ export interface UnifiedTransporte {
   cajas?: number;
   /** TRUE si las cajas fueron editadas desde la app (el sync no las pisa). */
   cajasManual?: boolean;
+  /** Peso en KG del fuente (col. "KG" del Excel). Informativo: solo lectura en la app. */
+  kg?: number;
+  /** Metros (col. "MTS" del Excel). Informativo: solo lectura en la app. */
+  mts?: number;
   /** Ciudad/lugar de destino del pedido (viene del Excel o se captura en la app). */
   destino?: string;
   /** Región del pedido (columna Region del Excel / region en la BD). */

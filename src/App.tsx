@@ -55,6 +55,7 @@ export default function App() {
   const [appReady, setAppReady] = useState(false);
   const [activeModule, setActiveModule] = useState<AppModuleId>('despachos');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
 
   // Prioridad de módulos para ubicar al usuario tras el login (mismo orden del sidebar).
   const MODULE_PRIORITY: AppModuleId[] = [
@@ -137,6 +138,7 @@ export default function App() {
         setActiveModule={setActiveModule}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        isDesktopOpen={isDesktopSidebarOpen}
       />
 
       {/* Mobile Overlay */}
@@ -152,6 +154,7 @@ export default function App() {
         {/* Top Bar with Session Control (Superior Derecha) */}
         <header className="sticky top-0 z-20 bg-[#090d16]/95 backdrop-blur border-b border-zinc-800/80 px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-3">
           <div className="flex items-center space-x-3 min-w-0">
+            {/* Botón menú móvil (intacto) */}
             <button
               onClick={() => setIsSidebarOpen(true)}
               className="lg:hidden p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 transition-colors"
@@ -159,6 +162,17 @@ export default function App() {
             >
               <Menu className="w-5 h-5" />
             </button>
+
+            {/* Botón menú PC (esconder o mostrar menú principal) */}
+            <button
+              onClick={() => setIsDesktopSidebarOpen((prev) => !prev)}
+              className="hidden lg:flex items-center justify-center p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+              aria-label={isDesktopSidebarOpen ? 'Ocultar menú principal' : 'Mostrar menú principal'}
+              title={isDesktopSidebarOpen ? 'Ocultar menú principal' : 'Mostrar menú principal'}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
             <img src={logoSrc} alt="CCL Logo" className="h-8 w-auto lg:hidden" />
             <span className="hidden lg:block text-xs font-mono text-zinc-500">
               CCL · gestión de patios logísticos <span className="text-emerald-400">v1.0</span>

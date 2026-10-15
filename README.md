@@ -207,9 +207,9 @@ La app recibe datos desde hojas de cálculo mediante dos flujos paralelos:
 
 ### Reglas de sincronización
 
-- **Clave de upsert:** `(llave, placa)` — cada llave puede tener varias placas
-- **CAJAS:** El sync NO sobreescribe cajas en llaves existentes (solo en nuevas)
-- **KG:** Se suma por `(llave, placa)` usando `SUM(kg) OVER PARTITION BY`
+- **Clave de upsert:** `(llave, placa_origen)` — cada llave puede tener varias placas
+- **CAJAS:** Se refrescan del fuente por par `(llave, placa_origen)` en cada corrida (el fuente manda; salvo `cajas_manual`)
+- **KG / MTS:** Columnas informativas; se suman por `(llave, placa_origen)` usando `SUM(...) OVER PARTITION BY` y solo se muestran en la tabla de TRANSPORTES
 - **Columnas de portería:** Las escribe la app, no el sync
 
 ## Credenciales por defecto
@@ -241,7 +241,8 @@ Tabla principal `transportes`:
 | `transporte` | text | Número de pedido |
 | `denominacion` | text | Nombre del cliente |
 | `cajas` | numeric | Cantidad de cajas |
-| `kg` | numeric | Peso en kilogramos |
+| `kg` | numeric | Peso en kilogramos (informativo, col. KG) |
+| `mts` | numeric | Metros (informativo, col. MTS) |
 | `destino` | text | Ciudad/destino del pedido |
 | `region` | text | Región del pedido |
 | `transportadora` | text | Transportadora |

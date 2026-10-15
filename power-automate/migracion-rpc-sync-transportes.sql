@@ -8,6 +8,9 @@
 --     NO se pisa en el UPDATE.
 --   * Las CAJAS se SUMAN POR PLACA (filas del mismo llave+placa guardan
 --     la suma).
+--   * KG y MTS son columnas INFORMATIVAS del Excel: se tratan igual que CAJAS
+--     (se suman por par (llave, placa_origen), se limpian [.,] y se redondean).
+--     La app solo las lee (módulo TRANSPORTES); el sync las refresca cada corrida.
 --
 -- Cambios frente a la versión que "consolidaba por llave (SUMA cajas)":
 --   - Cada fila del Excel es una LLAVE + PLACA. Una llave puede repetirse con
@@ -179,6 +182,8 @@ BEGIN
     NULLIF(TRIM(f->>'cita_cargue'),'')                   AS cita_cargue,
     NULLIF(TRIM(f->>'fecha_hora'),'')                    AS fecha_hora,
     COALESCE(ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'cajas',''),'[.,]','','g'),'')::numeric), 0) AS cajas,
+    COALESCE(ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'kg',''),'[.,]','','g'),'')::numeric), 0) AS kg,
+    COALESCE(ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'mts',''),'[.,]','','g'),'')::numeric), 0) AS mts,
     (UPPER(TRIM(COALESCE(f->>'estatus',''))) = 'CANCELADO') AS estado_cancelado
   FROM jsonb_array_elements(_filas) AS f
   WHERE NULLIF(TRIM(f->>'llave'),'') IS NOT NULL;
@@ -188,7 +193,9 @@ BEGIN
   -- se IGNORAN: asi no queda una fila PENDIENTE fantasma por la misma llave.
   UPDATE tmp_sync s
   SET placa_origen = p.placa_llave,
-      cajas = 0
+      cajas = 0,
+      kg = 0,
+      mts = 0
   FROM (
     SELECT llave, MAX(placa) AS placa_llave
     FROM tmp_sync WHERE placa IS NOT NULL GROUP BY llave
@@ -200,7 +207,9 @@ BEGIN
   -- existente en vez de crear una PENDIENTE con po='' que duplicaria la llave.
   UPDATE tmp_sync s
   SET placa_origen = d.placa_db,
-      cajas = 0
+      cajas = 0,
+      kg = 0,
+      mts = 0
   FROM (
     SELECT llave, MAX(placa_origen) AS placa_db
     FROM public.transportes
@@ -233,7 +242,9 @@ BEGIN
     cita_cargue,
     fecha_hora,
     estado_cancelado,
-    SUM(cajas) OVER (PARTITION BY llave, placa_origen)::numeric AS cajas
+    SUM(cajas) OVER (PARTITION BY llave, placa_origen)::numeric AS cajas,
+    SUM(kg)    OVER (PARTITION BY llave, placa_origen)::numeric AS kg,
+    SUM(mts)   OVER (PARTITION BY llave, placa_origen)::numeric AS mts
   FROM tmp_sync
   ORDER BY llave, placa_origen, tenia_placa DESC, row_id DESC;
 
@@ -309,7 +320,7 @@ BEGIN
     -- si el Excel llega vacío, la BD aplica su DEFAULT en vez de violar NOT NULL).
     INSERT INTO transportes (
       llave, fecha_hora, placa, placa_origen, vehiculo_tipo, transportadora,
-      transporte, denominacion, destino, region, cita_cargue, cajas,
+      transporte, denominacion, destino, region, cita_cargue, cajas, kg, mts,
       estado_transporte, estado_porteria, updated_at
     ) VALUES (
       r.llave,
@@ -318,7 +329,7 @@ BEGIN
       COALESCE(r.placa_origen, ''),
       COALESCE(r.vehiculo_tipo, 'SENCILLO'),
       COALESCE(r.transportadora, ''),
-      r.transporte, r.denominacion, r.destino, r.region, v_cita, r.cajas,
+      r.transporte, r.denominacion, r.destino, r.region, v_cita, r.cajas, r.kg, r.mts,
       -- estado_transporte: solo los valores del CHECK de la columna; si la
       -- celda Estatus viene vacía o con un valor desconocido, se aplica el
       -- DEFAULT 'ALISTADO' (el CHECK rechaza cualquier otro valor).
@@ -373,6 +384,10 @@ BEGIN
       -- cuando el fuente trae ese mismo número de cajas.
       cajas = CASE WHEN transportes.cajas_manual THEN transportes.cajas
                    ELSE COALESCE(NULLIF(EXCLUDED.cajas,0), transportes.cajas) END,
+      -- kg/mts: el fuente manda igual que cajas; si el payload no trae valor
+      -- (0) se conserva el existente. La app no los edita (no hay *_manual).
+      kg  = COALESCE(NULLIF(EXCLUDED.kg,0), transportes.kg),
+      mts = COALESCE(NULLIF(EXCLUDED.mts,0), transportes.mts),
       cajas_manual = CASE WHEN transportes.cajas_manual
                            AND EXCLUDED.cajas > 0
                            AND EXCLUDED.cajas = transportes.cajas

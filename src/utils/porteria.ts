@@ -11,10 +11,10 @@ type PorteriaRow = Pick<
   | 'horaSalida'
 >;
 
-/** Orden canónico de la columna ESTADO: Pendiente arriba, canceladas al final. */
+/** Orden canónico de la columna ESTADO: Confirmado antes de Pendiente, canceladas al final. */
 export const ORDEN_ESTADOS: EstadoPorteria[] = [
-  'Pendiente',
   'Confirmado',
+  'Pendiente',
   'LLEGO A PORTERIA',
   'INGRESO A MUELLE',
   'CARGANDO',
@@ -23,16 +23,17 @@ export const ORDEN_ESTADOS: EstadoPorteria[] = [
   'CANCELADO',
 ];
 
-/** Orden del Tablero: primero los que ya llegaron a portería/patio (arriba LLEGO A PORTERIA),
- *  luego PENDIENTE y CONFIRMADO abajo; cerradas al final. */
+/** Orden del Tablero y vistas operativas:
+ *  1 LLEGO A PORTERIA, 2 INGRESO A MUELLE, 3 CARGANDO, 4 FINALIZO CARGUE,
+ *  5 SALIO DE PORTERIA, 6 Confirmado, 7 Pendiente, 8 CANCELADO. */
 export const ORDEN_ESTADOS_TABLERO: EstadoPorteria[] = [
   'LLEGO A PORTERIA',
   'INGRESO A MUELLE',
   'CARGANDO',
   'FINALIZO CARGUE',
-  'Pendiente',
-  'Confirmado',
   'SALIO DE PORTERIA',
+  'Confirmado',
+  'Pendiente',
   'CANCELADO',
 ];
 
