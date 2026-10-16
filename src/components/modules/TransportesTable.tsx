@@ -154,14 +154,14 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                       </td>
                       <td className="py-2.5 px-3 font-mono whitespace-nowrap">
                         {row.placa ? (
-                          <span className="bg-zinc-800/80 text-zinc-100 font-bold px-2 py-0.5 rounded border border-zinc-700">
+                          <span className="bg-zinc-800/80 text-zinc-100 font-bold px-2 py-0.5 rounded border border-zinc-700 text-base">
                             {row.placa}
                           </span>
                         ) : (
-                          <span className="text-zinc-600 font-semibold">â€”</span>
+                          <span className="text-zinc-600 font-semibold text-base">—</span>
                         )}
                       </td>
-                      <td className="py-2.5 px-3 font-mono font-bold text-blue-400 whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono font-bold text-blue-400 whitespace-nowrap text-base">
                         {row.llave}
                       </td>
                       <td className="py-2.5 px-3 font-bold text-emerald-400 whitespace-nowrap">
