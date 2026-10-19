@@ -5,6 +5,7 @@ import { TipoBadge } from '../common/EstadoBadge';
 import { isLlaveCerrada, puedeEditarOperacion } from '../../utils/porteria';
 import { ControlTiemposCard } from './ControlTiemposCard';
 import { DetalleLlaveSection } from './DetalleLlaveSection';
+import { ObservacionesInput } from './TransporteDetailBits';
 
 interface TransporteDetailPanelProps {
   row: UnifiedTransporte | null;
@@ -24,6 +25,10 @@ interface TransporteDetailPanelProps {
   showEstatus?: boolean;
   /** Muestra la sección "Detalle por transporte" (líneas de la llave). Solo la activa Transportes. */
   showDetalleLlave?: boolean;
+  /** Guarda las observaciones del pedido (al pie del modal). Si se omite, se muestran en solo lectura. */
+  onObservaciones?: (row: UnifiedTransporte, texto: string) => void;
+  /** Predica si las observaciones son editables para la fila (p.ej. Planeación: solo PENDIENTE/CONFIRMADO). */
+  observacionesEditable?: (row: UnifiedTransporte) => boolean;
 }
 
 export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
@@ -42,6 +47,8 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   onPorteriaHora,
   showEstatus = false,
   showDetalleLlave = false,
+  onObservaciones,
+  observacionesEditable,
 }) => {
   if (!row) return null;
 
@@ -114,6 +121,14 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
             onCuadrilla={onCuadrilla}
             onCajas={onCajas}
             onPorteriaHora={onPorteriaHora}
+          />
+          <ObservacionesInput
+            row={row}
+            onObservaciones={
+              onObservaciones && (observacionesEditable?.(row) ?? true)
+                ? onObservaciones
+                : undefined
+            }
           />
         </div>
 

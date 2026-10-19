@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Edit2, XCircle } from 'lucide-react';
-import { UnifiedTransporte, PorteriaTimeField } from '../../types';
+import { UnifiedTransporte, PorteriaTimeField, EstadoTransporte } from '../../types';
 import { TipoBadge, EstadoBadge, EstatusBadge } from '../common/EstadoBadge';
 import { TransporteDetailPanel } from './TransporteDetailPanel';
+import { EstatusSelect } from './TransporteDetailBits';
 import { Pagination } from '../common/Pagination';
 import { getEstadoPorteria, isLlaveCerrada, puedeEditarOperacion } from '../../utils/porteria';
 import { formatFechaHora } from '../../lib/dateUtils';
@@ -37,6 +38,12 @@ export interface TransportesTableProps {
   /** Muestra la sección "Detalle por transporte" en el modal de detalle (solo Transportes). */
   showDetalleLlave?: boolean;
   pageResetKey?: string;
+  /** Si se pasa, la columna ESTATUS se vuelve un selector (solo Supervisor). */
+  onEstatusChange?: (row: UnifiedTransporte, estado: EstadoTransporte | null) => void;
+  /** Guarda las observaciones del detalle. Si se omite, se muestran en solo lectura. */
+  onObservaciones?: (row: UnifiedTransporte, texto: string) => void;
+  /** Predica si las observaciones son editables para la fila. */
+  observacionesEditable?: (row: UnifiedTransporte) => boolean;
 }
 
 export const TransportesTable: React.FC<TransportesTableProps> = ({
@@ -60,6 +67,9 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   showRegion = false,
   showDetalleLlave = false,
   pageResetKey,
+  onEstatusChange,
+  onObservaciones,
+  observacionesEditable,
 }) => {
   const [selected, setSelected] = useState<UnifiedTransporte | null>(null);
   const [page, setPage] = useState(1);
@@ -184,7 +194,11 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                       )}
                       {showEstatus && (
                         <td className="py-2.5 px-3 whitespace-nowrap">
-                          <EstatusBadge estado={row.estadoTransporte} />
+                          {onEstatusChange ? (
+                            <EstatusSelect row={row} onEstatusChange={onEstatusChange} />
+                          ) : (
+                            <EstatusBadge estado={row.estadoTransporte} />
+                          )}
                         </td>
                       )}
                       <td className="py-2.5 px-3 whitespace-nowrap">
@@ -274,6 +288,8 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
         onCajas={onCajas}
         checklistOwner={checklistOwner}
         onPorteriaHora={onPorteriaHora}
+        onObservaciones={onObservaciones}
+        observacionesEditable={observacionesEditable}
       />
     </div>
   );

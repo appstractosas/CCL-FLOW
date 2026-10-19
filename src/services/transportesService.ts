@@ -21,7 +21,7 @@ interface TransporteDBWrite {
   destino: string | null;
   region: string | null;
   transportadora: string;
-  estado_transporte: string;
+  estado_transporte: string | null;
   estado_porteria: string;
   muelle_asignado: string | null;
   cuadrilla: string | null;
@@ -110,7 +110,7 @@ function mapTransporteFromDB(item: TransporteDBRow): UnifiedTransporte {
         }))
       : undefined,
     transportadora: item.transportadora || '',
-    estadoTransporte: item.estado_transporte as EstadoTransporte,
+    estadoTransporte: (item.estado_transporte as EstadoTransporte | null) ?? null,
     estadoPorteria: (item.estado_porteria as EstadoPorteria) || 'Pendiente',
     muelleAsignado: item.muelle_asignado || undefined,
     cuadrilla: item.cuadrilla || undefined,
@@ -230,7 +230,7 @@ export async function updateTransporte(
   id: string,
   updates: Partial<UnifiedTransporte>,
 ): Promise<void> {
-  const dbUpdates: Record<string, string | number | boolean | undefined> = {};
+  const dbUpdates: Record<string, string | number | boolean | null | undefined> = {};
   if (updates.fechaHora !== undefined) dbUpdates.fecha_hora = updates.fechaHora;
   if (updates.placa !== undefined) dbUpdates.placa = updates.placa;
   if (updates.vehiculoTipo !== undefined) dbUpdates.vehiculo_tipo = updates.vehiculoTipo;

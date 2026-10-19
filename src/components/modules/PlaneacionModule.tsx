@@ -8,7 +8,8 @@ import { UnifiedTransporte, TransporteData } from '../../types';
 import { puedeEditarOperacion } from '../../utils/porteria';
 
 export const PlaneacionModule: React.FC = () => {
-  const { addTransporte, updateTransporte, cancelTransporte } = useLogisticsStore();
+  const { addTransporte, updateTransporte, cancelTransporte, updateObservaciones } =
+    useLogisticsStore();
   const { hasModuleEdit } = useAuthStore();
   const canEdit = hasModuleEdit('planeacion');
 
@@ -53,6 +54,13 @@ export const PlaneacionModule: React.FC = () => {
   // estado posterior) ya no se puede cancelar, para ningún rol (incluido ADMIN).
   const canCancelLlave = (row: UnifiedTransporte) => puedeEditarOperacion(row);
 
+  // Observaciones: editables en Planeación solo en PENDIENTE/CONFIRMADO
+  // (después de LLEGO A PORTERIA la llave ya está en operación).
+  const handleObservaciones = (row: UnifiedTransporte, texto: string) => {
+    if (!puedeEditarOperacion(row)) return;
+    void updateObservaciones(row.id, texto);
+  };
+
   return (
     <CrudModule
       searchPlaceholder="Buscar placa, llave, pedido o cliente..."
@@ -64,6 +72,8 @@ export const PlaneacionModule: React.FC = () => {
         canCancel: canCancelLlave,
         onEdit: openEdit,
         onDelete: handleCancel,
+        onObservaciones: canEdit ? handleObservaciones : undefined,
+        observacionesEditable: puedeEditarOperacion,
       }}
       rightContent={
         canEdit ? (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PorteriaTimeField, UnifiedTransporte } from '../../types';
+import { PorteriaTimeField, UnifiedTransporte, EstadoTransporte } from '../../types';
 import {
   timeSet,
   formatFechaHora,
@@ -41,6 +41,9 @@ export const PORTERIA_STEPS: PorteriaStep[] = [
 
 // eslint-disable-next-line react-refresh/only-export-components -- constantes de configuración compartidas con TransporteDetailPanel
 export const CUADRILLAS = ['CCL', 'LTSA (Éxito)', 'SLA'] as const;
+
+/** Valores seleccionables de la columna ESTATUS (estado_transporte). */
+const ESTATUS_OPTIONS = ['ALISTADO', 'EN PROCESO', 'DESPACHADO'] as const;
 
 // Las horas de operación no pueden ser futuras (solo anteriores o iguales a la hora actual).
 // Acepta "HH:MM" o "YYYY-MM-DD HH:MM" y compara contra el instante actual.
@@ -191,5 +194,81 @@ export function CajasInput({
       title={editable ? 'Editar número de cajas' : 'Solo editable en estados CARGANDO o FINALIZO CARGUE'}
       className={`bg-zinc-900 text-zinc-100 border border-zinc-700 px-2.5 py-1.5 rounded-lg font-bold focus:outline-none text-xs text-right w-24 focus:border-emerald-500 ${!editable ? 'opacity-50 cursor-not-allowed' : 'focus:border-emerald-500'}`}
     />
+  );
+}
+
+/** Observaciones del pedido. Visible en TODOS los módulos (solo lectura); editable
+ *  únicamente donde se pasa `onObservaciones` (Supervisor y Planeación). */
+export function ObservacionesInput({
+  row,
+  onObservaciones,
+}: {
+  row: UnifiedTransporte;
+  onObservaciones?: (row: UnifiedTransporte, texto: string) => void;
+}) {
+  const [val, setVal] = useState<string>(row.observaciones ?? '');
+
+  React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza el input con el valor recibido de la fila
+    setVal(row.observaciones ?? '');
+  }, [row.observaciones]);
+
+  const commit = () => {
+    if (onObservaciones && val !== (row.observaciones ?? '')) onObservaciones(row, val);
+  };
+
+  if (!onObservaciones) return <DetailRow label="Observaciones" value={row.observaciones} />;
+
+  return (
+    <div className="pt-1">
+      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block pb-1.5">
+        Observaciones
+      </span>
+      <textarea
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={commit}
+        rows={3}
+        placeholder="Sin observaciones"
+        title="Observaciones del pedido"
+        className="w-full bg-zinc-900 text-zinc-100 border border-zinc-700 px-2.5 py-1.5 rounded-lg text-xs focus:outline-none focus:border-emerald-500 resize-y"
+      />
+    </div>
+  );
+}
+
+/** Selector de ESTATUS (columna). Solo lo habilita el módulo Supervisor. */
+export function EstatusSelect({
+  row,
+  onEstatusChange,
+}: {
+  row: UnifiedTransporte;
+  onEstatusChange: (row: UnifiedTransporte, estado: EstadoTransporte | null) => void;
+}) {
+  const actual = row.estadoTransporte;
+  // Si la fila trae un valor fuera de la lista (p.ej. histórico), se conserva como opción.
+  const opciones: readonly string[] =
+    actual && !(ESTATUS_OPTIONS as readonly string[]).includes(actual)
+      ? [actual, ...ESTATUS_OPTIONS]
+      : ESTATUS_OPTIONS;
+  return (
+    <select
+      value={actual ?? ''}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => {
+        e.stopPropagation();
+        const valor = e.target.value;
+        onEstatusChange(row, valor ? (valor as EstadoTransporte) : null);
+      }}
+      title="Cambiar ESTATUS (solo supervisor)"
+      className="bg-zinc-900 text-zinc-100 border border-zinc-700 px-2 py-1 rounded-lg font-bold focus:outline-none text-[11px]"
+    >
+      <option value="">—</option>
+      {opciones.map((op) => (
+        <option key={op} value={op}>
+          {op.toLowerCase()}
+        </option>
+      ))}
+    </select>
   );
 }

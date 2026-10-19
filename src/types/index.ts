@@ -162,7 +162,8 @@ export interface UnifiedTransporte {
   /** Líneas de la llave (una por fila del origen) en el orden del Sheets/Excel. La lee el modal de detalle de Transportes. */
   detalleLlave?: DetalleLlave[];
   transportadora?: string;
-  estadoTransporte: EstadoTransporte;
+  /** null = el fuente no trae ESTATUS (se muestra "—"). */
+  estadoTransporte: EstadoTransporte | null;
   estadoPorteria: EstadoPorteria;
   muelleAsignado?: string;
   cuadrilla?: string;
@@ -187,7 +188,7 @@ export interface TransporteData {
   transporte?: string;
   /** Nombre del cliente (denominación). */
   denominacion?: string;
-  estadoTransporte?: EstadoTransporte;
+  estadoTransporte?: EstadoTransporte | null;
   muelleAsignado?: string;
   cuadrilla?: string;
   cajas?: number;

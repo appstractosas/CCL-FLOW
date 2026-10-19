@@ -7,6 +7,7 @@ import {
   TipoNotificacion,
   KPIStats,
   EstadoPorteria,
+  EstadoTransporte,
   PorteriaTimeField,
 } from '../types';
 import {
@@ -54,6 +55,12 @@ interface LogisticsState {
   updateMuelleHora: (id: string, hora: string) => Promise<void>;
   updateCuadrilla: (id: string, cuadrilla: string) => Promise<void>;
   updateCajas: (id: string, cajas: number) => Promise<void>;
+  updateEstadoTransporte: (id: string, estado: EstadoTransporte | null) => Promise<void>;
+  updateObservaciones: (
+    id: string,
+    texto: string,
+    modulo?: 'planeacion' | 'personal',
+  ) => Promise<void>;
   cancelTransporte: (id: string) => Promise<void>;
   sendMessage: (msg: {
     senderRole: string;
@@ -305,7 +312,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         transporte: data.transporte || undefined,
         denominacion: data.denominacion || undefined,
         transportadora: data.transportadora || '',
-        estadoTransporte: data.estadoTransporte || 'ALISTADO',
+        estadoTransporte: data.estadoTransporte ?? null,
         // Placa opcional: sin placa → PENDIENTE; con placa → CONFIRMADO.
         estadoPorteria: placa ? 'Confirmado' : 'Pendiente',
         muelleAsignado: data.muelleAsignado || '',
@@ -569,6 +576,48 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
           'ACTUALIZAR_CAJAS',
           'despachos',
           `Cajas de ${row.llave} actualizadas: ${row.cajas ?? 0} → ${cajas}`,
+          row.llave,
+        );
+    },
+
+    updateEstadoTransporte: async (id, estado) => {
+      const row = get().transportes.find((t) => t.id === id);
+      if (!row) return;
+      if (llaveCerrada(row, 'cambiar el estatus de')) return;
+      if (estado === row.estadoTransporte) return;
+
+      const patch: Partial<UnifiedTransporte> = { estadoTransporte: estado };
+      patchTransporte(id, patch);
+      await persistirCambio(
+        id,
+        patch,
+        { estadoTransporte: row.estadoTransporte },
+        'estatus',
+      );
+      useAuthStore
+        .getState()
+        .addMovimiento(
+          'ACTUALIZAR_ESTATUS',
+          'personal',
+          `Estatus de ${row.llave} cambiado: ${row.estadoTransporte ?? 'sin estatus'} → ${estado ?? 'sin estatus'}`,
+          row.llave,
+        );
+    },
+
+    updateObservaciones: async (id, texto, modulo = 'planeacion') => {
+      const row = get().transportes.find((t) => t.id === id);
+      if (!row) return;
+      if (texto === (row.observaciones ?? '')) return;
+
+      const patch: Partial<UnifiedTransporte> = { observaciones: texto };
+      patchTransporte(id, patch);
+      await persistirCambio(id, patch, { observaciones: row.observaciones }, 'observaciones');
+      useAuthStore
+        .getState()
+        .addMovimiento(
+          'ACTUALIZAR_OBSERVACIONES',
+          modulo,
+          `Observaciones de ${row.llave} actualizadas`,
           row.llave,
         );
     },

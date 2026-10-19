@@ -56,10 +56,13 @@ const ESTATUS_CLASSES: Record<string, string> = {
 };
 
 /** Badge para la columna ESTATUS: solo texto + punto '•' en MINÚSCULAS (sin borde ni fondo). */
-export const EstatusBadge: React.FC<{ estado: string }> = ({ estado }) => {
-  const key = (estado || '').toUpperCase();
+export const EstatusBadge: React.FC<{ estado: string | null }> = ({ estado }) => {
+  if (!estado) {
+    return <span className="text-zinc-500 text-[11px] whitespace-nowrap">—</span>;
+  }
+  const key = estado.toUpperCase();
   const colorClasses = ESTATUS_CLASSES[key] || 'text-cyan-400 font-bold';
-  const textoMinuscula = (estado || '').toLowerCase();
+  const textoMinuscula = estado.toLowerCase();
 
   return (
     <span
