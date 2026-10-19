@@ -330,11 +330,12 @@ BEGIN
       COALESCE(r.vehiculo_tipo, 'SENCILLO'),
       COALESCE(r.transportadora, ''),
       r.transporte, r.denominacion, r.destino, r.region, v_cita, r.cajas, r.kg, r.mts,
-      -- estado_transporte: solo los valores del CHECK de la columna; si la
-      -- celda Estatus viene vacía o con un valor desconocido, se aplica el
-      -- DEFAULT 'ALISTADO' (el CHECK rechaza cualquier otro valor).
+      -- estado_transporte: celda Estatus vacía -> NULL (la app muestra "—").
+      -- Un valor desconocido no vacío conserva el fallback 'ALISTADO'.
       CASE WHEN r.estado_transporte IN ('DESPACHADO','ALISTADO','EN PROCESO')
-           THEN r.estado_transporte ELSE 'ALISTADO' END,
+           THEN r.estado_transporte
+           WHEN r.estado_transporte IS NULL THEN NULL
+           ELSE 'ALISTADO' END,
       -- estado_porteria (fila NUEVA): CANCELADO si el Estatus lo dice; si hay
       -- placa -> CONFIRMADO; sin placa -> PENDIENTE.
       CASE
@@ -373,10 +374,14 @@ BEGIN
       cita_cargue    = CASE WHEN 'cita_cargue' = ANY(transportes.campos_manuales)
                             THEN transportes.cita_cargue
                             ELSE COALESCE(NULLIF(EXCLUDED.cita_cargue,''), transportes.cita_cargue) END,
-      -- estado_transporte: el Excel ES la fuente; se pisa solo con valores
-      -- válidos (vacío/desconocido -> 'ALISTADO', nunca fuera del CHECK).
-      estado_transporte = CASE WHEN EXCLUDED.estado_transporte IN ('DESPACHADO','ALISTADO','EN PROCESO')
-                               THEN EXCLUDED.estado_transporte ELSE 'ALISTADO' END,
+      -- estado_transporte: si la app lo editó (campos_manuales), la BD manda;
+      -- si no, el Excel es la fuente: vacío -> NULL, desconocido -> 'ALISTADO'.
+      estado_transporte = CASE WHEN 'estado_transporte' = ANY(transportes.campos_manuales)
+                               THEN transportes.estado_transporte
+                               ELSE CASE WHEN EXCLUDED.estado_transporte IN ('DESPACHADO','ALISTADO','EN PROCESO')
+                                         THEN EXCLUDED.estado_transporte
+                                         WHEN EXCLUDED.estado_transporte IS NULL THEN NULL
+                                         ELSE 'ALISTADO' END END,
       -- cajas: el fuente (Excel) manda y el valor se refresca en
       -- cada corrida con la SUMA del par (llave, placa) que trae este payload,
       -- SALVO si la fila tiene cajas_manual = TRUE (editada por el despachador
@@ -406,6 +411,7 @@ BEGIN
           OR (f = 'denominacion'   AND public._mismo_valor(EXCLUDED.denominacion, transportes.denominacion))
           OR (f = 'destino'        AND public._mismo_valor(EXCLUDED.destino, transportes.destino))
           OR (f = 'region'         AND public._mismo_valor(EXCLUDED.region, transportes.region))
+          OR (f = 'estado_transporte' AND public._mismo_valor(EXCLUDED.estado_transporte, transportes.estado_transporte))
         )
       ),
       -- estado_porteria (fila EXISTENTE): solo se pisa si llega CANCELADO, o si la

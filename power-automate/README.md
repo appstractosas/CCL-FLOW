@@ -73,6 +73,9 @@ El repo queda así en la rama `dev`:
 > denominación, destino, región, vehículo, pedido o fecha, esos campos quedan
 > protegidos y el Excel no los pisa; la marca se limpia sola cuando el Excel
 > trae el mismo valor (ver regla 12 en `migracion-rpc-sync-transportes.sql`).
+> El **ESTATUS** (`estado_transporte`) también se protege cuando el Supervisor lo
+> cambia en la app. Si la celda Estatus viene vacía, queda `NULL` y la app muestra
+> `—` (`supabase/migrations/0018` y `0019`).
 > Requiere la migración `supabase/migrations/0012_campos_manuales.sql`.
 > La **placa no se protege**: si cambió en la app, hay que reflejarla en el Excel.
 
@@ -117,7 +120,7 @@ El repo queda así en la rama `dev`:
 | vehiculo_tipo | NO | 'SENCILLO' |
 | cita_cargue | SÍ | null |
 | transportadora | NO | '' |
-| estado_transporte | NO | 'ALISTADO' |
+| estado_transporte | NO | null |
 | estado_porteria | NO | 'Pendiente' |
 | muelle_asignado | SÍ | null |
 | hora_llegada_porteria | SÍ | '--:--' |
@@ -153,7 +156,7 @@ El repo queda así en la rama `dev`:
 | `Destino` | `destino` | ciudad/planta de destino del pedido |
 | `KG` | `kg` | peso en kilogramos; en el **Seleccionar** la clave va exacta: `kg` (igual convención que `cajas`) |
 | `MTS` | `mts` | metros; en el **Seleccionar** la clave va exacta: `mts` (igual convención que `cajas`) |
-| `Estatus` | `estado_transporte` | DESPACHADO/ALISTADO/PENDIENTE (valores del CHECK de la BD). Vacío o desconocido → `'ALISTADO'`. Si dice `CANCELADO`, no entra al CHECK: pasa a `estado_porteria='CANCELADO'` |
+| `Estatus` | `estado_transporte` | DESPACHADO/ALISTADO/PENDIENTE (valores del CHECK de la BD). Vacío → `NULL` (la app muestra `—`); desconocido → `'ALISTADO'`. Si dice `CANCELADO`, no entra al CHECK: pasa a `estado_porteria='CANCELADO'` |
 
 ### Orden de despliegue para DESTINO/KG (histórico)
 
@@ -212,7 +215,8 @@ El repo queda así en la rama `dev`:
    crearse DOS filas en la BD; y si repite la MISMA (llave, placa), la BD guarda
    la SUMA de cajas de esas filas. Además fechas ISO,
    `estado_transporte` = valor de la columna Estatus (DESPACHADO/ALISTADO/
-   PENDIENTE) y `estado_porteria='CANCELADO'` cuando `estatus` diga CANCELADO.
+   PENDIENTE; vacío → NULL) y `estado_porteria='CANCELADO'` cuando `estatus`
+   diga CANCELADO.
 6. Desactivar/limpiar: quitar el temporal de Apps Script cuando Power Automate
    esté estable y documentar.
 7. Cambiar origen de OneDrive → SharePoint cuando se apruebe el acceso al sitio.
