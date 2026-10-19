@@ -85,15 +85,19 @@ export const AeropuertoBoard: React.FC = () => {
             </div>
           ) : (
             <div className="divide-y divide-zinc-800/60">
-              {pageRows.map((row) => {
+              {pageRows.map((row, idx) => {
                 const estado = getEstadoPorteria(row);
                 const esFinalizado = estado === 'SALIO DE PORTERIA' || estado === 'CANCELADO';
+                // Fila alterna con azul translúcido para mejorar la lectura de las llaves.
+                const fondoFila = esFinalizado
+                  ? 'opacity-60 bg-zinc-900/30'
+                  : idx % 2 === 1
+                    ? 'bg-blue-500/10 hover:bg-blue-500/20'
+                    : 'bg-[#0d1322] hover:bg-[#111827]';
                 return (
                   <div
                     key={row.id}
-                    className={`grid grid-cols-[10rem_7rem_6rem_5rem_1fr_5rem_6rem_5rem_9rem] gap-2 items-center px-4 py-2.5 text-xs transition-colors ${
-                      esFinalizado ? 'opacity-60 bg-zinc-900/30' : 'bg-[#0d1322] hover:bg-[#111827]'
-                    }`}
+                    className={`grid grid-cols-[10rem_7rem_6rem_5rem_1fr_5rem_6rem_5rem_9rem] gap-2 items-center px-4 py-2.5 text-xs transition-colors ${fondoFila}`}
                   >
                     <span className="font-mono text-zinc-300 flex items-center gap-1">
                       <Clock className="w-3 h-3 text-zinc-600 shrink-0" />
