@@ -1,5 +1,10 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { UnifiedTransporte, TipoVehiculo, EstadoTransporte, EstadoPorteria } from '../types';
+import type {
+  UnifiedTransporte,
+  TipoVehiculo,
+  EstadoTransporte,
+  EstadoPorteria,
+} from '../types';
 
 const TABLE = 'transportes';
 
@@ -16,7 +21,7 @@ interface TransporteDBWrite {
   destino: string | null;
   region: string | null;
   transportadora: string;
-  estado_transporte: string;
+  estado_transporte: string | null;
   estado_porteria: string;
   muelle_asignado: string | null;
   cuadrilla: string | null;
@@ -29,10 +34,22 @@ interface TransporteDBWrite {
   observaciones: string | null;
 }
 
+/** Elemento crudo del jsonb `detalle_llave` (snake_case, tal como lo arma el RPC). */
+interface DetalleLlaveDB {
+  denominacion?: string;
+  destino?: string;
+  cita_entrega?: string;
+}
+
 /** Fila de lectura de `transportes` (incluye columnas generadas). */
 interface TransporteDBRow extends TransporteDBWrite {
   id: string;
   cajas_manual?: boolean;
+  /** Peso en KG (col. del fuente). Informativo y de solo lectura en la app. */
+  kg?: number | null;
+  /** Metros (col. del fuente). Informativo y de solo lectura en la app. */
+  mts?: number | null;
+  detalle_llave?: DetalleLlaveDB[];
   created_at?: string;
   updated_at?: string;
 }
@@ -81,10 +98,19 @@ function mapTransporteFromDB(item: TransporteDBRow): UnifiedTransporte {
     denominacion: item.denominacion || undefined,
     cajas: item.cajas ?? undefined,
     cajasManual: item.cajas_manual ?? undefined,
+    kg: item.kg ?? undefined,
+    mts: item.mts ?? undefined,
     destino: item.destino || undefined,
     region: item.region || undefined,
+    detalleLlave: item.detalle_llave
+      ? item.detalle_llave.map((l) => ({
+          denominacion: l.denominacion,
+          destino: l.destino,
+          citaEntrega: l.cita_entrega,
+        }))
+      : undefined,
     transportadora: item.transportadora || '',
-    estadoTransporte: item.estado_transporte as EstadoTransporte,
+    estadoTransporte: (item.estado_transporte as EstadoTransporte | null) ?? null,
     estadoPorteria: (item.estado_porteria as EstadoPorteria) || 'Pendiente',
     muelleAsignado: item.muelle_asignado || undefined,
     cuadrilla: item.cuadrilla || undefined,
@@ -204,7 +230,7 @@ export async function updateTransporte(
   id: string,
   updates: Partial<UnifiedTransporte>,
 ): Promise<void> {
-  const dbUpdates: Record<string, string | number | boolean | undefined> = {};
+  const dbUpdates: Record<string, string | number | boolean | null | undefined> = {};
   if (updates.fechaHora !== undefined) dbUpdates.fecha_hora = updates.fechaHora;
   if (updates.placa !== undefined) dbUpdates.placa = updates.placa;
   if (updates.vehiculoTipo !== undefined) dbUpdates.vehiculo_tipo = updates.vehiculoTipo;

@@ -7,6 +7,7 @@ export type AppModuleId =
   | 'porteria'
   | 'monitoreo'
   | 'informes'
+  | 'informes-gerencia'
   | 'planeacion'
   | 'transportes'
   | 'personal'
@@ -113,12 +114,22 @@ export type EstadoPorteria =
   | 'FINALIZO CARGUE'
   | 'SALIO DE PORTERIA'
   | 'CANCELADO';
-export type EstadoTransporte = 'DESPACHADO' | 'ALISTADO' | 'PENDIENTE';
+export type EstadoTransporte = 'DESPACHADO' | 'ALISTADO' | 'PENDIENTE' | 'EN PROCESO';
 export type TipoVehiculo = 'SENCILLO' | 'TURBO' | 'MINIMULA' | 'LUV' | 'MULA';
 
 /** Campos de tiempo del control de portería (secuencia de registro de horas). */
 export type PorteriaTimeField =
   'horaLlegadaPorteria' | 'horaIngreso' | 'horaInicioCargue' | 'horaFinCargue' | 'horaSalida';
+
+/** Una línea de la llave proveniente del Sheets/Excel (columna jsonb detalle_llave). */
+export interface DetalleLlave {
+  /** Nombre del cliente de la línea (col. Denominación). */
+  denominacion?: string;
+  /** Ciudad/planta de destino de la línea (col. Destino). */
+  destino?: string;
+  /** Cita de entrega de la línea (col. Cita de entrega). */
+  citaEntrega?: string;
+}
 
 /**
  * Registro único de la operación: una fila por vehículo/LLAVE.
@@ -140,12 +151,19 @@ export interface UnifiedTransporte {
   cajas?: number;
   /** TRUE si las cajas fueron editadas desde la app (el sync no las pisa). */
   cajasManual?: boolean;
+  /** Peso en KG del fuente (col. "KG" del Excel). Informativo: solo lectura en la app. */
+  kg?: number;
+  /** Metros (col. "MTS" del Excel). Informativo: solo lectura en la app. */
+  mts?: number;
   /** Ciudad/lugar de destino del pedido (viene del Excel o se captura en la app). */
   destino?: string;
   /** Región del pedido (columna Region del Excel / region en la BD). */
   region?: string;
+  /** Líneas de la llave (una por fila del origen) en el orden del Sheets/Excel. La lee el modal de detalle de Transportes. */
+  detalleLlave?: DetalleLlave[];
   transportadora?: string;
-  estadoTransporte: EstadoTransporte;
+  /** null = el fuente no trae ESTATUS (se muestra "—"). */
+  estadoTransporte: EstadoTransporte | null;
   estadoPorteria: EstadoPorteria;
   muelleAsignado?: string;
   cuadrilla?: string;
@@ -170,7 +188,7 @@ export interface TransporteData {
   transporte?: string;
   /** Nombre del cliente (denominación). */
   denominacion?: string;
-  estadoTransporte?: EstadoTransporte;
+  estadoTransporte?: EstadoTransporte | null;
   muelleAsignado?: string;
   cuadrilla?: string;
   cajas?: number;

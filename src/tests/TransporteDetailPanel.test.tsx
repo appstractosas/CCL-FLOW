@@ -213,8 +213,27 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
     expect(screen.getByText('BOGOTA')).toBeInTheDocument();
     expect(screen.queryByText('Transportadora')).not.toBeInTheDocument();
     expect(screen.queryByText('Región')).not.toBeInTheDocument();
-    expect(screen.queryByText('Observaciones')).not.toBeInTheDocument();
+    // Observaciones: visible al pie del modal (solo lectura si no hay callback).
+    expect(screen.getByText('Observaciones')).toBeInTheDocument();
     expect(container).not.toBeNull();
+  });
+
+  it('Observaciones: editable con callback y respeta observacionesEditable', () => {
+    const { rerender } = render(
+      <TransporteDetailPanel row={makeRow()} onClose={onClose} onObservaciones={() => {}} />,
+    );
+    expect(screen.getByTitle('Observaciones del pedido')).toBeInTheDocument();
+
+    rerender(
+      <TransporteDetailPanel
+        row={makeRow()}
+        onClose={onClose}
+        onObservaciones={() => {}}
+        observacionesEditable={() => false}
+      />,
+    );
+    expect(screen.queryByTitle('Observaciones del pedido')).not.toBeInTheDocument();
+    expect(screen.getByText('Observaciones')).toBeInTheDocument();
   });
 
   it('permite asignar muelle en cualquier momento, sin depender de las horas previas', () => {

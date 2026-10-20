@@ -46,7 +46,9 @@ describe('DespachosModule', () => {
   });
 
   it('el DESPACHADOR puede editar el número de cajas desde el detalle', async () => {
-    await useLogisticsStore.getState().addTransporte({ placa: 'XYZ-999', cajas: 500 });
+    const row = await useLogisticsStore.getState().addTransporte({ placa: 'XYZ-999', cajas: 500 });
+    // Poner la llave en estado CARGANDO (horaInicioCargue) para que las cajas sean editables
+    useLogisticsStore.getState().updateTransporte(row.id, { horaInicioCargue: '2026-10-01T08:30:00' });
 
     render(<DespachosModule />);
     fireEvent.click(screen.getByText('LL-60533'));

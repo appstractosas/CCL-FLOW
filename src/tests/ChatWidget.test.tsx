@@ -35,15 +35,6 @@ const portero = {
   roleName: 'PORTERO',
 };
 
-const supervisor = {
-  id: 'USER_SUP',
-  name: 'Luis',
-  cedula: '1000000004',
-  tipoUsuario: 'supervisor' as const,
-  roleId: 'ROLE_SUPERVISOR',
-  roleName: 'SUPERVISOR',
-};
-
 function setupStore(user: UserSession = portero) {
   useAuthStore.setState({ currentUser: user, roles: PRESET_ROLES });
   useLogisticsStore.setState({
@@ -63,34 +54,29 @@ describe('FloatingChatWidget (chat operativo)', () => {
     expect(screen.getByText('Chat Operativo')).toBeInTheDocument();
   });
 
-  it('abre el panel con el selector de llaves al pulsar el botón', () => {
+  it('abre el panel maximizado al pulsar el botón de Chat Operativo', () => {
     render(<FloatingChatWidget />);
     fireEvent.click(screen.getByText('Chat Operativo'));
-    expect(screen.getByText('Chat Operativo Muelle & Portería')).toBeInTheDocument();
-    // Solo aparecen llaves activas (la salida de portería queda fuera)
-    expect(screen.getAllByText(/LL-60533/).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/LL-60534/)).not.toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('Escribe un mensaje de coordinación...'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Minimizar chat')).toBeInTheDocument();
   });
 
-  it('el PORTERO ve el botón de solicitud de muelle habilitado y el de confirmación deshabilizado', () => {
+  it('permite cerrar el chat pulsando el botón de minimizar', () => {
     render(<FloatingChatWidget />);
     fireEvent.click(screen.getByText('Chat Operativo'));
-    const btnSolicitud = screen.getByText(/\+ Solicitud Muelle/);
-    expect(btnSolicitud).toBeEnabled();
-    const btnConfirmar = screen.getByText(/\+ Confirmar Muelle/);
-    expect(btnConfirmar).toBeDisabled();
+    expect(
+      screen.getByPlaceholderText('Escribe un mensaje de coordinación...'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Minimizar chat'));
+    expect(
+      screen.queryByPlaceholderText('Escribe un mensaje de coordinación...'),
+    ).not.toBeInTheDocument();
   });
 
-  it('el SUPERVISOR ve el botón de confirmación de muelle', () => {
-    setupStore(supervisor);
-    render(<FloatingChatWidget />);
-    fireEvent.click(screen.getByText('Chat Operativo'));
-    // El SUPERVISOR no puede seleccionar llaves ni escribir, pero sí confirmar muelle
-    const btnConf = screen.getByText(/\+ Confirmar Muelle/);
-    expect(btnConf).toBeEnabled();
-  });
-
-  it('el PORTERO puede enviar un mensaje de coordenación', () => {
+  it('el PORTERO puede enviar un mensaje de coordinación', () => {
     render(<FloatingChatWidget />);
     fireEvent.click(screen.getByText('Chat Operativo'));
     const input = screen.getByPlaceholderText('Escribe un mensaje de coordinación...');
@@ -100,15 +86,6 @@ describe('FloatingChatWidget (chat operativo)', () => {
     expect(msgs.length).toBe(1);
     expect(msgs[0].content).toBe('Vehiculo llegando');
     expect(msgs[0].senderModule).toBe('Portería');
-  });
-
-  it('el PORTERO emite una solicitud de muelle que aparece en el chat', () => {
-    render(<FloatingChatWidget />);
-    fireEvent.click(screen.getByText('Chat Operativo'));
-    fireEvent.click(screen.getByText(/\+ Solicitud Muelle/));
-    const msgs = useLogisticsStore.getState().messages;
-    expect(msgs.length).toBe(1);
-    expect(msgs[0].content).toContain('Solicitud de muelle para la LLAVE LL-60533');
   });
 
   it('muestra banner cuando el chat está deshabilitado por rol sin permiso', () => {
@@ -126,5 +103,16 @@ describe('FloatingChatWidget (chat operativo)', () => {
     render(<FloatingChatWidget />);
     fireEvent.click(screen.getByText('Chat Operativo'));
     expect(screen.getByText(/Chat deshabilitado para tu rol/)).toBeInTheDocument();
+  });
+
+  it('muestra banner cuando no hay llaves activas en operación', () => {
+    useLogisticsStore.setState({
+      transportes: [transporteSalido],
+      messages: [],
+      unreadChatCount: 0,
+    });
+    render(<FloatingChatWidget />);
+    fireEvent.click(screen.getByText('Chat Operativo'));
+    expect(screen.getByText(/Chat deshabilitado: todas las llaves están en SALIO DE PORTERIA/)).toBeInTheDocument();
   });
 });

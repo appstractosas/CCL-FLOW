@@ -30,7 +30,7 @@ export const PRESET_ROLES: Role[] = [
     description: 'Gestión de despachos y planeación.',
     isPreset: true,
     permissions: permissionsAll(
-      ['despachos', 'planeacion', 'informes', 'monitoreo', 'tablero'],
+      ['despachos', 'planeacion', 'informes', 'informes-gerencia', 'monitoreo', 'tablero'],
       ['despachos', 'planeacion'],
     ),
   },
@@ -65,6 +65,7 @@ export const PRESET_ROLES: Role[] = [
       'porteria',
       'monitoreo',
       'informes',
+      'informes-gerencia',
       'personal',
       'chat',
       'tablero',
@@ -76,7 +77,7 @@ export const PRESET_ROLES: Role[] = [
     description: 'Monitoreo de la operación y registro de salida de portería.',
     isPreset: true,
     permissions: permissionsAll(
-      ['monitoreo', 'despachos', 'planeacion', 'porteria', 'informes', 'tablero'],
+      ['monitoreo', 'despachos', 'planeacion', 'porteria', 'informes', 'informes-gerencia', 'tablero'],
       ['monitoreo'],
     ),
   },
@@ -85,7 +86,7 @@ export const PRESET_ROLES: Role[] = [
     name: 'TRANSPORTES',
     description: 'Registro y edición de placas de transportes.',
     isPreset: true,
-    permissions: permissionsAll(['transportes', 'informes', 'tablero'], ['transportes']),
+    permissions: permissionsAll(['transportes', 'informes', 'informes-gerencia', 'tablero'], ['transportes']),
   },
   {
     id: 'ROLE_TABLERO',
@@ -99,7 +100,7 @@ export const PRESET_ROLES: Role[] = [
     name: 'INFORMES',
     description: 'Consulta y exportación de informes (sin edición operativa).',
     isPreset: true,
-    permissions: permissionsAll(['informes'], []),
+    permissions: permissionsAll(['informes', 'informes-gerencia'], []),
   },
 ];
 

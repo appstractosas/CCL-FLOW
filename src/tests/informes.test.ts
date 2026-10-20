@@ -13,26 +13,18 @@ import {
   tipoGrupo,
   diffMinutos,
   diffMinutosReales,
-  clasificacionDemora,
   generarDias,
-  turnoDeHora,
-  aFila,
-  filasPorRango,
-  filasParaTabla,
-  determinacionHoraria,
-  filasExportDeterminacion,
   usoPorMuelle,
   rentabilidadCuadrillas,
   cajasPorDia,
   cajasPorCuadrilla,
   tiemposPorteria,
   ETAPAS_PORTERIA,
-  RANGOS_DEMORA,
-  distribucionRangos,
   mapaPosicionamiento,
   clasificarCita,
   primeraFechaDatos,
   horaHombre,
+  tiempoCarguePorTipo,
 } from '../utils/informes';
 
 function row(overrides: Partial<UnifiedTransporte> = {}): UnifiedTransporte {
@@ -148,12 +140,12 @@ describe('utils/informes (agregaciones reales)', () => {
     expect(top).toHaveLength(2);
   });
 
-  it('volumenPorDia agrupa por hora de salida y ordena ascendente', () => {
+  it('volumenPorDia agrupa por cita de cargue y ordena ascendente', () => {
     const rows = [
-      row({ llave: 'LL-1', horaSalida: '2026-08-13 08:00' }),
-      row({ llave: 'LL-2', horaSalida: '2026-08-12 09:00' }),
-      row({ llave: 'LL-3', horaSalida: '2026-08-12 10:00' }),
-      row({ llave: 'LL-4', horaSalida: '2026-08-12T11:00:00Z' }),
+      row({ llave: 'LL-1', citaCargue: '2026-08-13 08:00' }),
+      row({ llave: 'LL-2', citaCargue: '2026-08-12 09:00' }),
+      row({ llave: 'LL-3', citaCargue: '2026-08-12 10:00' }),
+      row({ llave: 'LL-4', citaCargue: '2026-08-12T11:00:00Z' }),
     ];
 
     const volumen = volumenPorDia(rows);
@@ -216,14 +208,6 @@ describe('utils/informes (utilidades Fase 2)', () => {
     expect(diffMinutosReales('no-hora', '08:00')).toBeNull();
   });
 
-  it('clasificacionDemora clasifica según los umbrales', () => {
-    expect(clasificacionDemora(null)).toBe('aTiempo');
-    expect(clasificacionDemora(0)).toBe('aTiempo');
-    expect(clasificacionDemora(30)).toBe('leve');
-    expect(clasificacionDemora(60)).toBe('leve');
-    expect(clasificacionDemora(120)).toBe('critico');
-  });
-
   it('generarDias produce rango inclusivo ordenado', () => {
     expect(generarDias('2026-08-10', '2026-08-12')).toEqual([
       '2026-08-10',
@@ -280,139 +264,25 @@ describe('utils/informes (utilidades Fase 2)', () => {
         horaFinCargue: '--:--',
       }),
     ]);
-    // CCL: 2 h × 3 hombres = 6 h-h · SLA: 1 h × 3 = 3 h-h → 9 h-h en total; LTSA y la fila sin horas no cuentan.
+    // CCL: 2 h × 3 hombres = 6 h-h → 120/6 = 20 cajas por h-h.
+    // SLA: 1 h × 3 = 3 h-h → 60/3 = 20 cajas por h-h.
+    // Total: 9 h-h → 180/9 = 20 cajas por h-h; LTSA y la fila sin horas no cuentan.
     expect(res.cajas).toBe(180);
     expect(res.horasHombre).toBe(9);
     expect(res.indice).toBe(20);
+    expect(res.ccl).toEqual({ cajas: 120, horasHombre: 6, indice: 20 });
+    expect(res.sla).toEqual({ cajas: 60, horasHombre: 3, indice: 20 });
   });
 
-  it('horaHombre devuelve índice 0 cuando no hay horas de cargue válidas', () => {
+  it('horaHombre devuelve índices 0 cuando no hay horas de cargue válidas', () => {
     const res = horaHombre([row({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 40 })]);
-    expect(res).toEqual({ cajas: 0, horasHombre: 0, indice: 0 });
-  });
-
-  it('turnoDeHora separa por franjas horarias', () => {
-    expect(turnoDeHora('06:00')).toBe('T1');
-    expect(turnoDeHora('12:00')).toBe('T2');
-    expect(turnoDeHora('20:00')).toBe('T3');
-    expect(turnoDeHora('')).toBeNull();
-  });
-
-  it('aFila proyecta UnifiedTransporte a la Fila del motor de informes', () => {
-    const fila = aFila(
-      row({
-        transporte: 'PED-100',
-        denominacion: 'CLIENTE A',
-        cajas: 120,
-        cuadrilla: 'SLA 1',
-        muelleAsignado: 'M1',
-        horaLlegadaPorteria: '08:00',
-        horaInicioCargue: '09:00',
-        horaFinCargue: '10:30',
-      }),
-    );
-    expect(fila.transporte).toBe('PED-100');
-    expect(fila.denominacion).toBe('CLIENTE A');
-    expect(fila.cajas).toBe(120);
-    expect(fila.tiempo_muelle_minutos).toBe(90);
-    expect(fila.llegada_minutos).toBe(480);
-    expect(fila.turno).toBe('T2');
-    expect(fila.costo_diario_ccl).toBeGreaterThan(0);
-  });
-});
-
-describe('utils/informes (Fase 3-4: filas y determinación)', () => {
-  const base = (overrides: Partial<UnifiedTransporte> = {}): UnifiedTransporte =>
-    row({
-      cuadrilla: 'CCL',
-      horaLlegadaPorteria: '08:00',
-      horaInicioCargue: '09:00',
-      horaFinCargue: '10:00',
-      transporte: 'PED-1',
-      denominacion: 'CLIENTE A',
-      cajas: 50,
-      ...overrides,
+    expect(res).toEqual({
+      cajas: 0,
+      horasHombre: 0,
+      indice: 0,
+      ccl: { cajas: 0, horasHombre: 0, indice: 0 },
+      sla: { cajas: 0, horasHombre: 0, indice: 0 },
     });
-
-  it('filasPorRango filtra por fecha de cita y proyecta a Fila', () => {
-    const rows = [
-      base({ llave: 'LL-1', citaCargue: '2026-08-12 08:00' }),
-      base({ llave: 'LL-2', citaCargue: '2026-08-13 09:00' }),
-      base({ llave: 'LL-3', citaCargue: '2026-08-14 10:00' }),
-      base({ llave: 'LL-4', citaCargue: 'basura' }),
-    ];
-    const dentro = filasPorRango(rows, '2026-08-12', '2026-08-13');
-    expect(dentro.map((f) => f.llave)).toEqual(['LL-1', 'LL-2']);
-    expect(dentro[0].cajas).toBe(50);
-    expect(dentro[0].denominacion).toBe('CLIENTE A');
-  });
-
-  it('filasParaTabla clasifica la demora contra el SLA', () => {
-    const filas = filasParaTabla(
-      filasPorRango([base({ llave: 'LL-1' })], '2026-08-12', '2026-08-12'),
-    );
-    expect(filas[0].tiempo_muelle_minutos).toBe(60);
-    expect(filas[0].demoraMin).toBe(15);
-    expect(filas[0].nivelDemora).toBe('leve');
-  });
-
-  it('filasParaTabla marca aTiempo cuando el tiempo está dentro del SLA', () => {
-    const filas = filasParaTabla(
-      filasPorRango(
-        [base({ llave: 'LL-1', horaInicioCargue: '09:00', horaFinCargue: '09:30' })],
-        '2026-08-12',
-        '2026-08-12',
-      ),
-    );
-    expect(filas[0].tiempo_muelle_minutos).toBe(30);
-    expect(filas[0].nivelDemora).toBe('aTiempo');
-  });
-
-  it('determinacionHoraria agrupa por grupo de cuadrilla, turno y suma costo CCL', () => {
-    const filas = filasPorRango(
-      [
-        base({
-          llave: 'LL-1',
-          cuadrilla: 'CCL',
-          horaInicioCargue: '03:00',
-          horaFinCargue: '04:00',
-        }), // T1
-        base({
-          llave: 'LL-2',
-          cuadrilla: 'CCL',
-          horaInicioCargue: '09:00',
-          horaFinCargue: '09:45',
-        }), // T2
-        base({
-          llave: 'LL-3',
-          cuadrilla: 'SLA 1',
-          horaInicioCargue: '09:00',
-          horaFinCargue: '10:00',
-        }), // T2
-        base({ llave: 'LL-4', cuadrilla: 'CCL', horaInicioCargue: '', horaFinCargue: '' }), // sin inicio → no atendida
-      ],
-      '2026-08-12',
-      '2026-08-12',
-    );
-    const det = determinacionHoraria(filas);
-    expect(det.totalUnidades).toBe(3);
-    const ccl = det.grupos.find((g) => g.grupo === 'CCL')!;
-    expect(ccl.unidades).toBe(2);
-    expect(ccl.costoEstimado).toBeGreaterThan(0);
-    expect(ccl.porTurno.find((t) => t.turno === 'T1')!.unidades).toBe(1);
-    expect(ccl.porTurno.find((t) => t.turno === 'T2')!.unidades).toBe(1);
-    const sla = det.grupos.find((g) => g.grupo === 'SLA')!;
-    expect(sla.costoEstimado).toBe(0);
-  });
-
-  it('filasExportDeterminacion produce encabezados y cierra con TOTAL', () => {
-    const det = determinacionHoraria(
-      filasPorRango([base({ llave: 'LL-1', cuadrilla: 'CCL' })], '2026-08-12', '2026-08-12'),
-    );
-    const { headers, data } = filasExportDeterminacion(det);
-    expect(headers[0]).toBe('GRUPO');
-    expect(data[data.length - 1][0]).toBe('TOTAL');
-    expect(data[data.length - 1][3]).toMatch(/h$/);
   });
 });
 
@@ -441,8 +311,8 @@ describe('utils/informes (nuevos gráficos)', () => {
   it('rentabilidadCuadrillas costea CCL por día (1.432.000) e ingresa SLA según cajas del día × 140', () => {
     const rent = rentabilidadCuadrillas(
       [
-        g({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 100, horaInicioCargue: '2026-08-12 08:00' }),
-        g({ llave: 'LL-2', cuadrilla: 'SLV', cajas: 5, horaInicioCargue: '2026-08-13 09:00' }),
+        g({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 100, citaCargue: '2026-08-12 08:00' }),
+        g({ llave: 'LL-2', cuadrilla: 'SLV', cajas: 5, citaCargue: '2026-08-13 09:00' }),
       ],
       '2026-08-12',
       '2026-08-13',
@@ -459,9 +329,9 @@ describe('utils/informes (nuevos gráficos)', () => {
   it('rentabilidadCuadrillas solo incluye días con movimiento (llaves en el rango)', () => {
     const rent = rentabilidadCuadrillas(
       [
-        g({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 711, horaInicioCargue: '2026-08-15 08:00' }),
-        g({ llave: 'LL-2', cuadrilla: '', cajas: 808, horaInicioCargue: '2026-08-15 09:00' }),
-        g({ llave: 'LL-3', cuadrilla: 'SLA', cajas: 100, horaInicioCargue: '2026-08-14 08:00' }),
+        g({ llave: 'LL-1', cuadrilla: 'SLA', cajas: 711, citaCargue: '2026-08-15 08:00' }),
+        g({ llave: 'LL-2', cuadrilla: '', cajas: 808, citaCargue: '2026-08-15 09:00' }),
+        g({ llave: 'LL-3', cuadrilla: 'SLA', cajas: 100, citaCargue: '2026-08-14 08:00' }),
       ],
       '2026-08-14',
       '2026-08-16',
@@ -474,11 +344,11 @@ describe('utils/informes (nuevos gráficos)', () => {
     expect(rent.find((b) => b.name === '2026-08-15')?.ingresoSLA).toBe(711 * 140);
   });
 
-  it('cajasPorDia suma cajas por día de inicio de cargue', () => {
+  it('cajasPorDia suma cajas por día de cita de cargue', () => {
     const cajas = cajasPorDia([
-      g({ llave: 'LL-1', cajas: 10, horaInicioCargue: '2026-08-12 08:00' }),
-      g({ llave: 'LL-2', cajas: 15, horaInicioCargue: '2026-08-12 10:00' }),
-      g({ llave: 'LL-3', cajas: 25, horaInicioCargue: '2026-08-12T09:00:00Z' }),
+      g({ llave: 'LL-1', cajas: 10, citaCargue: '2026-08-12 08:00' }),
+      g({ llave: 'LL-2', cajas: 15, citaCargue: '2026-08-12 10:00' }),
+      g({ llave: 'LL-3', cajas: 25, citaCargue: '2026-08-12T09:00:00Z' }),
     ]);
     expect(cajas.find((c) => c.name === '2026-08-12')?.value).toBe(50);
     expect(cajas.find((c) => c.name === '2026-08-13')).toBeUndefined();
@@ -563,29 +433,32 @@ describe('utils/informes (nuevos gráficos)', () => {
     }
   });
 
-  it('distribucionRangos clasifica cada etapa en su rango de demora', () => {
-    const rows = [
-      row({ llave: 'LL-1', horaLlegadaPorteria: '08:00', horaMuelleAsignado: '08:20' }), // 20 min → 0-30
-      row({ llave: 'LL-2', horaLlegadaPorteria: '08:00', horaMuelleAsignado: '08:50' }), // 50 min → 30-60
-      row({ llave: 'LL-3', horaLlegadaPorteria: '08:00', horaMuelleAsignado: '10:00' }), // 120 min → 2-4 h
-      row({ llave: 'LL-4', horaLlegadaPorteria: '08:00', horaMuelleAsignado: '13:00' }), // 300 min → 4-8 h
-      row({ llave: 'LL-5', horaLlegadaPorteria: '08:00', horaMuelleAsignado: '17:00' }), // 540 min → >8 h
-      row({ llave: 'LL-6', horaLlegadaPorteria: '08:00' }), // sin muelle asignado: no aporta
-    ];
-
-    const d = distribucionRangos(rows);
-    const et = (rg: string, id: string) => d[rg][id];
-    // La etapa 1 (llegada→muelle) se midió en 5 de las 6 llaves.
-    expect(et('0-30min', 'llegada_muelle')).toBe(1);
-    expect(et('30-60min', 'llegada_muelle')).toBe(1);
-    expect(et('2-4h', 'llegada_muelle')).toBe(1);
-    expect(et('4-8h', 'llegada_muelle')).toBe(1);
-    expect(et('>8h', 'llegada_muelle')).toBe(1);
-    // Todos los rangos devuelven las 5 etapas (inicializadas en 0).
-    expect(Object.keys(d)).toHaveLength(RANGOS_DEMORA.length);
-    for (const rg of Object.values(d)) {
-      expect(Object.keys(rg).sort()).toEqual(ETAPAS_PORTERIA.map((e) => e.id).sort());
-    }
+  it('tiempoCarguePorTipo promedia y agrupa por tipo, solo con horas de cargue válidas', () => {
+    const tiempos = tiempoCarguePorTipo([
+      row({ llave: 'LL-1', vehiculoTipo: 'TURBO', horaInicioCargue: '08:00', horaFinCargue: '09:30' }),
+      row({ llave: 'LL-2', vehiculoTipo: 'SENCILLO', horaInicioCargue: '08:00', horaFinCargue: '08:20' }),
+      // Cruce de medianoche: 23:50 → 00:10 = 20 min.
+      row({ llave: 'LL-3', vehiculoTipo: 'SENCILLO', horaInicioCargue: '23:50', horaFinCargue: '00:10' }),
+      // Sin fin de cargue, hora inválida y duración 0 → no cuentan.
+      row({ llave: 'LL-4', vehiculoTipo: 'SENCILLO', horaInicioCargue: '08:00' }),
+      row({ llave: 'LL-5', vehiculoTipo: 'LUV', horaInicioCargue: '08:00', horaFinCargue: '--:--' }),
+      row({ llave: 'LL-6', vehiculoTipo: 'TURBO', horaInicioCargue: '09:00', horaFinCargue: '09:00' }),
+    ]);
+    expect(tiempos.map((t) => t.name)).toEqual(['SENCILLO', 'TURBO', 'MINIMULA', 'LUV', 'MULA']);
+    expect(tiempos.find((t) => t.name === 'SENCILLO')).toMatchObject({
+      promedio: 20,
+      minimo: 20,
+      maximo: 20,
+      conteo: 2,
+    });
+    expect(tiempos.find((t) => t.name === 'TURBO')).toMatchObject({
+      promedio: 90,
+      minimo: 90,
+      maximo: 90,
+      conteo: 1,
+    });
+    expect(tiempos.find((t) => t.name === 'MINIMULA')).toMatchObject({ promedio: 0, minimo: 0, maximo: 0, conteo: 0 });
+    expect(tiempos.find((t) => t.name === 'LUV')).toMatchObject({ promedio: 0, minimo: 0, maximo: 0, conteo: 0 });
   });
 });
 

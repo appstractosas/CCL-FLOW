@@ -3,9 +3,14 @@
 -- -----------------------------------------------------------------------------
 -- MODELO: UNA FILA POR PLACA.
 --   * Cada LLAVE puede repetirse con PLACAS diferentes (cada placa = una fila).
---   * El par (llave, placa) identifica la fila (UNIQUE en la BD).
+--   * El par (llave, placa_origen) identifica la fila (UNIQUE en la BD), donde
+--     placa_origen = placa del Excel. La columna `placa` (editable desde la app)
+--     NO se pisa en el UPDATE.
 --   * Las CAJAS se SUMAN POR PLACA (filas del mismo llave+placa guardan
 --     la suma).
+--   * KG y MTS son columnas INFORMATIVAS del Excel: se tratan igual que CAJAS
+--     (se suman por par (llave, placa_origen), se limpian [.,] y se redondean).
+--     La app solo las lee (módulo TRANSPORTES); el sync las refresca cada corrida.
 --
 -- Cambios frente a la versión que "consolidaba por llave (SUMA cajas)":
 --   - Cada fila del Excel es una LLAVE + PLACA. Una llave puede repetirse con
@@ -21,7 +26,8 @@
 --      redondea).
 --   2) Estatus 'CANCELADO' -> estado_porteria = 'CANCELADO'.
 --   3) estatus (col. Estatus/estado_transporte del Excel) -> estado_transporte:
---      solo DESPACHADO/ALISTADO/PENDIENTE (valores del CHECK de la BD);
+--      solo DESPACHADO/ALISTADO/EN PROCESO (valores del CHECK de la BD;
+--      PENDIENTE es historico y ya no viene en el origen);
 --      vacío o valor desconocido -> 'ALISTADO' (DEFAULT de la columna).
 --   4) Agrupa por (llave, placa): ganador = ÚLTIMA fila del par para el resto de
 --      campos y SUMA de cajas de todas las filas del par (mismo tratamiento
@@ -50,10 +56,38 @@
 --      el despachador en la app), el sync NO la pisa; conserva el valor
 --      capturado. La marca se limpia sola cuando el fuente trae EXACTAMENTE ese
 --      mismo número de cajas (a partir de ahí el Excel vuelve a mandar).
+--  12) CAMPOS MANUALES: si la fila tiene campos editados desde la app
+--      (transportes.campos_manuales, p.ej. cita/transportadora/denominacion
+--      creadas o editadas por el planeador), el upsert NO los pisa. Cada marca
+--      se limpia sola cuando el fuente trae el mismo valor (_mismo_valor:
+--      texto exacto o mismo instante); a partir de ahí el Excel vuelve a mandar
+--      sobre ese campo.
+--      PLACA (0015): la clave del upsert es (llave, placa_origen), donde
+--      placa_origen = placa del Excel. La columna `placa` NUNCA se pisa en el
+--      UPDATE, así la app puede editarla sin que el sync la revierta ni
+--      duplique la llave. Al editar la placa, la app marca 'placa' en
+--      campos_manuales (así el renombrado 2.5 no la toca).
+--  13) DETALLE POR LLAVE (detalle_llave jsonb): tras el upsert se reconstruye
+--      para cada llave del payload un array [{denominacion, destino,
+--      cita_entrega}, ...] con UNA entrada por FILA del Excel (aunque varias
+--      filas compartan placa), en el orden del
+--      Excel (campo transitorio 'cita_entrega'/'cita de entrega'; NO se guarda
+--      columna escalar). La app solo lo lee (modal de detalle de Planeación).
+--
+-- DEPENDENCIA: requiere la columna transportes.detalle_llave (jsonb) creada en
+--   supabase/migrations/0014_detalle_llave.sql. Correr esta RPC DESPUÉS de esa
+--   migración.
+--
+-- DEPENDENCIA: requiere la columna transportes.placa_origen creada en
+--   supabase/migrations/0015_placa_origen.sql (clave del upsert). Correr esta
+--   RPC DESPUÉS de esa migración.
+--
+-- DEPENDENCIA: requiere la columna transportes.campos_manuales y la función
+--   public._mismo_valor creadas en supabase/migrations/0012_campos_manuales.sql.
 --
 -- ADITIVO y REVERSIBLE:
 --   - Solo CREA/REEMPLAZA la función; NO toca tablas ni datos existentes.
---   - Revertir: DROP FUNCTION public.sync_transportes(jsonb);
+--   - Revertir: restaurar la versión anterior de esta función.
 --
 -- Cómo se llama desde Power Automate:
 --   URI:  https://<ref>.supabase.co/rest/v1/rpc/sync_transportes
@@ -91,6 +125,25 @@ BEGIN
 END;
 $$;
 
+-- Helper: igualdad tolerante a formato (texto exacto o mismo instante).
+-- Usado para limpiar campos_manuales sin marcar/proteger por diferencias de
+-- formato entre la app y el Excel (p.ej. '2026-10-08 10:00' vs '...T10:00:00').
+CREATE OR REPLACE FUNCTION public._mismo_valor(a text, b text)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+AS $$
+BEGIN
+  IF a IS NOT DISTINCT FROM b THEN RETURN TRUE; END IF;
+  IF a IS NULL OR b IS NULL THEN RETURN FALSE; END IF;
+  BEGIN
+    RETURN a::timestamptz = b::timestamptz;
+  EXCEPTION WHEN others THEN
+    RETURN FALSE;
+  END;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.sync_transportes(_filas jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -116,19 +169,56 @@ BEGIN
     row_number() OVER ()::int AS row_id,
     UPPER(TRIM(COALESCE(f->>'llave','')))                AS llave,
     NULLIF(UPPER(TRIM(COALESCE(f->>'placa',''))) ,'')    AS placa,
+    NULLIF(UPPER(TRIM(COALESCE(f->>'placa',''))) ,'')    AS placa_origen,
+    (NULLIF(UPPER(TRIM(COALESCE(f->>'placa',''))),'') IS NOT NULL) AS tenia_placa,
     NULLIF(UPPER(TRIM(COALESCE(f->>'vehiculo_tipo',''))),'') AS vehiculo_tipo,
     NULLIF(_sync_campo(f, ARRAY['transportadora','olt inicial']),'') AS transportadora,
     NULLIF(_sync_campo(f, ARRAY['transporte']),'') AS transporte,
     NULLIF(_sync_campo(f, ARRAY['denominacion','denominación']),'') AS denominacion,
     NULLIF(_sync_campo(f, ARRAY['destino']),'') AS destino,
     NULLIF(_sync_campo(f, ARRAY['region','región']),'') AS region,
+    NULLIF(_sync_campo(f, ARRAY['cita_entrega','cita de entrega']),'') AS cita_entrega,
     NULLIF(_sync_campo(f, ARRAY['estado_transporte','estatus']),'') AS estado_transporte,
     NULLIF(TRIM(f->>'cita_cargue'),'')                   AS cita_cargue,
     NULLIF(TRIM(f->>'fecha_hora'),'')                    AS fecha_hora,
     COALESCE(ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'cajas',''),'[.,]','','g'),'')::numeric), 0) AS cajas,
+    COALESCE(ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'kg',''),'[.,]','','g'),'')::numeric), 0) AS kg,
+    COALESCE(ROUND(NULLIF(REGEXP_REPLACE(COALESCE(f->>'mts',''),'[.,]','','g'),'')::numeric), 0) AS mts,
     (UPPER(TRIM(COALESCE(f->>'estatus',''))) = 'CANCELADO') AS estado_cancelado
   FROM jsonb_array_elements(_filas) AS f
   WHERE NULLIF(TRIM(f->>'llave'),'') IS NOT NULL;
+
+  -- Regla: si la llave tiene placa, TODAS sus filas usan esa placa. Las lineas
+  -- con Placa vacia se fusionan en la fila con placa (misma clave) y sus CAJAS
+  -- se IGNORAN: asi no queda una fila PENDIENTE fantasma por la misma llave.
+  UPDATE tmp_sync s
+  SET placa_origen = p.placa_llave,
+      cajas = 0,
+      kg = 0,
+      mts = 0
+  FROM (
+    SELECT llave, MAX(placa) AS placa_llave
+    FROM tmp_sync WHERE placa IS NOT NULL GROUP BY llave
+  ) p
+  WHERE s.llave = p.llave AND s.placa IS NULL;
+
+  -- Misma regla cuando la hoja NO trae placa pero la BD YA tiene una para la
+  -- llave (asignada desde la app): la linea vacia se fusiona en la fila
+  -- existente en vez de crear una PENDIENTE con po='' que duplicaria la llave.
+  UPDATE tmp_sync s
+  SET placa_origen = d.placa_db,
+      cajas = 0,
+      kg = 0,
+      mts = 0
+  FROM (
+    SELECT llave, MAX(placa_origen) AS placa_db
+    FROM public.transportes
+    WHERE COALESCE(placa_origen,'') <> ''
+    GROUP BY llave
+  ) d
+  WHERE s.llave = d.llave
+    AND s.placa IS NULL
+    AND COALESCE(s.placa_origen,'') = '';
 
 -- 2) UNA FILA POR (llave, placa): la placa es el registro. Si el Excel repite la
 --    MISMA (llave, placa) (un camión con varios transportes), gana la ÚLTIMA
@@ -136,26 +226,75 @@ BEGIN
 --    mismo tratamiento [.,] + ROUND). Placas DISTINTAS de la misma
 --    llave son registros aparte (NO se mezclan).
   CREATE TEMP TABLE tmp_cons ON COMMIT DROP AS
-  SELECT DISTINCT ON (llave, placa)
+  SELECT DISTINCT ON (llave, placa_origen)
     row_id,
     llave,
     placa,
+    placa_origen,
     vehiculo_tipo,
     transportadora,
     transporte,
     denominacion,
     destino,
     region,
+    cita_entrega,
     estado_transporte,
     cita_cargue,
     fecha_hora,
     estado_cancelado,
-    SUM(cajas) OVER (PARTITION BY llave, placa)::numeric AS cajas
+    SUM(cajas) OVER (PARTITION BY llave, placa_origen)::numeric AS cajas,
+    SUM(kg)    OVER (PARTITION BY llave, placa_origen)::numeric AS kg,
+    SUM(mts)   OVER (PARTITION BY llave, placa_origen)::numeric AS mts
   FROM tmp_sync
-  ORDER BY llave, placa, row_id DESC;
+  ORDER BY llave, placa_origen, tenia_placa DESC, row_id DESC;
 
-  -- 3) UPSERT por (llave, placa).
-  FOR r IN SELECT * FROM tmp_cons ORDER BY llave, placa LOOP
+  -- 2.5) TRANSFERENCIA DE PLACAS (renombrado) - SIN límite de fecha.
+  --   Al cambiar una placa en el Excel (ABC -> DEF), NO crear fila nueva:
+  --   transferir la clave a la fila existente de la misma llave, conservando
+  --   id, created_at, cajas_manual y estado_porteria. Se trabaja sobre
+  --   placa_origen (clave estable del upsert) y se excluyen las filas con placa
+  --   editada manualmente en la app.
+  WITH
+    nuevas AS (
+      SELECT t.llave, t.placa_origen
+      FROM tmp_cons t
+      WHERE t.placa_origen IS NOT NULL AND t.placa_origen <> ''
+      GROUP BY t.llave, t.placa_origen
+    ),
+    viejas AS (
+      SELECT x.llave, x.placa_origen
+      FROM public.transportes x
+      WHERE x.placa_origen IS NOT NULL AND x.placa_origen <> ''
+        AND NOT ('placa' = ANY(COALESCE(x.campos_manuales, '{}')))
+    ),
+    nueva_x AS (
+      SELECT n.llave, n.placa_origen,
+             row_number() OVER (PARTITION BY n.llave ORDER BY n.placa_origen) AS rn
+      FROM nuevas n
+      LEFT JOIN viejas v ON v.llave = n.llave AND v.placa_origen = n.placa_origen
+      WHERE v.placa_origen IS NULL
+    ),
+    vieja_x AS (
+      SELECT v.llave, v.placa_origen,
+             row_number() OVER (PARTITION BY v.llave ORDER BY v.placa_origen) AS rn
+      FROM viejas v
+      LEFT JOIN nuevas n ON n.llave = v.llave AND n.placa_origen = v.placa_origen
+      WHERE n.placa_origen IS NULL
+    ),
+    emparejada AS (
+      SELECT nx.llave, nx.placa_origen AS origen_nueva, vx.placa_origen AS origen_vieja
+      FROM nueva_x nx
+      JOIN vieja_x vx ON vx.llave = nx.llave AND vx.rn = nx.rn
+    )
+  UPDATE public.transportes t
+  SET placa = e.origen_nueva,
+      placa_origen = e.origen_nueva,
+      updated_at = now()
+  FROM emparejada e
+  WHERE t.llave = e.llave AND t.placa_origen = e.origen_vieja;
+
+  -- 3) UPSERT por (llave, placa_origen). `placa` NO se actualiza: la app manda.
+  FOR r IN SELECT * FROM tmp_cons ORDER BY llave, placa_origen LOOP
     -- fecha_hora: serial de Excel (ej. 46248) -> ISO | ya ISO -> tal cual.
     IF r.fecha_hora ~ '^[0-9]+(\.[0-9]+)?$' THEN
       v_fecha := (date '1899-12-30' + r.fecha_hora::numeric * interval '1 day')::timestamptz;
@@ -180,21 +319,23 @@ BEGIN
     -- Valores por defecto para columnas NOT NULL con default (igual que antes:
     -- si el Excel llega vacío, la BD aplica su DEFAULT en vez de violar NOT NULL).
     INSERT INTO transportes (
-      llave, fecha_hora, placa, vehiculo_tipo, transportadora,
-      transporte, denominacion, destino, region, cita_cargue, cajas,
+      llave, fecha_hora, placa, placa_origen, vehiculo_tipo, transportadora,
+      transporte, denominacion, destino, region, cita_cargue, cajas, kg, mts,
       estado_transporte, estado_porteria, updated_at
     ) VALUES (
       r.llave,
       COALESCE(v_fecha, now()),
       COALESCE(r.placa, ''),
+      COALESCE(r.placa_origen, ''),
       COALESCE(r.vehiculo_tipo, 'SENCILLO'),
       COALESCE(r.transportadora, ''),
-      r.transporte, r.denominacion, r.destino, r.region, v_cita, r.cajas,
-      -- estado_transporte: solo los valores del CHECK de la columna; si la
-      -- celda Estatus viene vacía o con un valor desconocido, se aplica el
-      -- DEFAULT 'ALISTADO' (el CHECK rechaza cualquier otro valor).
-      CASE WHEN r.estado_transporte IN ('DESPACHADO','ALISTADO','PENDIENTE')
-           THEN r.estado_transporte ELSE 'ALISTADO' END,
+      r.transporte, r.denominacion, r.destino, r.region, v_cita, r.cajas, r.kg, r.mts,
+      -- estado_transporte: celda Estatus vacía -> NULL (la app muestra "—").
+      -- Un valor desconocido no vacío conserva el fallback 'ALISTADO'.
+      CASE WHEN r.estado_transporte IN ('DESPACHADO','ALISTADO','EN PROCESO')
+           THEN r.estado_transporte
+           WHEN r.estado_transporte IS NULL THEN NULL
+           ELSE 'ALISTADO' END,
       -- estado_porteria (fila NUEVA): CANCELADO si el Estatus lo dice; si hay
       -- placa -> CONFIRMADO; sin placa -> PENDIENTE.
       CASE
@@ -204,20 +345,43 @@ BEGIN
       END,
       now()
     )
-    ON CONFLICT (llave, placa) DO UPDATE SET
-      fecha_hora     = EXCLUDED.fecha_hora,
-      vehiculo_tipo  = COALESCE(NULLIF(EXCLUDED.vehiculo_tipo,''), transportes.vehiculo_tipo),
-      transportadora = COALESCE(NULLIF(EXCLUDED.transportadora,''), transportes.transportadora),
-      transporte     = COALESCE(NULLIF(EXCLUDED.transporte,''), transportes.transporte),
-      denominacion   = COALESCE(NULLIF(EXCLUDED.denominacion,''), transportes.denominacion),
-      destino        = COALESCE(NULLIF(EXCLUDED.destino,''), transportes.destino),
+    ON CONFLICT (llave, placa_origen) DO UPDATE SET
+      -- Campos protegidos (campos_manuales): si la app los editó, se conserva
+      -- el valor de la BD; si no, el Excel manda con la lógica de siempre.
+      -- NOTA: `placa` NO aparece aquí; se conserva siempre la de la BD (la app
+      -- puede editarla y el sync no la revierte ni duplica la llave).
+      fecha_hora     = CASE WHEN 'fecha_hora' = ANY(transportes.campos_manuales)
+                            THEN transportes.fecha_hora ELSE EXCLUDED.fecha_hora END,
+      vehiculo_tipo  = CASE WHEN 'vehiculo_tipo' = ANY(transportes.campos_manuales)
+                            THEN transportes.vehiculo_tipo
+                            ELSE COALESCE(NULLIF(EXCLUDED.vehiculo_tipo,''), transportes.vehiculo_tipo) END,
+      transportadora = CASE WHEN 'transportadora' = ANY(transportes.campos_manuales)
+                            THEN transportes.transportadora
+                            ELSE COALESCE(NULLIF(EXCLUDED.transportadora,''), transportes.transportadora) END,
+      transporte     = CASE WHEN 'transporte' = ANY(transportes.campos_manuales)
+                            THEN transportes.transporte
+                            ELSE COALESCE(NULLIF(EXCLUDED.transporte,''), transportes.transporte) END,
+      denominacion   = CASE WHEN 'denominacion' = ANY(transportes.campos_manuales)
+                            THEN transportes.denominacion
+                            ELSE COALESCE(NULLIF(EXCLUDED.denominacion,''), transportes.denominacion) END,
+      destino        = CASE WHEN 'destino' = ANY(transportes.campos_manuales)
+                            THEN transportes.destino
+                            ELSE COALESCE(NULLIF(EXCLUDED.destino,''), transportes.destino) END,
       -- región: igual que destino; solo se pisa cuando el Excel trae valor.
-      region         = COALESCE(NULLIF(EXCLUDED.region,''), transportes.region),
-      cita_cargue    = COALESCE(NULLIF(EXCLUDED.cita_cargue,''), transportes.cita_cargue),
-      -- estado_transporte: el Excel ES la fuente; se pisa solo con valores
-      -- válidos (vacío/desconocido -> 'ALISTADO', nunca fuera del CHECK).
-      estado_transporte = CASE WHEN EXCLUDED.estado_transporte IN ('DESPACHADO','ALISTADO','PENDIENTE')
-                               THEN EXCLUDED.estado_transporte ELSE 'ALISTADO' END,
+      region         = CASE WHEN 'region' = ANY(transportes.campos_manuales)
+                            THEN transportes.region
+                            ELSE COALESCE(NULLIF(EXCLUDED.region,''), transportes.region) END,
+      cita_cargue    = CASE WHEN 'cita_cargue' = ANY(transportes.campos_manuales)
+                            THEN transportes.cita_cargue
+                            ELSE COALESCE(NULLIF(EXCLUDED.cita_cargue,''), transportes.cita_cargue) END,
+      -- estado_transporte: si la app lo editó (campos_manuales), la BD manda;
+      -- si no, el Excel es la fuente: vacío -> NULL, desconocido -> 'ALISTADO'.
+      estado_transporte = CASE WHEN 'estado_transporte' = ANY(transportes.campos_manuales)
+                               THEN transportes.estado_transporte
+                               ELSE CASE WHEN EXCLUDED.estado_transporte IN ('DESPACHADO','ALISTADO','EN PROCESO')
+                                         THEN EXCLUDED.estado_transporte
+                                         WHEN EXCLUDED.estado_transporte IS NULL THEN NULL
+                                         ELSE 'ALISTADO' END END,
       -- cajas: el fuente (Excel) manda y el valor se refresca en
       -- cada corrida con la SUMA del par (llave, placa) que trae este payload,
       -- SALVO si la fila tiene cajas_manual = TRUE (editada por el despachador
@@ -225,10 +389,31 @@ BEGIN
       -- cuando el fuente trae ese mismo número de cajas.
       cajas = CASE WHEN transportes.cajas_manual THEN transportes.cajas
                    ELSE COALESCE(NULLIF(EXCLUDED.cajas,0), transportes.cajas) END,
+      -- kg/mts: el fuente manda igual que cajas; si el payload no trae valor
+      -- (0) se conserva el existente. La app no los edita (no hay *_manual).
+      kg  = COALESCE(NULLIF(EXCLUDED.kg,0), transportes.kg),
+      mts = COALESCE(NULLIF(EXCLUDED.mts,0), transportes.mts),
       cajas_manual = CASE WHEN transportes.cajas_manual
                            AND EXCLUDED.cajas > 0
                            AND EXCLUDED.cajas = transportes.cajas
                           THEN FALSE ELSE transportes.cajas_manual END,
+      -- Limpieza de marcas: el campo deja de estar protegido cuando el Excel
+      -- trae el mismo valor (texto exacto o mismo instante, _mismo_valor).
+      campos_manuales = (
+        SELECT COALESCE(array_agg(DISTINCT f ORDER BY f), '{}')
+        FROM unnest(transportes.campos_manuales) AS f
+        WHERE NOT (
+             (f = 'fecha_hora'     AND EXCLUDED.fecha_hora IS NOT DISTINCT FROM transportes.fecha_hora)
+          OR (f = 'cita_cargue'    AND public._mismo_valor(EXCLUDED.cita_cargue, transportes.cita_cargue))
+          OR (f = 'vehiculo_tipo'  AND public._mismo_valor(EXCLUDED.vehiculo_tipo, transportes.vehiculo_tipo))
+          OR (f = 'transportadora' AND public._mismo_valor(EXCLUDED.transportadora, transportes.transportadora))
+          OR (f = 'transporte'     AND public._mismo_valor(EXCLUDED.transporte, transportes.transporte))
+          OR (f = 'denominacion'   AND public._mismo_valor(EXCLUDED.denominacion, transportes.denominacion))
+          OR (f = 'destino'        AND public._mismo_valor(EXCLUDED.destino, transportes.destino))
+          OR (f = 'region'         AND public._mismo_valor(EXCLUDED.region, transportes.region))
+          OR (f = 'estado_transporte' AND public._mismo_valor(EXCLUDED.estado_transporte, transportes.estado_transporte))
+        )
+      ),
       -- estado_porteria (fila EXISTENTE): solo se pisa si llega CANCELADO, o si la
       -- fila aún está en PENDIENTE/CONFIRMADO y el Excel trae placa (avanza a
       -- CONFIRMADO). NUNCA retrocede un estado avanzado de portería.
@@ -239,6 +424,29 @@ BEGIN
       END,
       updated_at     = now();
   END LOOP;
+
+  -- 3.5.5) DETALLE POR LLAVE (detalle_llave jsonb): reconstruir el array de
+  --   lineas (una por FILA del Excel) en el orden del Excel. Se usa tmp_sync
+  --   (payload crudo), no tmp_cons (deduplicado por (llave, placa)), para no
+  --   perder lineas que comparten placa. Se escribe en TODAS las filas de la
+  --   llave; la app solo lo lee (modal de detalle de Planeación).
+  WITH llaves AS (
+    SELECT llave,
+           jsonb_agg(
+             jsonb_build_object(
+               'denominacion', denominacion,
+               'destino', destino,
+               'cita_entrega', cita_entrega
+             ) ORDER BY row_id
+           ) AS detalle
+    FROM tmp_sync
+    GROUP BY llave
+  )
+  UPDATE public.transportes t
+  SET detalle_llave = l.detalle,
+      updated_at = now()
+  FROM llaves l
+  WHERE t.llave = l.llave;
 
   -- 4) FUSIONAR PLACAS VACÍAS (eliminar huérfanos, sin doble conteo):
   --    Cuando el Excel asigna la placa a una fila que venía vacía, deja de traer
@@ -254,16 +462,16 @@ BEGIN
   FOR r IN
     SELECT DISTINCT t.llave
     FROM public.transportes t
-    WHERE COALESCE(t.placa,'') = ''
+    WHERE COALESCE(t.placa_origen,'') = ''
       AND EXISTS (SELECT 1 FROM public.transportes t2
                   WHERE t2.llave = t.llave
-                    AND COALESCE(t2.placa,'') <> '')
+                    AND COALESCE(t2.placa_origen,'') <> '')
       AND NOT EXISTS (SELECT 1 FROM tmp_sync s
                       WHERE s.llave = t.llave
-                        AND s.placa IS NULL)
+                        AND s.placa_origen IS NULL)
   LOOP
     DELETE FROM public.transportes
-    WHERE llave = r.llave AND COALESCE(placa,'') = '';
+    WHERE llave = r.llave AND COALESCE(placa_origen,'') = '';
   END LOOP;
 END;
 $$;

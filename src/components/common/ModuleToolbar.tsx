@@ -13,6 +13,10 @@ interface ModuleToolbarProps {
   leftContent?: React.ReactNode;
   rightContent?: React.ReactNode;
   counter?: string;
+  /** Ancho del buscador (default 'sm:w-72'). Los módulos CRUD pasan 'sm:w-36' para reducirlo a la mitad. */
+  searchWidthClass?: string;
+  /** Clases del contador; por defecto texto plano (Historial/Usuarios). Los CRUD pasan estilo de tarjeta. */
+  counterClassName?: string;
 }
 
 /** Barra única por módulo: rango de fechas + buscador + filtros en la misma fila (y acciones a la derecha). */
@@ -27,6 +31,8 @@ export const ModuleToolbar: React.FC<ModuleToolbarProps> = ({
   leftContent,
   rightContent,
   counter,
+  searchWidthClass = 'sm:w-72',
+  counterClassName = 'text-zinc-500 font-mono text-[11px] whitespace-nowrap',
 }) => {
   const showDate = dateFrom !== undefined && dateTo !== undefined;
 
@@ -42,7 +48,7 @@ export const ModuleToolbar: React.FC<ModuleToolbarProps> = ({
           />
         )}
 
-        <div className="relative w-full sm:w-72 min-w-0">
+        <div className={`relative w-full ${searchWidthClass} min-w-0`}>
           <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -58,7 +64,7 @@ export const ModuleToolbar: React.FC<ModuleToolbarProps> = ({
 
       <div className="flex items-center gap-2.5">
         {counter && (
-          <span className="text-zinc-500 font-mono text-[11px] whitespace-nowrap">{counter}</span>
+          <span className={counterClassName}>{counter}</span>
         )}
         {rightContent}
       </div>

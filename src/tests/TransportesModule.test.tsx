@@ -34,6 +34,7 @@ describe('TransportesModule', () => {
       citaCargue: `${todayStr()} 07:00`,
       estadoTransporte: 'DESPACHADO',
       estadoPorteria: 'Pendiente',
+      region: 'SABANA',
     };
     useLogisticsStore.setState({
       transportes: [
@@ -51,9 +52,10 @@ describe('TransportesModule', () => {
     expect(screen.queryByText('PLACA REMOLQUE')).not.toBeInTheDocument();
     expect(screen.getByText('• despachado')).toBeInTheDocument();
 
-    // FECHA se muestra solo con la fecha (sin la hora).
-    expect(screen.getByText(todayStr())).toBeInTheDocument();
-    expect(screen.queryByText(`${todayStr()} 08:00`)).not.toBeInTheDocument();
+    // REGION reemplaza a FECHA (entre FECHA HORA CITA y LLAVE).
+    expect(screen.getByText('REGION')).toBeInTheDocument();
+    expect(screen.getByText('SABANA')).toBeInTheDocument();
+    expect(screen.queryByText('FECHA')).not.toBeInTheDocument();
 
     // El ADMIN puede editar → existe la acción de editar.
     fireEvent.click(screen.getByTitle('Editar transporte'));

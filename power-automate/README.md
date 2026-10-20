@@ -40,12 +40,12 @@ El repo queda así en la rama `dev`:
 
 ### Flujo definitivo (3 pasos, sin bucle)
 
-1. **Seleccionar** (Salida: array con todas las filas, incluidas las claves `estatus` ← columna Estatus, `destino` ← columna Destino y `kg` ← columna Kg).
-   > ⚠️ Si agregas columnas nuevas al Excel (p. ej. `Destino`, `Kg`), hay que
+1. **Seleccionar** (Salida: array con todas las filas, incluidas las claves `estatus` ← columna Estatus, `destino` ← columna Destino, `kg` ← columna KG y `mts` ← columna MTS).
+   > ⚠️ Si agregas columnas nuevas al Excel (p. ej. `Destino`, `Kg`, `Mts`), hay que
    > AGREGARLAS al mapeo clave/valor del **Seleccionar**: el RPC solo lee las
-   > claves que llegan en el JSON. Sin ese cambio, `destino`/`kg` quedan `null`
+   > claves que llegan en el JSON. Sin ese cambio, `destino`/`kg`/`mts` quedan `null`
    > en la BD aunque la migración y el RPC ya estén aplicados. Las claves
-   > numéricas van EXACTAS y en minúscula (`cajas`, `kg`); las de texto son
+   > numéricas van EXACTAS y en minúscula (`cajas`, `kg`, `mts`); las de texto son
    > tolerantes (`Destino`, `DESTINO`, etc.).
 2. **Redactar** (la acción Compose aparece como "Redactar" en el diseñador en español) → Entradas (Expresión): `json(concat('{''_filas'':', string(body('Seleccionar')), '}'))` — envuelve el array como parámetro del RPC.
 3. **HTTP** → `POST https://gklcxnlseghdqylvnkdb.supabase.co/rest/v1/rpc/sync_transportes`, Cuerpo = `outputs('Redactar')`, mismos 4 headers (`apikey`, `Authorization: Bearer`, `Prefer: resolution=merge-duplicates,return=minimal`, `Content-Type: application/json`).
@@ -67,6 +67,17 @@ El repo queda así en la rama `dev`:
 > (`cajas_manual = TRUE`, despachador), el sync conserva el valor capturado; la
 > marca se limpia sola cuando el Excel trae ese mismo número (ver regla 11 en el
 > `migracion-rpc-sync-transportes.sql`).
+
+> 📌 `campos_manuales`: mismas reglas que `cajas_manual` pero en columna lista
+> (`text[]`). Si el planeador creó/editó desde la app la cita, transportadora,
+> denominación, destino, región, vehículo, pedido o fecha, esos campos quedan
+> protegidos y el Excel no los pisa; la marca se limpia sola cuando el Excel
+> trae el mismo valor (ver regla 12 en `migracion-rpc-sync-transportes.sql`).
+> El **ESTATUS** (`estado_transporte`) también se protege cuando el Supervisor lo
+> cambia en la app. Si la celda Estatus viene vacía, queda `NULL` y la app muestra
+> `—` (`supabase/migrations/0018` y `0019`).
+> Requiere la migración `supabase/migrations/0012_campos_manuales.sql`.
+> La **placa no se protege**: si cambió en la app, hay que reflejarla en el Excel.
 
 > 1 solo POST por corrida, igual que el `.gs`. La **conversión de fechas, el
 > SUM por placa y el UPSERT los hace la función** en Supabase (ver script
@@ -109,7 +120,7 @@ El repo queda así en la rama `dev`:
 | vehiculo_tipo | NO | 'SENCILLO' |
 | cita_cargue | SÍ | null |
 | transportadora | NO | '' |
-| estado_transporte | NO | 'ALISTADO' |
+| estado_transporte | NO | null |
 | estado_porteria | NO | 'Pendiente' |
 | muelle_asignado | SÍ | null |
 | hora_llegada_porteria | SÍ | '--:--' |
@@ -127,6 +138,7 @@ El repo queda así en la rama `dev`:
 | cajas | SÍ | 0 |
 | destino | SÍ | null |
 | kg | SÍ | null |
+| mts | SÍ | null |
 
 ## Mapeo de columnas (encabezado Excel → campo de la BD)
 
@@ -142,15 +154,24 @@ El repo queda así en la rama `dev`:
 | `Placa` | `placa` | mayúsculas; si está vacía se envía `''` |
 | `Cajas` | `cajas` | número; en el **Seleccionar** la clave va exacta: `cajas` |
 | `Destino` | `destino` | ciudad/planta de destino del pedido |
-| `Kg` | `kg` | peso en kilogramos; en el **Seleccionar** la clave va exacta: `kg` (igual convención que `cajas`) |
-| `Estatus` | `estado_transporte` | DESPACHADO/ALISTADO/PENDIENTE (valores del CHECK de la BD). Vacío o desconocido → `'ALISTADO'`. Si dice `CANCELADO`, no entra al CHECK: pasa a `estado_porteria='CANCELADO'` |
+| `KG` | `kg` | peso en kilogramos; en el **Seleccionar** la clave va exacta: `kg` (igual convención que `cajas`) |
+| `MTS` | `mts` | metros; en el **Seleccionar** la clave va exacta: `mts` (igual convención que `cajas`) |
+| `Estatus` | `estado_transporte` | DESPACHADO/ALISTADO/PENDIENTE (valores del CHECK de la BD). Vacío → `NULL` (la app muestra `—`); desconocido → `'ALISTADO'`. Si dice `CANCELADO`, no entra al CHECK: pasa a `estado_porteria='CANCELADO'` |
 
-### Orden de despliegue para DESTINO/KG (nuevo)
+### Orden de despliegue para DESTINO/KG (histórico)
 
 1. Ejecutar `supabase-migracion-destino-kg.sql` en Supabase (crea las columnas `destino` y `kg`).
 2. Re-ejecutar `power-automate/migracion-rpc-sync-transportes.sql` (el RPC nuevo ya lee `destino`/`kg`; `kg = COALESCE(EXCLUDED.kg, …)` no pisa lo capturado en la app).
 3. En el flujo de Power Automate, agregar al **Seleccionar** los pares clave/valor: `destino` ← columna Destino, `kg` ← columna Kg.
 4. Probar end-to-end con una fila del Excel y verificar en la app/BD que destino y kg quedaron registrados.
+
+### Orden de despliegue para KG/MTS (0017) — columnas informativas
+
+1. Ejecutar `supabase/migrations/0017_mts.sql` en Supabase (crea `kg` si falta y `mts`, y actualiza el RPC `sync_transportes_full`).
+2. Re-ejecutar `power-automate/migracion-rpc-sync-transportes.sql` (el RPC `sync_transportes` ya lee `kg`/`mts`).
+3. En el flujo de Power Automate, agregar al **Seleccionar** los pares clave/valor: `kg` ← columna KG, `mts` ← columna MTS (claves EXACTAS en minúscula).
+4. En el respaldo de Apps Script, ya vienen los mapeos `'KG'→kg` y `'MTS'→mts` (no requiere cambios una vez desplegado el `.gs`).
+5. Probar end-to-end y verificar en la tabla de TRANSPORTES que KG/MTS se muestran (solo lectura).
 
 ## Servicios/acciones de Power Automate a usar (lo que falta)
 
@@ -194,7 +215,8 @@ El repo queda así en la rama `dev`:
    crearse DOS filas en la BD; y si repite la MISMA (llave, placa), la BD guarda
    la SUMA de cajas de esas filas. Además fechas ISO,
    `estado_transporte` = valor de la columna Estatus (DESPACHADO/ALISTADO/
-   PENDIENTE) y `estado_porteria='CANCELADO'` cuando `estatus` diga CANCELADO.
+   PENDIENTE; vacío → NULL) y `estado_porteria='CANCELADO'` cuando `estatus`
+   diga CANCELADO.
 6. Desactivar/limpiar: quitar el temporal de Apps Script cuando Power Automate
    esté estable y documentar.
 7. Cambiar origen de OneDrive → SharePoint cuando se apruebe el acceso al sitio.

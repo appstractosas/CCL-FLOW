@@ -1,6 +1,12 @@
 -- ============================================================================
 -- DEPLOY COMBINADO: CCL FLOW — cajas_manual + RPCs SIN kg
 -- ============================================================================
+-- IMPORTANTE (histórico): este script queda SUPERADO. Correrlo otra vez
+-- perdería la protección campos_manuales. El estado actual vive en:
+--   * supabase/migrations/0012_campos_manuales.sql  (columna + ccl_create/update)
+--   * supabase/migrations/0013_sync_full_campos_manuales.sql (sync Apps Script)
+--   * power-automate/migracion-rpc-sync-transportes.sql (sync Power Automate)
+-- ============================================================================
 -- Ejecutar TODO de una sola vez en Supabase > SQL Editor (botón Run).
 -- Es idempotente y seguro de re-ejecutar.
 --

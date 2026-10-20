@@ -48,16 +48,20 @@ export const AeropuertoBoard: React.FC = () => {
 
   return (
     <div className="space-y-2.5 mt-[-6px] sm:mt-[-14px] lg:mt-[-22px]">
-      <ModuleToolbar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        searchPlaceholder="Buscar llave o placa..."
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        onDateFromChange={setDateFrom}
-        onDateToChange={setDateTo}
-        leftContent={<EstadoFilter value={estadoFiltro} onChange={setEstadoFiltro} />}
-      />
+      {/* Barra de filtros/buscador/fechas OCULTA visualmente; el filtro (por defecto
+          ACTIVAS) y el rango siguen aplicándose sobre las filas. */}
+      <div className="hidden">
+        <ModuleToolbar
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Buscar llave o placa..."
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo}
+          leftContent={<EstadoFilter value={estadoFiltro} onChange={setEstadoFiltro} />}
+        />
+      </div>
 
       <div className="bg-[#0b0f19] rounded-2xl border border-zinc-800 overflow-hidden shadow-2xl">
         {/* Contenedor de scroll: misma altura que los demás módulos; la cabecera de
@@ -81,22 +85,26 @@ export const AeropuertoBoard: React.FC = () => {
             </div>
           ) : (
             <div className="divide-y divide-zinc-800/60">
-              {pageRows.map((row) => {
+              {pageRows.map((row, idx) => {
                 const estado = getEstadoPorteria(row);
                 const esFinalizado = estado === 'SALIO DE PORTERIA' || estado === 'CANCELADO';
+                // Fila alterna con azul translúcido para mejorar la lectura de las llaves.
+                const fondoFila = esFinalizado
+                  ? 'opacity-60 bg-zinc-900/30'
+                  : idx % 2 === 1
+                    ? 'bg-blue-500/10 hover:bg-blue-500/20'
+                    : 'bg-[#0d1322] hover:bg-[#111827]';
                 return (
                   <div
                     key={row.id}
-                    className={`grid grid-cols-[10rem_7rem_6rem_5rem_1fr_5rem_6rem_5rem_9rem] gap-2 items-center px-4 py-2.5 text-xs transition-colors ${
-                      esFinalizado ? 'opacity-60 bg-zinc-900/30' : 'bg-[#0d1322] hover:bg-[#111827]'
-                    }`}
+                    className={`grid grid-cols-[10rem_7rem_6rem_5rem_1fr_5rem_6rem_5rem_9rem] gap-2 items-center px-4 py-2.5 text-xs transition-colors ${fondoFila}`}
                   >
                     <span className="font-mono text-zinc-300 flex items-center gap-1">
                       <Clock className="w-3 h-3 text-zinc-600 shrink-0" />
                       {formatFechaHora(row.citaCargue)}
                     </span>
-                    <span className="font-mono font-bold text-white">{row.llave}</span>
-                    <span className="font-mono text-zinc-200">{row.placa || '—'}</span>
+                    <span className="font-mono font-bold text-white text-base">{row.llave}</span>
+                    <span className="font-mono text-zinc-200 text-base">{row.placa || '—'}</span>
                     <span>
                       <TipoBadge tipo={row.vehiculoTipo} />
                     </span>

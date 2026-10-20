@@ -209,7 +209,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     const user = get().currentUser;
     const token = readStoredToken();
     if (token) {
-      cclLogout(token).catch(() => {});
+      cclLogout(token).catch(() => { });
     }
     if (user) {
       get().addMovimiento('CIERRE_SESION', 'seguridad', `Cierre de sesión de ${user.name}`);
@@ -243,7 +243,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       } catch (err) {
         window.alert(
           `No se pudo crear el usuario en la base de datos.\nMotivo: ${(err as Error).message}\n` +
-            'Verifica que el rol exista en la tabla ROLES (migración SQL ejecutada) y vuelve a intentar.',
+          'Verifica que el rol exista en la tabla ROLES (migración SQL ejecutada) y vuelve a intentar.',
         );
         throw err;
       }
@@ -346,7 +346,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   hasModuleAccess: (moduleId) => {
     // El ADMIN tiene acceso total a cualquier módulo.
-    if (get().currentUser?.tipoUsuario === 'admin') return true;
+    if (get().currentUser?.tipoUsuario === 'admin') return moduleId !== 'informes-gerencia';
     const activeRole = get().getActiveRole();
     if (!activeRole) return false;
     return Boolean(activeRole.permissions[moduleId]?.canAccess);

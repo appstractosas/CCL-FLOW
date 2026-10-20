@@ -1,12 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Edit2, XCircle } from 'lucide-react';
-import { UnifiedTransporte, PorteriaTimeField } from '../../types';
+import { UnifiedTransporte, PorteriaTimeField, EstadoTransporte } from '../../types';
 import { TipoBadge, EstadoBadge, EstatusBadge } from '../common/EstadoBadge';
 import { TransporteDetailPanel } from './TransporteDetailPanel';
+import { EstatusSelect } from './TransporteDetailBits';
 import { Pagination } from '../common/Pagination';
 import { getEstadoPorteria, isLlaveCerrada, puedeEditarOperacion } from '../../utils/porteria';
-import { formatFecha, formatFechaHora } from '../../lib/dateUtils';
+import { formatFechaHora } from '../../lib/dateUtils';
 import { useVirtualList } from '../../hooks/useVirtualList';
+
+/** Alto de fila de datos (py-2.5), alineado con el Tablero. Usado por la virtualización. */
+const ROW_HEIGHT = 40;
 
 export interface TransportesTableProps {
   rows: UnifiedTransporte[];
@@ -23,9 +27,23 @@ export interface TransportesTableProps {
   checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
   showCajas?: boolean;
+  /** Muestra la columna informativa KG (columna del fuente, solo lectura) tras CAJAS. */
+  showKg?: boolean;
+  /** Muestra la columna informativa MTS (columna del fuente, solo lectura) tras KG. */
+  showMts?: boolean;
   /** Muestra la columna ESTATUS (estado_transporte de la BD) entre CAJAS y ESTADO. */
   showEstatus?: boolean;
+  /** Solo Planeación: reemplaza la columna FECHA por REGION (entre FECHA HORA CITA y LLAVE). */
+  showRegion?: boolean;
+  /** Muestra la sección "Detalle por transporte" en el modal de detalle (solo Transportes). */
+  showDetalleLlave?: boolean;
   pageResetKey?: string;
+  /** Si se pasa, la columna ESTATUS se vuelve un selector (solo Supervisor). */
+  onEstatusChange?: (row: UnifiedTransporte, estado: EstadoTransporte | null) => void;
+  /** Guarda las observaciones del detalle. Si se omite, se muestran en solo lectura. */
+  onObservaciones?: (row: UnifiedTransporte, texto: string) => void;
+  /** Predica si las observaciones son editables para la fila. */
+  observacionesEditable?: (row: UnifiedTransporte) => boolean;
 }
 
 export const TransportesTable: React.FC<TransportesTableProps> = ({
@@ -43,8 +61,15 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   checklistOwner,
   onPorteriaHora,
   showCajas = false,
+  showKg = false,
+  showMts = false,
   showEstatus = false,
+  showRegion = false,
+  showDetalleLlave = false,
   pageResetKey,
+  onEstatusChange,
+  onObservaciones,
+  observacionesEditable,
 }) => {
   const [selected, setSelected] = useState<UnifiedTransporte | null>(null);
   const [page, setPage] = useState(1);
@@ -63,14 +88,21 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const showActions = (showEdit || showDelete) && !hideAcciones;
-  const colCount = 7 + (showCajas ? 1 : 0) + (showEstatus ? 1 : 0) + (showActions ? 1 : 0);
+  const colCount =
+    6 +
+    (showRegion ? 1 : 0) +
+    (showCajas ? 1 : 0) +
+    (showKg ? 1 : 0) +
+    (showMts ? 1 : 0) +
+    (showEstatus ? 1 : 0) +
+    (showActions ? 1 : 0);
 
   const displayedRow = selected ? rows.find((r) => r.id === selected.id) || null : null;
 
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const { virtualItems, paddingTop, paddingBottom } = useVirtualList(tableContainerRef, {
     itemsCount: pageRows.length,
-    itemHeight: 48,
+    itemHeight: ROW_HEIGHT,
     overscan: 5,
   });
 
@@ -81,16 +113,18 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
         <table className="w-full text-left border-collapse text-xs">
           <thead className="sticky top-0 z-10">
             <tr className="bg-[#121726] border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider">
-              <th className="py-3.5 px-3">FECHA</th>
-              <th className="py-3.5 px-3">FECHA HORA CITA</th>
-              <th className="py-3.5 px-3">LLAVE</th>
-              <th className="py-3.5 px-3">PLACA</th>
-              <th className="py-3.5 px-3">TIPO</th>
-              <th className="py-3.5 px-3">MUELLE</th>
-              {showCajas && <th className="py-3.5 px-3">CAJAS</th>}
-              {showEstatus && <th className="py-3.5 px-3">ESTATUS</th>}
-              <th className="py-3.5 px-3">ESTADO</th>
-              {showActions && <th className="py-3.5 px-3 text-right">ACCIONES</th>}
+              <th className="py-2.5 px-3">FECHA HORA CITA</th>
+              {showRegion && <th className="py-2.5 px-3">REGION</th>}
+              <th className="py-2.5 px-3">TIPO</th>
+              <th className="py-2.5 px-3">PLACA</th>
+              <th className="py-2.5 px-3">LLAVE</th>
+              <th className="py-2.5 px-3">MUELLE</th>
+              {showCajas && <th className="py-2.5 px-3">CAJAS</th>}
+              {showKg && <th className="py-2.5 px-3">KG</th>}
+              {showMts && <th className="py-2.5 px-3">MTS</th>}
+              {showEstatus && <th className="py-2.5 px-3">ESTATUS</th>}
+              <th className="py-2.5 px-3">ESTADO</th>
+              {showActions && <th className="py-2.5 px-3 text-right">ACCIONES</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/60 font-medium text-zinc-300">
@@ -117,45 +151,61 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                       className="hover:bg-zinc-900/60 transition-colors cursor-pointer"
                       title="Clic para ver detalle"
                     >
-                      <td className="py-3.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
-                        {formatFecha(row.fechaHora)}
-                      </td>
-                      <td className="py-3.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
                         {formatFechaHora(row.citaCargue)}
                       </td>
-                      <td className="py-3.5 px-3 font-mono font-bold text-blue-400 whitespace-nowrap">
-                        {row.llave}
+                      {showRegion && (
+                        <td className="py-2.5 px-3 text-zinc-300 whitespace-nowrap">
+                          {row.region || '—'}
+                        </td>
+                      )}
+                      <td className="py-2.5 px-3 whitespace-nowrap">
+                        <TipoBadge tipo={row.vehiculoTipo} />
                       </td>
-                      <td className="py-3.5 px-3 font-mono whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono whitespace-nowrap">
                         {row.placa ? (
-                          <span className="bg-zinc-800/80 text-zinc-100 font-bold px-2 py-0.5 rounded border border-zinc-700">
+                          <span className="bg-zinc-800/80 text-zinc-100 font-bold px-2 py-0.5 rounded border border-zinc-700 text-base">
                             {row.placa}
                           </span>
                         ) : (
-                          <span className="text-zinc-600 font-semibold">—</span>
+                          <span className="text-zinc-600 font-semibold text-base">�</span>
                         )}
                       </td>
-                      <td className="py-3.5 px-3 whitespace-nowrap">
-                        <TipoBadge tipo={row.vehiculoTipo} />
+                      <td className="py-2.5 px-3 font-mono font-bold text-blue-400 whitespace-nowrap text-base">
+                        {row.llave}
                       </td>
-                      <td className="py-3.5 px-3 font-bold text-emerald-400 whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-bold text-emerald-400 whitespace-nowrap">
                         {row.muelleAsignado || '—'}
                       </td>
                       {showCajas && (
-                        <td className="py-3.5 px-3 font-mono font-bold text-amber-400 whitespace-nowrap">
+                        <td className="py-2.5 px-3 font-mono font-bold text-amber-400 whitespace-nowrap">
                           {row.cajas ? row.cajas.toLocaleString('es-CO') : '—'}
                         </td>
                       )}
-                      {showEstatus && (
-                        <td className="py-3.5 px-3 whitespace-nowrap">
-                          <EstatusBadge estado={row.estadoTransporte} />
+                      {showKg && (
+                        <td className="py-2.5 px-3 font-mono text-zinc-300 whitespace-nowrap">
+                          {row.kg ? row.kg.toLocaleString('es-CO') : '—'}
                         </td>
                       )}
-                      <td className="py-3.5 px-3 whitespace-nowrap">
+                      {showMts && (
+                        <td className="py-2.5 px-3 font-mono text-zinc-300 whitespace-nowrap">
+                          {row.mts ? row.mts.toLocaleString('es-CO') : '—'}
+                        </td>
+                      )}
+                      {showEstatus && (
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          {onEstatusChange ? (
+                            <EstatusSelect row={row} onEstatusChange={onEstatusChange} />
+                          ) : (
+                            <EstatusBadge estado={row.estadoTransporte} />
+                          )}
+                        </td>
+                      )}
+                      <td className="py-2.5 px-3 whitespace-nowrap">
                         <EstadoBadge estado={getEstadoPorteria(row)} />
                       </td>
                       {showActions && (
-                        <td className="py-3.5 px-3 whitespace-nowrap">
+                        <td className="py-2.5 px-3 whitespace-nowrap">
                           <div className="flex items-center justify-end space-x-1.5">
                             {showEdit &&
                               onEdit &&
@@ -223,6 +273,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
         showDelete={showDelete}
         canCancel={canCancel}
         showEstatus={showEstatus}
+        showDetalleLlave={showDetalleLlave}
         onEdit={(row) => {
           setSelected(null);
           onEdit?.(row);
@@ -237,6 +288,8 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
         onCajas={onCajas}
         checklistOwner={checklistOwner}
         onPorteriaHora={onPorteriaHora}
+        onObservaciones={onObservaciones}
+        observacionesEditable={observacionesEditable}
       />
     </div>
   );

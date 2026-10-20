@@ -1,3 +1,15 @@
+# Idioma (obligatorio) y Recordatorios matutinos (obligatorio al inicio de cada sesión)
+
+> **Idioma:** responder SIEMPRE en español, en toda la conversación y de por vida (incluso si el usuario
+> escribe en otro idioma). No usar inglés salvo que el usuario lo pida explícitamente.
+>
+> El usuario pidió que le recuerde al inicio de cada jornada sus pendientes. En **toda** sesión nueva,
+> ANTES de atender la primera pregunta: leer `RECORDATORIOS.md` y presentarlo completo al usuario
+> mediante el tool Read. Si el archivo no existe, preguntar si desea crearlo.
+>
+> Cuando el usuario confirme un ítem como hecho, actualizar `RECORDATORIOS.md` (marcar `[x]` o borrar)
+> en la MISMA respuesta, y recordarle en qué rama/nombre quedó el commit si aplica.
+
 # Regla de sincronización (deploy de ambos flujos)
 
 > Regla permanente de CCL FLOW: **en cada desarrollo, siempre considerar/implementar AMBOS despliegues de sincronización**, no solo uno:
@@ -8,14 +20,14 @@
 Requisitos al tocar un desarrollo:
 
 - Si el cambio afecta el **contrato de sincronización** (columnas, clave de upsert `(llave, placa)`, valores, mapeos de columnas de Excel/Sheets), actualizar AMBOS al mismo tiempo y en el mismo commit.
-- Mantener ambos coherentes: misma clave de upsert `(llave, placa)`, mismos mapeos (`Olt Inicial→transportadora`, `transporte`, `denominacion`, `cita_cargue`, `cajas`, `ESTATUS CANCELADO→estado_porteria='CANCELADO'`).
+- Mantener ambos coherentes: misma clave de upsert `(llave, placa)`, mismos mapeos (`Olt Inicial→transportadora`, `transporte`, `denominacion`, `cita_cargue`, `cajas`, `kg`, `mts`, `ESTATUS CANCELADO→estado_porteria='CANCELADO'`).
 - Cambios puramente UI/app (informes, chat, notificaciones, etc.) **no** requieren tocar el sync, salvo que agreguen/quiten columnas de `transportes`.
 
 Reglas de negocio del modelo (no romper):
 
 - Una LLAVE puede tener varias PLACAS (una fila por placa). Un TRANSPORTE (nº pedido) solo puede estar en UNA llave (trigger `trg_transporte_una_llave`).
 - CAJAS se refrescan en cada corrida desde el fuente (Excel/Sheets) con la suma del par `(llave, placa)`; si el fuente no trae cajas para el par, se conserva el valor existente. Cuando una fila pasa de placa vacía a placa llena, la fila `(llave,'')` deja de incluir esas cajas (se elimina el huérfano). Las cajas editadas por el despachador en la app quedan marcadas (`cajas_manual`) y el sync no las pisa hasta que el fuente trae ese mismo valor.
-- KG es un campo OBSOLETO en la app (se quitó del formulario, el detalle y las dos sincronizaciones). La columna `kg` de la BD se conserva para compatibilidad (siempre NULL) y no debe volver a usarse en la app ni en el sync.
+- KG y MTS son columnas INFORMATIVAS del fuente (hoja/Excel; `kg` ya existía, `mts` se creó en 0017). Se SUMAN por par `(llave, placa_origen)` y se muestran SOLO en la tabla de TRANSPORTES (solo lectura: no van al formulario, al detalle ni a otros módulos). El sync las refresca en cada corrida (igual que cajas); si el fuente no trae valor, se conserva el existente. La app nunca las escribe.
 - Columnas de portería/operación (`hora_*_porteria`, `cuadrilla`, `muelle_asignado`, `observaciones`) las escribe la app, no el sync.
 
 # Regla "actualiza github" (buenas prácticas de repositorio)
@@ -38,3 +50,13 @@ Reglas de negocio del modelo (no romper):
 3. **Limpieza de código**: eliminar dead code, variables/imports sin uso y duplicados generados por la propia modificación, en el mismo paso (no como tarea separada ni opcional).
 4. **Verificación final obligatoria**: antes de dar por cerrado un cambio, correr `npm run lint` (tsc) y la suite de tests (`vitest --pool=forks --fileParallelism=false`) y **reportar el resultado** (pasa/falla y cuántos). Si algo falla, corregirlo.
 5. **Ingeniería/parámetros**: respetar convenciones del repo, no introducir comentarios salvo que aporten, no romper el contrato de sincronización (regla de arriba) ni las reglas de negocio del modelo.
+
+# Regla de simplicidad (solución más simple y menos arriesgada)
+
+> Antes de proponer o ejecutar cualquier cambio, buscar SIEMPRE la solución más pequeña y menos arriesgada:
+
+1. **Preguntar primero el alcance real** (¿a quién aplica?, ¿qué exactamente?, ¿hasta cuándo?) antes de diseñar planes.
+2. **Empezar por el cambio mínimo** (una línea, una función, un archivo) y solo escalar si no alcanza.
+3. **No crear infraestructura para problemas puntuales** (listas de flags, capas RBAC, migraciones) cuando baste una condición.
+4. **Presentar la opción más simple primero**; las alternativas más complejas solo si el usuario las pide.
+5. La verificación final (`npm run lint` + tests) aplica igual.

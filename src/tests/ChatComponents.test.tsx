@@ -1,6 +1,5 @@
-import React from 'react';
-import { createRef } from 'react';
-import { render, screen } from '@testing-library/react';
+import React, { createRef } from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ChatBubble } from '../components/chat/ChatBubble';
 import { ChatPanel } from '../components/chat/ChatPanel';
@@ -33,7 +32,6 @@ describe('ChatBubble', () => {
     render(<ChatBubble msg={porteriaMsg} />);
     expect(screen.getByText(/Ramiro/)).toBeInTheDocument();
     expect(screen.getByText(/Solicitud de muelle para la LLAVE LL-60533/)).toBeInTheDocument();
-    // La llave aparece en el badge adjunto y dentro del mensaje (dos coincidencias).
     expect(screen.getAllByText(/LL-60533/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Muelle 3/)).toBeInTheDocument();
   });
@@ -48,43 +46,38 @@ describe('ChatBubble', () => {
 describe('ChatPanel', () => {
   const scrollRef = createRef<HTMLDivElement>();
 
-  it('renderiza contexto, presets, mensajes e input, y dispara acciones', () => {
-    const onSend = vi.fn();
-    const onClaveChange = vi.fn();
-    const onMuelleChange = vi.fn();
+  it('renderiza mensajes, botón de minimizar, input de texto y dispara acciones', () => {
+    const onSend = vi.fn((e?: React.FormEvent) => e?.preventDefault());
+    const onToggleOpen = vi.fn();
+    const onInputChange = vi.fn();
 
     render(
       <ChatPanel
         messages={[porteriaMsg, operMsg]}
         banner={null}
-        selectedLlave="LL-60533"
-        selectorLlaves={[{ id: 'T-1', llave: 'LL-60533', placa: 'XYZ-999' }]}
-        suggestedDock="Muelle 3"
         canSend
-        llaveSelectEnabled
-        muelleSelectEnabled
         textEnabled
-        solicitudEnabled
-        confirmarEnabled
-        inputText=""
+        inputText="Hola equipo"
         scrollRef={scrollRef}
-        onToggleOpen={() => {}}
-        onClaveChange={onClaveChange}
-        onMuelleChange={onMuelleChange}
-        onSolicitudMuelle={() => {}}
-        onConfirmarMuelle={() => {}}
-        onInputChange={() => {}}
+        onToggleOpen={onToggleOpen}
+        onInputChange={onInputChange}
         onSend={onSend}
       />,
     );
 
-    expect(screen.getByText('Chat Operativo Muelle & Portería')).toBeInTheDocument();
-    expect(screen.getAllByText(/LL-60533/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/\+ Solicitud Muelle/)).toBeInTheDocument();
-    expect(screen.getByText(/\+ Confirmar Muelle/)).toBeInTheDocument();
+    expect(screen.getByText(/Ramiro/)).toBeInTheDocument();
+    expect(screen.getByText('Confirmado')).toBeInTheDocument();
+    expect(screen.getByLabelText('Minimizar chat')).toBeInTheDocument();
     expect(
       screen.getByPlaceholderText('Escribe un mensaje de coordinación...'),
     ).toBeInTheDocument();
+
+    const submitBtn = screen.getByRole('button', { name: '' });
+    fireEvent.click(submitBtn);
+    expect(onSend).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByLabelText('Minimizar chat'));
+    expect(onToggleOpen).toHaveBeenCalled();
   });
 
   it('muestra el banner cuando se provee', () => {
@@ -92,54 +85,15 @@ describe('ChatPanel', () => {
       <ChatPanel
         messages={[]}
         banner="Chat deshabilitado para tu rol."
-        selectedLlave=""
-        selectorLlaves={[]}
-        suggestedDock="Muelle 1"
         canSend={false}
-        llaveSelectEnabled={false}
-        muelleSelectEnabled={false}
         textEnabled={false}
-        solicitudEnabled={false}
-        confirmarEnabled={false}
         inputText=""
         scrollRef={scrollRef}
         onToggleOpen={() => {}}
-        onClaveChange={() => {}}
-        onMuelleChange={() => {}}
-        onSolicitudMuelle={() => {}}
-        onConfirmarMuelle={() => {}}
         onInputChange={() => {}}
         onSend={() => {}}
       />,
     );
     expect(screen.getByText('Chat deshabilitado para tu rol.')).toBeInTheDocument();
-  });
-
-  it('agrega un muelle sugerido no estándar a las opciones', () => {
-    render(
-      <ChatPanel
-        messages={[]}
-        banner={null}
-        selectedLlave=""
-        selectorLlaves={[]}
-        suggestedDock="MUELLE CERO"
-        canSend
-        llaveSelectEnabled
-        muelleSelectEnabled
-        textEnabled
-        solicitudEnabled={false}
-        confirmarEnabled={false}
-        inputText=""
-        scrollRef={scrollRef}
-        onToggleOpen={() => {}}
-        onClaveChange={() => {}}
-        onMuelleChange={() => {}}
-        onSolicitudMuelle={() => {}}
-        onConfirmarMuelle={() => {}}
-        onInputChange={() => {}}
-        onSend={() => {}}
-      />,
-    );
-    expect(screen.getByText('MUELLE CERO')).toBeInTheDocument();
   });
 });

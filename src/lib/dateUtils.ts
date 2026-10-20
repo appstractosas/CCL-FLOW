@@ -114,3 +114,48 @@ export function formatTimestamp(ts?: string): string {
   if (Number.isNaN(d.getTime())) return ts;
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
+
+const p2 = (n: number): string => String(n).padStart(2, '0');
+
+/**
+ * Formatea la "Cita de entrega" a un texto corto "DD/MM HH:mm" (o "DD/MM" sin
+ * hora). Acepta serial de Excel, ISO, dd/mm/aaaa [hh:mm] y strings de Date; si
+ * no logra interpretarlo, devuelve el texto tal cual.
+ */
+export function formatCitaCorta(value?: string): string {
+  if (!value) return '';
+  const s = String(value).trim();
+  if (!s) return '';
+
+  // Serial de Excel (p. ej. 45123.604166 = día + fracción del día).
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const serial = Number(s);
+    if (serial > 20000 && serial < 80000) {
+      const d = new Date(Math.round((serial - 25569) * 86400000));
+      if (!Number.isNaN(d.getTime())) {
+        return `${p2(d.getUTCDate())}/${p2(d.getUTCMonth() + 1)} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
+      }
+    }
+  }
+
+  // ISO "YYYY-MM-DD[T ]HH:MM".
+  const iso = s.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]} ${iso[4]}:${iso[5]}`;
+
+  // dd/mm/aaaa [hh:mm] (Colombia).
+  const dm = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (dm) {
+    const dd = p2(+dm[1]);
+    const mm = p2(+dm[2]);
+    return dm[4] != null ? `${dd}/${mm} ${p2(+dm[4])}:${dm[5]}` : `${dd}/${mm}`;
+  }
+
+  // Otros strings parseables por Date (p. ej. "Thu Oct 10 2026 14:30:00 GMT-0500").
+  const d = new Date(s);
+  if (!Number.isNaN(d.getTime())) {
+    const base = `${p2(d.getDate())}/${p2(d.getMonth() + 1)}`;
+    return /[T ]\d{1,2}:\d{2}/.test(s) ? `${base} ${p2(d.getHours())}:${p2(d.getMinutes())}` : base;
+  }
+
+  return s;
+}

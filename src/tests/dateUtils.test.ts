@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { inicioSemanaStr, inicioMesStr, inicioAnioStr, todayStr } from '../lib/dateUtils';
+import {
+  inicioSemanaStr,
+  inicioMesStr,
+  inicioAnioStr,
+  todayStr,
+  formatCitaCorta,
+} from '../lib/dateUtils';
 
 describe('dateUtils · presets de rango (informes)', () => {
   it('inicioSemanaStr es un lunes dentro de los últimos 7 días', () => {
@@ -20,5 +26,25 @@ describe('dateUtils · presets de rango (informes)', () => {
 
   it('inicioAnioStr es el 1 de enero del año actual', () => {
     expect(inicioAnioStr()).toBe(`${new Date().getFullYear()}-01-01`);
+  });
+});
+
+describe('dateUtils · formatCitaCorta', () => {
+  it('acorta un ISO a "DD/MM HH:mm"', () => {
+    expect(formatCitaCorta('2026-10-01T08:30:00')).toBe('01/10 08:30');
+  });
+
+  it('acorta dd/mm/aaaa hh:mm', () => {
+    expect(formatCitaCorta('01/10/2026 14:05')).toBe('01/10 14:05');
+  });
+
+  it('acorta un serial de Excel (día + fracción)', () => {
+    expect(formatCitaCorta('46296.604166666664')).toBe('01/10 14:30');
+  });
+
+  it('devuelve vacío/— en entradas vacías y el texto si no se puede interpretar', () => {
+    expect(formatCitaCorta('')).toBe('');
+    expect(formatCitaCorta(undefined)).toBe('');
+    expect(formatCitaCorta('sin fecha')).toBe('sin fecha');
   });
 });

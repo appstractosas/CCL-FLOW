@@ -7,6 +7,7 @@ import {
   TipoNotificacion,
   KPIStats,
   EstadoPorteria,
+  EstadoTransporte,
   PorteriaTimeField,
 } from '../types';
 import {
@@ -54,6 +55,12 @@ interface LogisticsState {
   updateMuelleHora: (id: string, hora: string) => Promise<void>;
   updateCuadrilla: (id: string, cuadrilla: string) => Promise<void>;
   updateCajas: (id: string, cajas: number) => Promise<void>;
+  updateEstadoTransporte: (id: string, estado: EstadoTransporte | null) => Promise<void>;
+  updateObservaciones: (
+    id: string,
+    texto: string,
+    modulo?: 'planeacion' | 'personal',
+  ) => Promise<void>;
   cancelTransporte: (id: string) => Promise<void>;
   sendMessage: (msg: {
     senderRole: string;
@@ -108,6 +115,53 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
     }
   }
 
+// Valor siguiente del secuencial LLAVE derivado de la BD (mayor sufijo + 1).
+  function nuevaLlaveSeq(transportes: UnifiedTransporte[]): number {
+    return (
+      transportes.reduce((acc, t) => {
+        const n = parseInt(String(t.llave).replace('LL-', ''), 10);
+        return Number.isFinite(n) ? Math.max(acc, n) : acc;
+      }, 0) + 1
+    );
+  }
+
+  // Aplicación optimista de un patch: reordena por estado para la vista.
+  function patchTransporte(id: string, patch: Partial<UnifiedTransporte>): void {
+    set((s) => ({
+      transportes: sortTransportesPorEstado(
+        s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+      ),
+    }));
+  }
+
+  // Guard de llave cerrada: muestra el alert del contexto y no deja editar.
+  function llaveCerrada(row: UnifiedTransporte, accion: string): boolean {
+    if (!isLlaveCerrada(row)) return false;
+    const estado = getEstadoPorteria(row);
+    const mensaje =
+      accion === 'editar cajas'
+        ? `No se puede editar cajas en una llave con estado ${estado} (cerrada).`
+        : `No se puede ${accion} la llave ${row.llave}: tiene estado ${estado} y está cerrada.`;
+    window.alert(mensaje);
+    return true;
+  }
+
+  // Persiste el patch en Supabase; si falla revierte el cambio optimista local.
+  async function persistirCambio(
+    id: string,
+    patch: Partial<UnifiedTransporte>,
+    revertir: Partial<UnifiedTransporte>,
+    contexto: string,
+  ): Promise<void> {
+    if (!isSupabaseConfigured) return;
+    try {
+      await updateTransporteRemote(id, patch);
+    } catch (err) {
+      console.error(`Error actualizando ${contexto} en Supabase:`, err);
+      patchTransporte(id, revertir);
+    }
+  }
+
   return {
     initialized: false,
     loading: true,
@@ -132,11 +186,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         const unreadCount = messages.filter((m) => !m.isRead).length;
 
         // El contador de LLAVE se deriva de la BD (ya no se persiste en el navegador).
-        const nextLlaveSeq =
-          transportes.reduce((acc, t) => {
-            const n = parseInt(String(t.llave).replace('LL-', ''), 10);
-            return Number.isFinite(n) ? Math.max(acc, n) : acc;
-          }, 0) + 1;
+        const nextLlaveSeq = nuevaLlaveSeq(transportes);
 
         // Las notificaciones se cargan aparte: si la tabla aún no existe en la BD
         // no se debe tumbar la inicialización (la app sigue funcionando sin ellas).
@@ -183,12 +233,10 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
           transportesRefreshTimer = setTimeout(async () => {
             try {
               const transportes = await fetchTransportes();
-              const nextLlaveSeq =
-                transportes.reduce((acc, t) => {
-                  const n = parseInt(String(t.llave).replace('LL-', ''), 10);
-                  return Number.isFinite(n) ? Math.max(acc, n) : acc;
-                }, 0) + 1;
-              set({ transportes: sortTransportesPorEstado(transportes), nextLlaveSeq });
+              set({
+                transportes: sortTransportesPorEstado(transportes),
+                nextLlaveSeq: nuevaLlaveSeq(transportes),
+              });
             } catch (err) {
               console.error('Error al refrescar transportes por realtime:', err);
             }
@@ -264,7 +312,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         transporte: data.transporte || undefined,
         denominacion: data.denominacion || undefined,
         transportadora: data.transportadora || '',
-        estadoTransporte: data.estadoTransporte || 'ALISTADO',
+        estadoTransporte: data.estadoTransporte ?? null,
         // Placa opcional: sin placa → PENDIENTE; con placa → CONFIRMADO.
         estadoPorteria: placa ? 'Confirmado' : 'Pendiente',
         muelleAsignado: data.muelleAsignado || '',
@@ -313,12 +361,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
     updateTransporte: async (id, updated) => {
       const current = get().transportes.find((t) => t.id === id);
       if (!current) return;
-      if (isLlaveCerrada(current)) {
-        window.alert(
-          `No se puede modificar la llave ${current.llave}: tiene estado ${getEstadoPorteria(current)} y está cerrada.`,
-        );
-        return;
-      }
+      if (llaveCerrada(current, 'modificar')) return;
       // PLANEACIÓN/TRANSPORTES solo editan llaves PENDIENTE o CONFIRMADO.
       if (!puedeEditarOperacion(current)) {
         window.alert(
@@ -371,11 +414,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
       if (isSupabaseConfigured) {
         await updateTransporteRemote(id, updated);
       }
-      set((s) => ({
-        transportes: sortTransportesPorEstado(
-          s.transportes.map((t) => (t.id === id ? { ...t, ...updated } : t)),
-        ),
-      }));
+      patchTransporte(id, updated);
       const row = get().transportes.find((t) => t.id === id);
       useAuthStore
         .getState()
@@ -390,12 +429,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
     updatePorteriaHora: async (id, campo, hora) => {
       const row = get().transportes.find((t) => t.id === id);
       if (!row) return;
-      if (isLlaveCerrada(row)) {
-        window.alert(
-          `No se puede modificar la llave ${row.llave}: tiene estado ${getEstadoPorteria(row)} y está cerrada.`,
-        );
-        return;
-      }
+      if (llaveCerrada(row, 'modificar')) return;
 
       const estadoByCampo: Record<PorteriaTimeField, EstadoPorteria> = {
         horaLlegadaPorteria: 'LLEGO A PORTERIA',
@@ -410,11 +444,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
       } as Partial<UnifiedTransporte>;
 
       // Optimistic update: aplicar cambio en local ANTES de Supabase para respuesta visual inmediata
-      set((s) => ({
-        transportes: sortTransportesPorEstado(
-          s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-        ),
-      }));
+      patchTransporte(id, patch);
 
       // Aviso de LLEGADA A PORTERÍA a toda la operación (una sola vez, cuando
       // se registra la hora por primera vez y no es borrado de campo).
@@ -456,12 +486,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
     updateMuelleAsignado: async (id, muelle) => {
       const row = get().transportes.find((t) => t.id === id);
       if (!row) return;
-      if (isLlaveCerrada(row)) {
-        window.alert(
-          `No se puede modificar la llave ${row.llave}: tiene estado ${getEstadoPorteria(row)} y está cerrada.`,
-        );
-        return;
-      }
+      if (llaveCerrada(row, 'modificar')) return;
 
       const patch: Partial<UnifiedTransporte> = { muelleAsignado: muelle };
       // Al asignar un muelle distinto de MUELLE CERO se carga automáticamente
@@ -472,11 +497,7 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
       }
 
       // Optimistic update: aplicar cambio en local de inmediato
-      set((s) => ({
-        transportes: sortTransportesPorEstado(
-          s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-        ),
-      }));
+      patchTransporte(id, patch);
 
       // Aviso de ASIGNACIÓN DE MUELLE a toda la operación (solo si cambió el muelle).
       if (muelle && !esMuelleCero && muelle !== row.muelleAsignado) {
@@ -488,26 +509,12 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         );
       }
 
-      if (isSupabaseConfigured) {
-        try {
-          await updateTransporteRemote(id, patch);
-        } catch (err) {
-          console.error('Error asignando muelle en Supabase:', err);
-          set((s) => ({
-            transportes: sortTransportesPorEstado(
-              s.transportes.map((t) =>
-                t.id === id
-                  ? {
-                      ...t,
-                      muelleAsignado: row.muelleAsignado,
-                      horaMuelleAsignado: row.horaMuelleAsignado,
-                    }
-                  : t,
-              ),
-            ),
-          }));
-        }
-      }
+      await persistirCambio(
+        id,
+        patch,
+        { muelleAsignado: row.muelleAsignado, horaMuelleAsignado: row.horaMuelleAsignado },
+        'muelle',
+      );
       useAuthStore
         .getState()
         .addMovimiento(
@@ -521,63 +528,26 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
     updateMuelleHora: async (id, hora) => {
       const row = get().transportes.find((t) => t.id === id);
       if (!row) return;
-      if (isLlaveCerrada(row)) {
-        window.alert(
-          `No se puede modificar la llave ${row.llave}: tiene estado ${getEstadoPorteria(row)} y está cerrada.`,
-        );
-        return;
-      }
+      if (llaveCerrada(row, 'modificar')) return;
 
       // Optimistic update
-      set((s) => ({
-        transportes: sortTransportesPorEstado(
-          s.transportes.map((t) => (t.id === id ? { ...t, horaMuelleAsignado: hora } : t)),
-        ),
-      }));
-      if (isSupabaseConfigured) {
-        try {
-          await updateTransporteRemote(id, { horaMuelleAsignado: hora });
-        } catch (err) {
-          console.error('Error actualizando hora de muelle en Supabase:', err);
-          set((s) => ({
-            transportes: sortTransportesPorEstado(
-              s.transportes.map((t) =>
-                t.id === id ? { ...t, horaMuelleAsignado: row.horaMuelleAsignado } : t,
-              ),
-            ),
-          }));
-        }
-      }
+      patchTransporte(id, { horaMuelleAsignado: hora });
+      await persistirCambio(
+        id,
+        { horaMuelleAsignado: hora },
+        { horaMuelleAsignado: row.horaMuelleAsignado },
+        'hora de muelle',
+      );
     },
 
     updateCuadrilla: async (id, cuadrilla) => {
       const row = get().transportes.find((t) => t.id === id);
       if (!row) return;
-      if (isLlaveCerrada(row)) {
-        window.alert(
-          `No se puede modificar la llave ${row.llave}: tiene estado ${getEstadoPorteria(row)} y está cerrada.`,
-        );
-        return;
-      }
+      if (llaveCerrada(row, 'modificar')) return;
 
       // Optimistic update
-      set((s) => ({
-        transportes: sortTransportesPorEstado(
-          s.transportes.map((t) => (t.id === id ? { ...t, cuadrilla } : t)),
-        ),
-      }));
-      if (isSupabaseConfigured) {
-        try {
-          await updateTransporteRemote(id, { cuadrilla });
-        } catch (err) {
-          console.error('Error actualizando cuadrilla en Supabase:', err);
-          set((s) => ({
-            transportes: sortTransportesPorEstado(
-              s.transportes.map((t) => (t.id === id ? { ...t, cuadrilla: row.cuadrilla } : t)),
-            ),
-          }));
-        }
-      }
+      patchTransporte(id, { cuadrilla });
+      await persistirCambio(id, { cuadrilla }, { cuadrilla: row.cuadrilla }, 'cuadrilla');
       useAuthStore
         .getState()
         .addMovimiento(
@@ -594,32 +564,12 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
       if (!Number.isFinite(cajas) || cajas < 0) return;
       // Editable en cualquier estado EXCEPTO llave cerrada (CANCELADO o SALIO
       // DE PORTERIA): se muestra alerta y NO se aplica el cambio.
-      if (isLlaveCerrada(row)) {
-        window.alert(
-          `No se puede editar cajas en una llave con estado ${getEstadoPorteria(row)} (cerrada).`,
-        );
-        return;
-      }
+      if (llaveCerrada(row, 'editar cajas')) return;
 
       const patch: Partial<UnifiedTransporte> = { cajas, cajasManual: true };
       // Optimistic update
-      set((s) => ({
-        transportes: sortTransportesPorEstado(
-          s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-        ),
-      }));
-      if (isSupabaseConfigured) {
-        try {
-          await updateTransporteRemote(id, patch);
-        } catch (err) {
-          console.error('Error actualizando cajas en Supabase:', err);
-          set((s) => ({
-            transportes: sortTransportesPorEstado(
-              s.transportes.map((t) => (t.id === id ? { ...t, cajas: row.cajas } : t)),
-            ),
-          }));
-        }
-      }
+      patchTransporte(id, patch);
+      await persistirCambio(id, patch, { cajas: row.cajas }, 'cajas');
       useAuthStore
         .getState()
         .addMovimiento(
@@ -630,15 +580,52 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
         );
     },
 
+    updateEstadoTransporte: async (id, estado) => {
+      const row = get().transportes.find((t) => t.id === id);
+      if (!row) return;
+      if (llaveCerrada(row, 'cambiar el estatus de')) return;
+      if (estado === row.estadoTransporte) return;
+
+      const patch: Partial<UnifiedTransporte> = { estadoTransporte: estado };
+      patchTransporte(id, patch);
+      await persistirCambio(
+        id,
+        patch,
+        { estadoTransporte: row.estadoTransporte },
+        'estatus',
+      );
+      useAuthStore
+        .getState()
+        .addMovimiento(
+          'ACTUALIZAR_ESTATUS',
+          'personal',
+          `Estatus de ${row.llave} cambiado: ${row.estadoTransporte ?? 'sin estatus'} → ${estado ?? 'sin estatus'}`,
+          row.llave,
+        );
+    },
+
+    updateObservaciones: async (id, texto, modulo = 'planeacion') => {
+      const row = get().transportes.find((t) => t.id === id);
+      if (!row) return;
+      if (texto === (row.observaciones ?? '')) return;
+
+      const patch: Partial<UnifiedTransporte> = { observaciones: texto };
+      patchTransporte(id, patch);
+      await persistirCambio(id, patch, { observaciones: row.observaciones }, 'observaciones');
+      useAuthStore
+        .getState()
+        .addMovimiento(
+          'ACTUALIZAR_OBSERVACIONES',
+          modulo,
+          `Observaciones de ${row.llave} actualizadas`,
+          row.llave,
+        );
+    },
+
     cancelTransporte: async (id) => {
       const row = get().transportes.find((t) => t.id === id);
       if (!row) return;
-      if (isLlaveCerrada(row)) {
-        window.alert(
-          `No se puede cancelar la llave ${row.llave}: tiene estado ${getEstadoPorteria(row)} y está cerrada.`,
-        );
-        return;
-      }
+      if (llaveCerrada(row, 'cancelar')) return;
 
       // PLANEACIÓN solo cancela llaves PENDIENTE o CONFIRMADO (aplica a todos
       // los roles, incluido ADMIN: en cuanto la llave pasa a LLEGO A PORTERIA
@@ -651,19 +638,21 @@ export const useLogisticsStore = create<LogisticsState>()((set, get) => {
       }
 
       // No se elimina el vehículo: queda con estado CANCELADO y sin editar.
+      // Primero la BD; si falla, se informa y NO se aplica el cambio local
+      // (evita el "cancelado fantasma" que la UI mostraba sin existir en BD).
       const patch: Partial<UnifiedTransporte> = { estadoPorteria: 'CANCELADO' as EstadoPorteria };
       if (isSupabaseConfigured) {
         try {
           await updateTransporteRemote(id, patch);
         } catch (err) {
           console.error('Error cancelando transporte en Supabase:', err);
+          window.alert(
+            `No se pudo cancelar en la base de datos: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          return;
         }
       }
-      set((s) => ({
-        transportes: sortTransportesPorEstado(
-          s.transportes.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-        ),
-      }));
+      patchTransporte(id, patch);
       useAuthStore
         .getState()
         .addMovimiento(
