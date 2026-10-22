@@ -68,11 +68,11 @@ export const AeropuertoBoard: React.FC = () => {
             columnas queda inmovilizada al hacer scroll por las filas. */}
         <div className="max-h-[calc(100vh-160px)] overflow-y-auto">
           {/* Cabecera tipo tablero de vuelos */}
-          <div className="grid grid-cols-[10rem_7rem_6rem_5rem_1fr_5rem_6rem_5rem_9rem] gap-2 px-4 py-2.5 bg-[#121726] border-b border-zinc-800 text-[9px] font-black uppercase tracking-widest text-zinc-500 sticky top-0 z-10">
+          <div className="grid grid-cols-[10rem_5rem_6rem_7rem_1fr_5rem_6rem_5rem_9rem] gap-2 px-4 py-2.5 bg-[#121726] border-b border-zinc-800 text-[9px] font-black uppercase tracking-widest text-zinc-500 sticky top-0 z-10">
             <span>Cita (Fecha Hora)</span>
-            <span>Llave</span>
-            <span>Placa</span>
             <span>Tipo</span>
+            <span>Placa</span>
+            <span>Llave</span>
             <span>Transportadora</span>
             <span>Muelle</span>
             <span>Cuadrilla</span>
@@ -97,17 +97,17 @@ export const AeropuertoBoard: React.FC = () => {
                 return (
                   <div
                     key={row.id}
-                    className={`grid grid-cols-[10rem_7rem_6rem_5rem_1fr_5rem_6rem_5rem_9rem] gap-2 items-center px-4 py-2.5 text-xs transition-colors ${fondoFila}`}
+                    className={`grid grid-cols-[10rem_5rem_6rem_7rem_1fr_5rem_6rem_5rem_9rem] gap-2 items-center px-4 py-2.5 text-xs transition-colors ${fondoFila}`}
                   >
                     <span className="font-mono text-zinc-300 flex items-center gap-1">
                       <Clock className="w-3 h-3 text-zinc-600 shrink-0" />
                       {formatFechaHora(row.citaCargue)}
                     </span>
-                    <span className="font-mono font-bold text-white text-base">{row.llave}</span>
-                    <span className="font-mono text-zinc-200 text-base">{row.placa || '—'}</span>
                     <span>
                       <TipoBadge tipo={row.vehiculoTipo} />
                     </span>
+                    <span className="font-mono text-zinc-200 text-base">{row.placa || '—'}</span>
+                    <span className="font-mono font-bold text-white text-base">{row.llave}</span>
                     <span className="text-zinc-300 truncate">{row.transportadora || '—'}</span>
                     <span className="font-mono text-zinc-200">{row.muelleAsignado || '—'}</span>
                     <span className="text-zinc-300 truncate">{row.cuadrilla || '—'}</span>
