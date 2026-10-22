@@ -23,6 +23,8 @@ interface TransporteDetailPanelProps {
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
   /** Muestra el badge ESTATUS (estado_transporte) junto al estado de portería. */
   showEstatus?: boolean;
+  /** Muestra la OLT/transportadora en el encabezado del detalle. */
+  showOlt?: boolean;
   /** Muestra la sección "Detalle por transporte" (líneas de la llave). Solo la activa Transportes. */
   showDetalleLlave?: boolean;
   /** Guarda las observaciones del pedido (al pie del modal). Si se omite, se muestran en solo lectura. */
@@ -46,6 +48,7 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
   checklistOwner,
   onPorteriaHora,
   showEstatus = false,
+  showOlt = true,
   showDetalleLlave = false,
   onObservaciones,
   observacionesEditable,
@@ -92,9 +95,11 @@ export const TransporteDetailPanel: React.FC<TransporteDetailPanelProps> = ({
           </div>
           <div className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-[11px] font-semibold text-zinc-100 truncate">
-                {row.transportadora || '—'}
-              </span>
+              {showOlt && (
+                <span className="text-[11px] font-semibold text-zinc-100 truncate">
+                  {row.transportadora || '—'}
+                </span>
+              )}
               <TipoBadge tipo={row.vehiculoTipo} />
             </div>
             <span className="text-[11px] font-semibold text-zinc-100 truncate">

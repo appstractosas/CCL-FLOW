@@ -33,6 +33,8 @@ export interface TransportesTableProps {
   showMts?: boolean;
   /** Muestra la columna ESTATUS (estado_transporte de la BD) entre CAJAS y ESTADO. */
   showEstatus?: boolean;
+  /** Muestra la OLT/transportadora en el encabezado del detalle. */
+  showOlt?: boolean;
   /** Solo Planeación: reemplaza la columna FECHA por REGION (entre FECHA HORA CITA y LLAVE). */
   showRegion?: boolean;
   /** Muestra la sección "Detalle por transporte" en el modal de detalle (solo Transportes). */
@@ -64,6 +66,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   showKg = false,
   showMts = false,
   showEstatus = false,
+  showOlt = true,
   showRegion = false,
   showDetalleLlave = false,
   pageResetKey,
@@ -273,6 +276,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
         showDelete={showDelete}
         canCancel={canCancel}
         showEstatus={showEstatus}
+        showOlt={showOlt}
         showDetalleLlave={showDetalleLlave}
         onEdit={(row) => {
           setSelected(null);
