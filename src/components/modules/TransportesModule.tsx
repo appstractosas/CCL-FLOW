@@ -41,6 +41,7 @@ export const TransportesModule: React.FC = () => {
         showEstatus: true,
         showRegion: true,
         showDetalleLlave: true,
+        showOlt: false,
         onEdit: openEdit,
       }}
     >
