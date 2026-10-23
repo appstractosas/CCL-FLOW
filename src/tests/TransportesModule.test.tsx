@@ -47,10 +47,10 @@ describe('TransportesModule', () => {
     expect(screen.getByText('LL-60533')).toBeInTheDocument();
     expect(screen.queryByText('NUEVA LLAVE')).not.toBeInTheDocument();
 
-    // Header renombrado: PLACA (no PLACA REMOLQUE) y ESTATUS entre CAJAS y ESTADO.
+    // Header renombrado: PLACA (no PLACA REMOLQUE); ESTATUS ya no se muestra en la tabla.
     expect(screen.getByText('PLACA')).toBeInTheDocument();
     expect(screen.queryByText('PLACA REMOLQUE')).not.toBeInTheDocument();
-    expect(screen.getByText('• despachado')).toBeInTheDocument();
+    expect(screen.queryByText('• despachado')).not.toBeInTheDocument();
 
     // REGION reemplaza a FECHA (entre FECHA HORA CITA y LLAVE).
     expect(screen.getByText('REGION')).toBeInTheDocument();

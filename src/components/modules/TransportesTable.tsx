@@ -33,6 +33,8 @@ export interface TransportesTableProps {
   showMts?: boolean;
   /** Muestra la columna ESTATUS (estado_transporte de la BD) entre CAJAS y ESTADO. */
   showEstatus?: boolean;
+  /** Permite ocultar solo la columna ESTATUS de la tabla; el detalle conserva el badge. */
+  showEstatusTabla?: boolean;
   /** Muestra la OLT/transportadora en el encabezado del detalle. */
   showOlt?: boolean;
   /** Solo Planeación: reemplaza la columna FECHA por REGION (entre FECHA HORA CITA y LLAVE). */
@@ -66,6 +68,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   showKg = false,
   showMts = false,
   showEstatus = false,
+  showEstatusTabla = true,
   showOlt = true,
   showRegion = false,
   showDetalleLlave = false,
@@ -97,7 +100,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
     (showCajas ? 1 : 0) +
     (showKg ? 1 : 0) +
     (showMts ? 1 : 0) +
-    (showEstatus ? 1 : 0) +
+    (showEstatus && showEstatusTabla ? 1 : 0) +
     (showActions ? 1 : 0);
 
   const displayedRow = selected ? rows.find((r) => r.id === selected.id) || null : null;
@@ -125,7 +128,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
               {showCajas && <th className="py-2.5 px-3">CAJAS</th>}
               {showKg && <th className="py-2.5 px-3">KG</th>}
               {showMts && <th className="py-2.5 px-3">MTS</th>}
-              {showEstatus && <th className="py-2.5 px-3">ESTATUS</th>}
+              {showEstatus && showEstatusTabla && <th className="py-2.5 px-3">ESTATUS</th>}
               <th className="py-2.5 px-3">ESTADO</th>
               {showActions && <th className="py-2.5 px-3 text-right">ACCIONES</th>}
             </tr>
@@ -195,7 +198,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                           {row.mts ? row.mts.toLocaleString('es-CO') : '—'}
                         </td>
                       )}
-                      {showEstatus && (
+                      {showEstatus && showEstatusTabla && (
                         <td className="py-2.5 px-3 whitespace-nowrap">
                           {onEstatusChange ? (
                             <EstatusSelect row={row} onEstatusChange={onEstatusChange} />
