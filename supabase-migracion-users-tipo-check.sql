@@ -8,7 +8,7 @@
 --
 -- Esta migración reconstruye el CHECK con TODOS los tipos del sistema:
 --   admin, despachador, portero, planeador, supervisor, monitor,
---   transportes, tablero, informes
+--   transportes, tablero, informes, informes_gerencia
 --
 -- Ejecutar en Supabase: SQL Editor -> New query -> Run.
 -- ============================================================================
@@ -24,10 +24,10 @@ ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_tipo_usuario_check;
 ALTER TABLE public.users ADD CONSTRAINT users_tipo_usuario_check
   CHECK (tipo_usuario IN (
     'admin', 'despachador', 'portero', 'planeador', 'supervisor',
-    'monitor', 'transportes', 'tablero', 'informes'
+    'monitor', 'transportes', 'tablero', 'informes', 'informes_gerencia'
   ));
 
--- Verificación: debe mostrar el CHECK con los 9 valores.
+-- Verificación: debe mostrar el CHECK con los 10 valores.
 SELECT conname, pg_get_constraintdef(oid) AS definicion_nueva
 FROM pg_constraint
 WHERE conrelid = 'public.users'::regclass AND conname = 'users_tipo_usuario_check';

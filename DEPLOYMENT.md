@@ -49,15 +49,16 @@ Ejecutar en orden en Supabase → SQL Editor → New Query → Run.
 | # | Archivo | Qué hace |
 |---|---------|----------|
 | 7 | `supabase-migracion-roles-tablero-informes.sql` | Roles TABLERO e INFORMES |
-| 8 | `supabase-migracion-notificaciones.sql` | Tabla de notificaciones |
-| 9 | `supabase-migracion-chat-permisos.sql` | Permisos de chat en roles |
-| 10 | `supabase-migracion-horas-porteria-datetime.sql` | Horas de portería como datetime |
+| 8 | `supabase-migracion-rol-informes-gerencia.sql` | Rol INFORMES GERENCIA |
+| 9 | `supabase-migracion-notificaciones.sql` | Tabla de notificaciones |
+| 10 | `supabase-migracion-chat-permisos.sql` | Permisos de chat en roles |
+| 11 | `supabase-migracion-horas-porteria-datetime.sql` | Horas de portería como datetime |
 
 ### Migraciones de sync (requeridas para sync Excel/Sheets)
 
 | # | Archivo | Qué hace |
 |---|---------|----------|
-| 11 | `power-automate/migracion-rpc-sync-transportes.sql` | RPC sync_transportes para Power Automate |
+| 12 | `power-automate/migracion-rpc-sync-transportes.sql` | RPC sync_transportes para Power Automate |
 
 ### Restaurar acceso (emergencia)
 

@@ -26,7 +26,8 @@ export type UserType =
   | 'monitor'
   | 'transportes'
   | 'tablero'
-  | 'informes';
+  | 'informes'
+  | 'informes_gerencia';
 
 /** Permisos de un módulo para un rol: puede acceder y/o puede editar. */
 export interface ModulePermission {

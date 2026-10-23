@@ -41,6 +41,7 @@ export const USER_TYPES: { value: UserType; label: string }[] = [
   { value: 'transportes', label: 'Transportes' },
   { value: 'tablero', label: 'Tablero' },
   { value: 'informes', label: 'Informes' },
+  { value: 'informes_gerencia', label: 'Informes Gerencia' },
 ];
 
 /** Rol por tipo de usuario. */
@@ -54,6 +55,7 @@ export const ROLE_ID_BY_USER_TYPE: Record<UserType, string> = {
   transportes: 'ROLE_TRANSPORTES',
   tablero: 'ROLE_TABLERO',
   informes: 'ROLE_INFORMES',
+  informes_gerencia: 'ROLE_INFORMES_GERENCIA',
 };
 
 export const ROLE_NAME_BY_USER_TYPE: Record<UserType, string> = {
@@ -66,6 +68,7 @@ export const ROLE_NAME_BY_USER_TYPE: Record<UserType, string> = {
   transportes: 'TRANSPORTES',
   tablero: 'TABLERO',
   informes: 'INFORMES',
+  informes_gerencia: 'INFORMES GERENCIA',
 };
 
 export function userTypeLabel(tipo: UserType | string): string {

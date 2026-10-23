@@ -102,6 +102,13 @@ export const PRESET_ROLES: Role[] = [
     isPreset: true,
     permissions: permissionsAll(['informes', 'informes-gerencia'], []),
   },
+  {
+    id: 'ROLE_INFORMES_GERENCIA',
+    name: 'INFORMES GERENCIA',
+    description: 'Consulta de informes de gerencia (sin edición operativa).',
+    isPreset: false,
+    permissions: permissionsAll(['informes-gerencia'], []),
+  },
 ];
 
 export const ROLE_ID_BY_TYPE: Record<UserType, string> = ROLE_ID_BY_USER_TYPE;
