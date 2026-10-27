@@ -76,7 +76,7 @@ export const PlaneacionModule: React.FC = () => {
         observacionesEditable: puedeEditarOperacion,
       }}
       rightContent={
-        canEdit ? (
+        false ? (
           <button
             onClick={openCreate}
             className="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition-colors"
