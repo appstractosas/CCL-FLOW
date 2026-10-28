@@ -102,7 +102,7 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
   });
 
   it('muestra los checkbox únicamente del módulo correspondiente', () => {
-    // PORTERÍA: 2 checkbox (H. Llegada + H. Ingreso)
+    // PORTERÍA: 3 checkbox (H. Llegada + H. Ingreso + H. Salida)
     const porteria = render(
       <TransporteDetailPanel
         row={makeRow()}
@@ -111,9 +111,9 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
         onPorteriaHora={() => {}}
       />,
     );
-    expect(screen.getAllByRole('checkbox')).toHaveLength(2);
+    expect(screen.getAllByRole('checkbox')).toHaveLength(3);
     expect(() => screen.getByLabelText('H. Inicio Cargue')).toThrow();
-    expect(() => screen.getByLabelText('H. Salida Portería')).toThrow();
+    expect(screen.getByLabelText('H. Salida Portería')).toBeDisabled();
     porteria.unmount();
 
     // DESPACHOS: 2 checkbox (H. Inicio Cargue + H. Fin Cargue)
@@ -133,9 +133,10 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
     expect(screen.getByLabelText('H. Inicio Cargue')).toBeEnabled();
     expect(screen.getByLabelText('H. Fin Cargue')).toBeDisabled();
     expect(() => screen.getByLabelText('H. Llegada Portería')).toThrow();
+    expect(() => screen.getByLabelText('H. Salida Portería')).toThrow();
     despachos.unmount();
 
-    // MONITOREO: 1 checkbox (H. Salida Portería)
+    // PORTERÍA con los 4 pasos previos registrados: H. Salida Portería habilitada
     render(
       <TransporteDetailPanel
         row={makeRow({
@@ -145,11 +146,11 @@ describe('TransporteDetailPanel (Control de Tiempos por módulo)', () => {
           horaFinCargue: '09:00',
         })}
         onClose={onClose}
-        checklistOwner="monitoreo"
+        checklistOwner="porteria"
         onPorteriaHora={() => {}}
       />,
     );
-    expect(screen.getAllByRole('checkbox')).toHaveLength(1);
+    expect(screen.getAllByRole('checkbox')).toHaveLength(3);
     expect(screen.getByLabelText('H. Salida Portería')).toBeEnabled();
   });
 

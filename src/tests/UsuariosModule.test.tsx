@@ -56,12 +56,12 @@ describe('UsuariosModule', () => {
   it('bloquea el módulo para roles sin permiso de administración', () => {
     useAuthStore.setState({
       currentUser: {
-        id: 'USER_MON',
-        name: 'Monitor',
+        id: 'USER_PORTERO',
+        name: 'Portero',
         cedula: '1000000005',
-        tipoUsuario: 'monitor',
-        roleId: 'ROLE_MONITOREO',
-        roleName: 'MONITOREO',
+        tipoUsuario: 'portero',
+        roleId: 'ROLE_PORTERO',
+        roleName: 'PORTERO',
       },
     });
     render(<UsuariosModule />);

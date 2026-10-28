@@ -45,12 +45,12 @@ describe('PlaneacionModule', () => {
     useAuthStore.setState({
       roles: [],
       currentUser: {
-        id: 'USER_MON',
-        name: 'Monitor',
+        id: 'USER_PORTERO',
+        name: 'Portero',
         cedula: '1000000005',
-        tipoUsuario: 'monitor',
-        roleId: 'ROLE_MONITOREO',
-        roleName: 'MONITOREO',
+        tipoUsuario: 'portero',
+        roleId: 'ROLE_PORTERO',
+        roleName: 'PORTERO',
       },
     });
     render(<PlaneacionModule />);

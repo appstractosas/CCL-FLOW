@@ -24,7 +24,7 @@ export interface TransportesTableProps {
   onMuelleHora?: (row: UnifiedTransporte, hora: string) => void;
   onCuadrilla?: (row: UnifiedTransporte, cuadrilla: string) => void;
   onCajas?: (row: UnifiedTransporte, cajas: number) => void;
-  checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
+  checklistOwner?: 'porteria' | 'despachos';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
   showCajas?: boolean;
   /** Muestra la columna informativa KG (columna del fuente, solo lectura) tras CAJAS. */

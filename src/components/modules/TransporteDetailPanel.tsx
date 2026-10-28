@@ -19,7 +19,7 @@ interface TransporteDetailPanelProps {
   onMuelleHora?: (row: UnifiedTransporte, hora: string) => void;
   onCuadrilla?: (row: UnifiedTransporte, cuadrilla: string) => void;
   onCajas?: (row: UnifiedTransporte, cajas: number) => void;
-  checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
+  checklistOwner?: 'porteria' | 'despachos';
   onPorteriaHora?: (row: UnifiedTransporte, campo: PorteriaTimeField, hora: string) => void;
   /** Muestra el badge ESTATUS (estado_transporte) junto al estado de portería. */
   showEstatus?: boolean;

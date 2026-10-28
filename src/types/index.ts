@@ -5,7 +5,6 @@
 export type AppModuleId =
   | 'despachos'
   | 'porteria'
-  | 'monitoreo'
   | 'informes'
   | 'informes-gerencia'
   | 'planeacion'
@@ -23,7 +22,6 @@ export type UserType =
   | 'portero'
   | 'planeador'
   | 'supervisor'
-  | 'monitor'
   | 'transportes'
   | 'tablero'
   | 'informes'

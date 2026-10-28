@@ -46,12 +46,12 @@ describe('PersonalModule (módulo Supervisor)', () => {
   it('NO muestra el select de muelles para un rol distinto de SUPERVISOR', async () => {
     useAuthStore.setState({
       currentUser: {
-        id: 'USER_MON',
-        name: 'Carlos Montero',
+        id: 'USER_PORTERO',
+        name: 'Ramiro Torres',
         cedula: '1000000005',
-        tipoUsuario: 'monitor',
-        roleId: 'ROLE_MONITOREO',
-        roleName: 'MONITOREO',
+        tipoUsuario: 'portero',
+        roleId: 'ROLE_PORTERO',
+        roleName: 'PORTERO',
       },
     });
 

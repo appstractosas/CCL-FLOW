@@ -74,4 +74,31 @@ describe('PorteriaModule Component (Shared Unified Table)', () => {
     fireEvent.click(screen.getByText('Todas'));
     expect(screen.getByText(/SALIO DE PORTERIA/i)).toBeInTheDocument();
   });
+
+  it('permite registrar H. Salida Portería desde el detalle (paso 5)', () => {
+    useLogisticsStore.setState((s) => ({
+      transportes: s.transportes.map((t) =>
+        t.id === 'TR-TEST-1'
+          ? {
+              ...t,
+              horaLlegadaPorteria: '07:00',
+              horaIngreso: '07:10',
+              horaInicioCargue: '07:30',
+              horaFinCargue: '08:00',
+              horaSalida: '--:--',
+            }
+          : t,
+      ),
+    }));
+
+    render(<PorteriaModule />);
+    fireEvent.click(screen.getByText('LL-60533'));
+
+    expect(screen.getByText('H. Salida Portería')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('H. Salida Portería'));
+    expect(screen.getByText(/¿Seguro que el vehículo salió de portería\?/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Sí'));
+
+    expect(useLogisticsStore.getState().transportes[0].horaSalida).not.toBe('--:--');
+  });
 });

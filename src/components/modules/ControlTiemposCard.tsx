@@ -16,7 +16,7 @@ import { CUADRILLAS, PORTERIA_STEPS, DetailRow, TimeRow, CajasInput } from './Tr
 interface ControlTiemposCardProps {
   row: UnifiedTransporte;
   showEstatus?: boolean;
-  checklistOwner?: 'porteria' | 'despachos' | 'monitoreo';
+  checklistOwner?: 'porteria' | 'despachos';
   onAsignarMuelle?: (row: UnifiedTransporte, muelle: string) => void;
   onMuelleHora?: (row: UnifiedTransporte, hora: string) => void;
   onCuadrilla?: (row: UnifiedTransporte, cuadrilla: string) => void;
@@ -45,16 +45,14 @@ export const ControlTiemposCard: React.FC<ControlTiemposCardProps> = ({
   );
   const enabledIndex = setFlags.findIndex((f) => !f);
   // Matriz de control de tiempos por módulo:
-  // - PORTERÍA: H. Llegada (0) y H. Ingreso (1).
+  // - PORTERÍA: H. Llegada (0), H. Ingreso (1) y H. Salida (4).
   // - DESPACHOS: H. Inicio Cargue (2) y H. Fin Cargue (3).
-  // - MONITOREO: H. Salida Portería (4).
-  const ownedIndexes =
-    checklistOwner === 'despachos' ? [2, 3] : checklistOwner === 'monitoreo' ? [4] : [0, 1];
+  const ownedIndexes = checklistOwner === 'despachos' ? [2, 3] : [0, 1, 4];
   const showCheck = Boolean(checklistOwner) && Boolean(onPorteriaHora);
   const requiresMuelle = checklistOwner === 'despachos';
   const muelleOk = !requiresMuelle || Boolean(row.muelleAsignado);
   // Regla: H. INGRESO A MUELLE solo se activa si ya hay un muelle asignado,
-  // en TODOS los módulos (portería, despachos, monitoreo).
+  // en TODOS los módulos (portería, despachos).
   const ingresoRequiereMuelle = Boolean(row.muelleAsignado);
   // PORTERÍA solo puede iniciar el proceso (H. Llegada Portería) si la llave
   // está CONFIRMADA; una llave en PENDIENTE (sin placa) no se puede iniciar.

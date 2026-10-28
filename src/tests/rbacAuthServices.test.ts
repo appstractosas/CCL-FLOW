@@ -93,12 +93,6 @@ const { mem, simulateRpc, supabaseMock, getConfigured, setConfigured } = vi.hois
           is_preset: true,
         },
         {
-          id: 'ROLE_MONITOREO',
-          name: 'MONITOREO',
-          description: 'Monitoreo de la operación y registro de salida de portería.',
-          is_preset: true,
-        },
-        {
           id: 'ROLE_TRANSPORTES',
           name: 'TRANSPORTES',
           description: 'Registro y edición de placas de transportes.',
@@ -150,15 +144,6 @@ const { mem, simulateRpc, supabaseMock, getConfigured, setConfigured } = vi.hois
           tipo_usuario: 'supervisor',
           role_id: 'ROLE_SUPERVISOR',
           role_name: 'SUPERVISOR',
-        },
-        {
-          id: 'USER_MONITOREO',
-          nombre: 'Carlos Montero',
-          cedula: '1000000005',
-          clave: 'Monit1234',
-          tipo_usuario: 'monitor',
-          role_id: 'ROLE_MONITOREO',
-          role_name: 'MONITOREO',
         },
         {
           id: 'USER_TRANSPORTES',

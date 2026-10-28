@@ -24,9 +24,6 @@ const TransportesModule = lazy(() =>
 const PorteriaModule = lazy(() =>
   import('./components/modules/PorteriaModule').then((m) => ({ default: m.PorteriaModule })),
 );
-const MonitoreoModule = lazy(() =>
-  import('./components/modules/MonitoreoModule').then((m) => ({ default: m.MonitoreoModule })),
-);
 const InformesModule = lazy(() =>
   import('./components/modules/InformesModule').then((m) => ({ default: m.InformesModule })),
 );
@@ -64,7 +61,6 @@ export default function App() {
     'porteria',
     'despachos',
     'personal',
-    'monitoreo',
     'tablero',
     'informes',
     'informes-gerencia',
@@ -111,8 +107,6 @@ export default function App() {
         return <TransportesModule />;
       case 'porteria':
         return <PorteriaModule />;
-      case 'monitoreo':
-        return <MonitoreoModule />;
       case 'personal':
         return <PersonalModule />;
       case 'informes':

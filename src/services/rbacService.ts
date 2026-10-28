@@ -30,7 +30,7 @@ export const PRESET_ROLES: Role[] = [
     description: 'Gestión de despachos y planeación.',
     isPreset: true,
     permissions: permissionsAll(
-      ['despachos', 'planeacion', 'informes', 'informes-gerencia', 'monitoreo', 'tablero'],
+      ['despachos', 'planeacion', 'informes', 'informes-gerencia', 'tablero'],
       ['despachos', 'planeacion'],
     ),
   },
@@ -40,7 +40,7 @@ export const PRESET_ROLES: Role[] = [
     description: 'Control de puerta, muelles y estados de portería.',
     isPreset: true,
     permissions: permissionsAll(
-      ['porteria', 'despachos', 'planeacion', 'monitoreo', 'chat', 'tablero'],
+      ['porteria', 'despachos', 'planeacion', 'chat', 'tablero'],
       ['porteria'],
     ),
   },
@@ -50,7 +50,7 @@ export const PRESET_ROLES: Role[] = [
     description: 'Planeación de transporte y vista de despachos.',
     isPreset: true,
     permissions: permissionsAll(
-      ['planeacion', 'despachos', 'informes', 'monitoreo', 'tablero'],
+      ['planeacion', 'despachos', 'informes', 'tablero'],
       ['planeacion', 'despachos'],
     ),
   },
@@ -63,23 +63,12 @@ export const PRESET_ROLES: Role[] = [
       'despachos',
       'planeacion',
       'porteria',
-      'monitoreo',
       'informes',
       'informes-gerencia',
       'personal',
       'chat',
       'tablero',
     ]),
-  },
-  {
-    id: 'ROLE_MONITOREO',
-    name: 'MONITOREO',
-    description: 'Monitoreo de la operación y registro de salida de portería.',
-    isPreset: true,
-    permissions: permissionsAll(
-      ['monitoreo', 'despachos', 'planeacion', 'porteria', 'informes', 'informes-gerencia', 'tablero'],
-      ['monitoreo'],
-    ),
   },
   {
     id: 'ROLE_TRANSPORTES',
@@ -160,15 +149,6 @@ export const PRESET_USERS: UserRecord[] = [
     tipoUsuario: 'supervisor',
     roleId: 'ROLE_SUPERVISOR',
     roleName: 'SUPERVISOR',
-  },
-  {
-    id: 'USER_MONITOREO',
-    nombre: 'Carlos Montero',
-    cedula: '1000000005',
-    clave: 'Monit1234',
-    tipoUsuario: 'monitor',
-    roleId: 'ROLE_MONITOREO',
-    roleName: 'MONITOREO',
   },
   {
     id: 'USER_TRANSPORTES',
