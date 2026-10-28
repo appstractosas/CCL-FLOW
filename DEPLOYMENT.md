@@ -53,12 +53,13 @@ Ejecutar en orden en Supabase → SQL Editor → New Query → Run.
 | 9 | `supabase-migracion-notificaciones.sql` | Tabla de notificaciones |
 | 10 | `supabase-migracion-chat-permisos.sql` | Permisos de chat en roles |
 | 11 | `supabase-migracion-horas-porteria-datetime.sql` | Horas de portería como datetime |
+| 12 | `supabase-migracion-eliminar-monitoreo.sql` | Elimina el rol MONITOREO y reasigna sus usuarios a PORTERO |
 
 ### Migraciones de sync (requeridas para sync Excel/Sheets)
 
 | # | Archivo | Qué hace |
 |---|---------|----------|
-| 12 | `power-automate/migracion-rpc-sync-transportes.sql` | RPC sync_transportes para Power Automate |
+| 13 | `power-automate/migracion-rpc-sync-transportes.sql` | RPC sync_transportes para Power Automate |
 
 ### Restaurar acceso (emergencia)
 
@@ -125,7 +126,6 @@ DELETE FROM public.login_attempts;
 | 1000000002 | Porte1234 | PORTERO |
 | 1000000003 | Plane1234 | PLANEADOR |
 | 1000000004 | Super1234 | SUPERVISOR |
-| 1000000005 | Monit1234 | MONITOREO |
 | 1000000006 | Trans1234 | TRANSPORTES |
 | 1000000007 | Tablero1234 | TABLERO |
 | 1000000008 | Inform1234 | INFORMES |

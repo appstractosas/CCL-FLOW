@@ -20,6 +20,7 @@ En **Portería**, hacer clic en la fila para abrir el detalle y usar únicamente
 |---|---|---|
 | `H. Llegada Portería` | El `ESTADO` es `Confirmado` (tiene placa) | `LLEGO A PORTERIA` |
 | `H. Ingreso a Muelle` | La llegada ya está marcada y hay muelle asignado | `INGRESO A MUELLE` |
+| `H. Salida Portería` | Los 4 pasos anteriores ya están marcados | `SALIO DE PORTERIA` |
 
 - El **muelle lo asigna el Supervisor**. Si `MUELLE` está en `—`, pedirlo por el **Chat Operativo** indicando llave y placa.
 - Al marcar, aparece **Confirmar registro**. Pulsar **Sí** solo si el vehículo está físicamente en el sitio. La app guarda la fecha y hora actuales.
@@ -37,8 +38,10 @@ En **Portería**, hacer clic en la fila para abrir el detalle y usar únicamente
 7. Con muelle asignado y el vehículo en el muelle, marcar `H. Ingreso a Muelle`; confirmar **Sí**.
 8. Verificar que el `ESTADO` cambió a `INGRESO A MUELLE`.
 9. Seguir el avance por la columna `ESTADO` y atender el chat durante el turno.
+10. Con el cargue finalizado, marcar `H. Salida Portería`; confirmar **Sí**.
+11. Verificar que el `ESTADO` cambió a `SALIO DE PORTERIA`.
 
-> El inicio y fin de cargue son de **Despachos**; la salida es de **Monitoreo**. El portero no los marca.
+> El inicio y fin de cargue son de **Despachos**. La salida de portería la registra **Portería**.
 
 ## 5. Notificaciones y chat
 

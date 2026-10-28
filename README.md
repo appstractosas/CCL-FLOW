@@ -1,6 +1,6 @@
 # CCL FLOW — Torre de Control Logística
 
-Sistema de gestión logística para operación de almacén de carga del aeropuerto. Administra transportes, despachos, portería, monitoreo en tiempo real, informes y control de acceso por roles.
+Sistema de gestión logística para operación de almacén de carga del aeropuerto. Administra transportes, despachos, portería, informes y control de acceso por roles.
 
 ## Stack tecnológico
 
@@ -49,7 +49,6 @@ src/
 │   │   ├── TransportesModule.tsx
 │   │   ├── PorteriaModule.tsx
 │   │   ├── DespachosModule.tsx
-│   │   ├── MonitoreoModule.tsx
 │   │   ├── InformesModule.tsx
 │   │   ├── PersonalModule.tsx
 │   │   ├── UsuariosModule.tsx
@@ -95,7 +94,6 @@ power-automate/
 | **Transportes** | CRUD de transportes con detalle por llave/placa | Lectura + edición |
 | **Despachos** | Control de despachos y seguimiento | Lectura + edición |
 | **Portería** | Control de puerta, muelles, horas de operación | Lectura + edición |
-| **Monitoreo** | Vista operativa con registro de salida | Lectura + edición |
 | **Informes** | Métricas, KPIs, exportación a Excel | Solo lectura |
 | **Personal** | Asignación de muelles por supervisor | Lectura + edición |
 | **Usuarios** | Administración de usuarios y roles (RBAC) | Lectura + edición |
@@ -221,7 +219,6 @@ La app recibe datos desde hojas de cálculo mediante dos flujos paralelos:
 | Ramiro Torres | 1000000002 | Porte1234 | Portero |
 | Ana Gómez | 1000000003 | Plane1234 | Planeador |
 | Luis Mora | 1000000004 | Super1234 | Supervisor |
-| Carlos Montero | 1000000005 | Monit1234 | Monitoreo |
 | Diana Ríos | 1000000006 | Trans1234 | Transportes |
 | Consultor Tablero | 1000000007 | Tablero1234 | Tablero (solo lectura) |
 | Consultor Informes | 1000000008 | Inform1234 | Informes (solo lectura) |

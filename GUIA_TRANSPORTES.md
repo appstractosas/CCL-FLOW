@@ -139,7 +139,7 @@ El icono de lápiz y el botón **Editar** desaparecen cuando:
 - La llave está en `CANCELADO`.
 - El usuario no tiene permiso de edición del módulo Transportes.
 
-En esos casos, la información se consulta, pero no se modifica desde aquí. Si se necesita un cambio operativo, contactar a Portería, Despachos, Monitoreo o al Supervisor según corresponda.
+En esos casos, la información se consulta, pero no se modifica desde aquí. Si se necesita un cambio operativo, contactar a Portería, Despachos o al Supervisor según corresponda.
 
 ## 6. Estados del módulo
 
