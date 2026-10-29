@@ -10,7 +10,7 @@ import { formatFechaHora } from '../../lib/dateUtils';
 import { useVirtualList } from '../../hooks/useVirtualList';
 
 /** Alto de fila de datos (py-2.5), alineado con el Tablero. Usado por la virtualización. */
-const ROW_HEIGHT = 40;
+const ROW_HEIGHT = 38;
 
 export interface TransportesTableProps {
   rows: UnifiedTransporte[];
@@ -116,7 +116,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
     <div className="bg-[#0b0f19] rounded-2xl border border-zinc-800/90 overflow-hidden">
       {/* Cabecera inmovilizada: se mantiene fija al hacer scroll vertical del cuerpo. */}
       <div className="overflow-x-auto max-h-[calc(100vh-160px)]" ref={tableContainerRef}>
-        <table className="w-full text-left border-collapse text-xs">
+        <table className="w-full text-left border-collapse text-xs [&_td]:py-1.5">
           <thead className="sticky top-0 z-10">
             <tr className="bg-[#121726] border-b border-zinc-800 text-zinc-400 font-semibold uppercase tracking-wider">
               <th className="py-2.5 px-3">FECHA HORA CITA</th>
@@ -154,7 +154,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                     <tr
                       key={row.id}
                       onClick={() => setSelected(row)}
-                      className="hover:bg-zinc-900/60 transition-colors cursor-pointer"
+                      className="hover:bg-blue-900/30 transition-colors cursor-pointer"
                       title="Clic para ver detalle"
                     >
                       <td className="py-2.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">

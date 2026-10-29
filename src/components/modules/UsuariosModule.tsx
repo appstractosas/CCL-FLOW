@@ -80,7 +80,7 @@ export const UsuariosModule: React.FC = () => {
 
       <div className="bg-[#121726] rounded-2xl border border-zinc-800 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs [&_td]:py-1">
             <thead>
               <tr className="bg-zinc-900/60 text-zinc-400 font-semibold uppercase tracking-wider border-b border-zinc-800">
                 <th className="py-3 px-5">NOMBRE</th>
@@ -112,11 +112,10 @@ export const UsuariosModule: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       <span
-                        className={`px-2 py-0.5 rounded-full font-bold text-[10px] border ${
-                          u.tipoUsuario === 'admin'
-                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                            : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30'
-                        }`}
+                        className={`px-2 py-0.5 rounded-full font-bold text-[10px] border ${u.tipoUsuario === 'admin'
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                          : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30'
+                          }`}
                       >
                         {userTypeLabel(u.tipoUsuario)}
                       </span>

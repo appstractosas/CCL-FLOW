@@ -146,7 +146,7 @@ export default function App() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
         {/* Top Bar with Session Control (Superior Derecha) */}
-        <header className="sticky top-0 z-20 bg-[#090d16]/95 backdrop-blur border-b border-zinc-800/80 px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-3">
+        <header className="sticky top-0 z-20 bg-[#090d16]/95 backdrop-blur border-b border-zinc-800/80 px-4 sm:px-6 lg:px-8 py-1.2 flex items-center justify-between gap-3">
           <div className="flex items-center space-x-3 min-w-0">
             {/* Botón menú móvil (intacto) */}
             <button
