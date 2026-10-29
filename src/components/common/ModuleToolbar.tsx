@@ -11,6 +11,7 @@ interface ModuleToolbarProps {
   onDateFromChange?: (value: string) => void;
   onDateToChange?: (value: string) => void;
   leftContent?: React.ReactNode;
+  rightBeforeCounter?: React.ReactNode;
   rightContent?: React.ReactNode;
   counter?: string;
   /** Ancho del buscador (default 'sm:w-72'). Los módulos CRUD pasan 'sm:w-36' para reducirlo a la mitad. */
@@ -29,6 +30,7 @@ export const ModuleToolbar: React.FC<ModuleToolbarProps> = ({
   onDateFromChange,
   onDateToChange,
   leftContent,
+  rightBeforeCounter,
   rightContent,
   counter,
   searchWidthClass = 'sm:w-72',
@@ -55,7 +57,7 @@ export const ModuleToolbar: React.FC<ModuleToolbarProps> = ({
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500/50"
+            className="w-full pl-9 pr-4 py-2 bg-zinc-900 border border-blue-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500/50"
           />
         </div>
 
@@ -63,6 +65,7 @@ export const ModuleToolbar: React.FC<ModuleToolbarProps> = ({
       </div>
 
       <div className="flex items-center gap-2.5">
+        {rightBeforeCounter}
         {counter && (
           <span className={counterClassName}>{counter}</span>
         )}

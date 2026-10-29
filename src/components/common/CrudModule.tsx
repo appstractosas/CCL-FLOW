@@ -54,8 +54,8 @@ export const CrudModule: React.FC<CrudModuleProps> = ({
         onDateToChange={setDateTo}
         searchWidthClass="sm:w-36"
         counter={`${rowsOrdenadas.length} llaves`}
-        counterClassName="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white whitespace-nowrap"
-        leftContent={<EstadoFilter value={estadoFiltro} onChange={setEstadoFiltro} />}
+        counterClassName="bg-blue-900/60 border border-blue-800 rounded-xl px-3 py-2 text-xs text-white whitespace-nowrap"
+        rightBeforeCounter={<EstadoFilter value={estadoFiltro} onChange={setEstadoFiltro} />}
         rightContent={rightContent}
       />
 
