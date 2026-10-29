@@ -166,7 +166,7 @@ function parseFechaHora_(val) {
   return s;
 }
 
-/* ------------------------------- lectura ---------------------------------- */
+/* ------------------------------- LECTURA ---------------------------------- */
 
 function getConfig_() {
   var props = PropertiesService.getScriptProperties();
@@ -188,14 +188,29 @@ function buildRows_() {
   var lastCol = sheet.getLastColumn();
   if (lastRow < 2) return [];
 
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+    .map(function (h) { return String(h).trim(); });
+
+  // La hoja puede tener filas de relleno vacías al final: getLastRow() apunta a
+  // ellas y la ventana de las últimas MAX_FILAS filas caería sobre filas SIN
+  // llave (0 filas útiles). Se ubica la ÚLTIMA fila CON llave y la ventana
+  // termina ahí.
+  var lastDataRow = lastRow;
+  var llaveCol = headerIndex_(headers, HEADER_LLAVE);
+  if (llaveCol >= 0) {
+    var llaveVals = sheet.getRange(1, llaveCol + 1, lastRow, 1).getValues();
+    for (var i = llaveVals.length - 1; i >= 1; i--) {
+      if (String(llaveVals[i][0]).trim() !== '') { lastDataRow = i + 1; break; }
+    }
+  }
+  if (lastDataRow < 2) return [];
+
   // Solo se leen las últimas MAX_FILAS filas de datos (lo más nuevo está abajo):
   // evita que la ejecución se ralentice con miles de filas. Los encabezados
   // (fila 1) se leen aparte porque quedan fuera de la ventana.
-  var firstDataRow = Math.max(2, lastRow - MAX_FILAS + 1);
-  var nRows = lastRow - firstDataRow + 1;
+  var firstDataRow = Math.max(2, lastDataRow - MAX_FILAS + 1);
+  var nRows = lastDataRow - firstDataRow + 1;
   var values = sheet.getRange(firstDataRow, 1, nRows, lastCol).getValues();
-  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
-    .map(function (h) { return String(h).trim(); });
 
   // Mapa normalizado "encabezado normalizado" -> "campo BD" para que no importen
   // mayúsculas, tildes o espacios (ej: "Denominación" vs "Denominacion").
@@ -209,7 +224,7 @@ function buildRows_() {
   var dbFields = Object.keys(MAPPING).map(function (h) { return MAPPING[h]; });
 
   var rows = [];
-  for (var r = 1; r < values.length; r++) {
+  for (var r = 0; r < values.length; r++) {
     var obj = {};
     for (var f = 0; f < dbFields.length; f++) {
       obj[dbFields[f]] = null;
