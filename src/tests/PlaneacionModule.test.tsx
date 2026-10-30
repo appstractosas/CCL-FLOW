@@ -24,7 +24,9 @@ describe('PlaneacionModule', () => {
     setAdmin();
   });
 
-  it('muestra la acción NUEVA LLAVE para ADMIN y la tabla con CAJAS', async () => {
+  // Oculto a propósito: las llaves se cargan masivamente desde Sheets.
+  // Quitar .skip al reactivar CREACION_MANUAL_HABILITADA en PlaneacionModule.tsx.
+  it.skip('muestra la acción NUEVA LLAVE para ADMIN y la tabla con CAJAS', async () => {
     await useLogisticsStore.getState().addTransporte({ placa: 'XYZ-999' });
 
     render(<PlaneacionModule />);
@@ -35,7 +37,9 @@ describe('PlaneacionModule', () => {
     expect(screen.getByText('ACCIONES')).toBeInTheDocument();
   });
 
-  it('abre el modal de nueva llave al pulsar el botón', () => {
+  // Oculto a propósito: las llaves se cargan masivamente desde Sheets.
+  // Quitar .skip al reactivar CREACION_MANUAL_HABILITADA en PlaneacionModule.tsx.
+  it.skip('abre el modal de nueva llave al pulsar el botón', () => {
     render(<PlaneacionModule />);
     fireEvent.click(screen.getByText('NUEVA LLAVE'));
     expect(screen.getByText('+ Nueva Llave')).toBeInTheDocument();

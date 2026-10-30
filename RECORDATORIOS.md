@@ -6,6 +6,9 @@
 
 ## Pendientes de hoy (siempre que la última sesión dejó algo sin terminar)
 
+- Creación manual de llaves OCULTA (`CREACION_MANUAL_HABILITADA = false` en
+  `PlaneacionModule.tsx`): el cargue es masivo desde Sheets. Al reactivarla, quitar el `.skip`
+  de los 2 tests en `PlaneacionModule.test.tsx`.
 - Refactor de archivos grandes (pendiente desde la evaluación 8.5/10):
   - `src/utils/informes.ts` (870 líneas) — extraer lógica repetida.
   - `src/store/useLogisticsStore.ts` (736 líneas) — revisar carga completa (sin límite).

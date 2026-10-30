@@ -7,6 +7,11 @@ import { TransporteFormModal } from './TransporteFormModal';
 import { UnifiedTransporte, TransporteData } from '../../types';
 import { puedeEditarOperacion } from '../../utils/porteria';
 
+// Creación manual deshabilitada: el cargue de llaves es masivo desde Sheets.
+// Al reactivarla, volver a habilitar los tests marcados con .skip en
+// PlaneacionModule.test.tsx.
+const CREACION_MANUAL_HABILITADA = false;
+
 export const PlaneacionModule: React.FC = () => {
   const { addTransporte, updateTransporte, cancelTransporte, updateObservaciones } =
     useLogisticsStore();
@@ -76,7 +81,7 @@ export const PlaneacionModule: React.FC = () => {
         observacionesEditable: puedeEditarOperacion,
       }}
       rightContent={
-        false ? (
+        canEdit && CREACION_MANUAL_HABILITADA ? (
           <button
             onClick={openCreate}
             className="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-md transition-colors"
