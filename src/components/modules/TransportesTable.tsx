@@ -181,7 +181,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                         {row.llave}
                       </td>
                       <td className="py-2.5 px-3 font-bold text-emerald-400 whitespace-nowrap">
-                        {row.muelleAsignado || 'â€”'}
+                        {row.muelleAsignado || '-'}
                       </td>
                       {showCajas && (
                         <td className="py-2.5 px-3 font-mono font-bold text-amber-400 whitespace-nowrap">
