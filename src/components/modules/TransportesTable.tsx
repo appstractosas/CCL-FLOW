@@ -157,7 +157,7 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                       className="hover:bg-blue-900/30 transition-colors cursor-pointer"
                       title="Clic para ver detalle"
                     >
-                      <td className="py-2.5 px-3 font-mono text-[11px] text-white whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
                         {formatFechaHora(row.citaCargue)}
                       </td>
                       {showRegion && (
