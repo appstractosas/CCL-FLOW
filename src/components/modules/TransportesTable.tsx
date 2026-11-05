@@ -9,7 +9,7 @@ import { getEstadoPorteria, isLlaveCerrada, puedeEditarOperacion } from '../../u
 import { formatFechaHora } from '../../lib/dateUtils';
 import { useVirtualList } from '../../hooks/useVirtualList';
 
-/** Alto de fila de datos (py-2.5), alineado con el Tablero. Usado por la virtualización. */
+/** Alto de fila de datos (py-2.5), alineado con el Tablero. Usado por la virtualizaciÃ³n. */
 const ROW_HEIGHT = 38;
 
 export interface TransportesTableProps {
@@ -37,9 +37,9 @@ export interface TransportesTableProps {
   showEstatusTabla?: boolean;
   /** Muestra la OLT/transportadora en el encabezado del detalle. */
   showOlt?: boolean;
-  /** Solo Planeación: reemplaza la columna FECHA por REGION (entre FECHA HORA CITA y LLAVE). */
+  /** Solo PlaneaciÃ³n: reemplaza la columna FECHA por REGION (entre FECHA HORA CITA y LLAVE). */
   showRegion?: boolean;
-  /** Muestra la sección "Detalle por transporte" en el modal de detalle (solo Transportes). */
+  /** Muestra la secciÃ³n "Detalle por transporte" en el modal de detalle (solo Transportes). */
   showDetalleLlave?: boolean;
   pageResetKey?: string;
   /** Si se pasa, la columna ESTATUS se vuelve un selector (solo Supervisor). */
@@ -81,11 +81,11 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
 
-  // Se vuelve a la página 1 solo cuando cambian los filtros (vía pageResetKey),
+  // Se vuelve a la pÃ¡gina 1 solo cuando cambian los filtros (vÃ­a pageResetKey),
   // no cuando el array `rows` se refresca por time real (misma identidad de filtros).
   const resetKey = pageResetKey ?? rows;
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional de paginación al cambiar filtros
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset intencional de paginaciÃ³n al cambiar filtros
     setPage(1);
   }, [resetKey]);
 
@@ -157,12 +157,12 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                       className="hover:bg-blue-900/30 transition-colors cursor-pointer"
                       title="Clic para ver detalle"
                     >
-                      <td className="py-2.5 px-3 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
+                      <td className="py-2.5 px-3 font-mono text-[11px] text-white whitespace-nowrap">
                         {formatFechaHora(row.citaCargue)}
                       </td>
                       {showRegion && (
                         <td className="py-2.5 px-3 text-zinc-300 whitespace-nowrap">
-                          {row.region || '—'}
+                          {row.region || 'â€”'}
                         </td>
                       )}
                       <td className="py-2.5 px-3 whitespace-nowrap">
@@ -174,28 +174,28 @@ export const TransportesTable: React.FC<TransportesTableProps> = ({
                             {row.placa}
                           </span>
                         ) : (
-                          <span className="text-zinc-600 font-semibold text-base">�</span>
+                          <span className="text-zinc-600 font-semibold text-base">—</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3 font-mono font-bold text-blue-400 whitespace-nowrap text-base">
                         {row.llave}
                       </td>
                       <td className="py-2.5 px-3 font-bold text-emerald-400 whitespace-nowrap">
-                        {row.muelleAsignado || '—'}
+                        {row.muelleAsignado || 'â€”'}
                       </td>
                       {showCajas && (
                         <td className="py-2.5 px-3 font-mono font-bold text-amber-400 whitespace-nowrap">
-                          {row.cajas ? row.cajas.toLocaleString('es-CO') : '—'}
+                          {row.cajas ? row.cajas.toLocaleString('es-CO') : 'â€”'}
                         </td>
                       )}
                       {showKg && (
                         <td className="py-2.5 px-3 font-mono text-zinc-300 whitespace-nowrap">
-                          {row.kg ? row.kg.toLocaleString('es-CO') : '—'}
+                          {row.kg ? row.kg.toLocaleString('es-CO') : 'â€”'}
                         </td>
                       )}
                       {showMts && (
                         <td className="py-2.5 px-3 font-mono text-zinc-300 whitespace-nowrap">
-                          {row.mts ? row.mts.toLocaleString('es-CO') : '—'}
+                          {row.mts ? row.mts.toLocaleString('es-CO') : 'â€”'}
                         </td>
                       )}
                       {showEstatus && showEstatusTabla && (
